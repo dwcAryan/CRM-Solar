@@ -27,6 +27,7 @@ from masters.views import (
     OutcomeViewSet,
     PolicySettingsViewSet,
 )
+from notifications.views import NotificationViewSet
 from quotes.views import QuoteViewSet
 from surveys.views import SurveyPhotoViewSet, SurveyViewSet
 
@@ -72,6 +73,7 @@ router.register(r'activities', ActivityViewSet, basename='activity')
 router.register(r'surveys', SurveyViewSet, basename='survey')
 router.register(r'survey-photos', SurveyPhotoViewSet, basename='survey-photo')
 router.register(r'quotes', QuoteViewSet, basename='quote')
+router.register(r'notifications', NotificationViewSet, basename='notification')
 
 urlpatterns = [
     path('admin/', admin.site.urls),

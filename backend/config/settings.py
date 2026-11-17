@@ -42,6 +42,8 @@ INSTALLED_APPS = [
     'activities',
     'surveys',
     'quotes',
+    'notifications',
+    'messaging',
 ]
 
 MIDDLEWARE = [
