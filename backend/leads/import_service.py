@@ -408,28 +408,12 @@ def execute_csv_import(
                 assigned_user = next(rr_cycle)
 
             # 10. Follow-up rule: status New + follow-up today
-            if row_region == 'IN' and norm_phone_e164.startswith('+91'):
-                lead_phone = norm_phone_e164[3:]
-            elif row_region == 'AU' and norm_phone_e164.startswith('+61'):
-                lead_phone = '0' + norm_phone_e164[3:]
-            else:
-                lead_phone = norm_phone_e164
-
-            lead_alt_phone = alt_phone[:20] if alt_phone else ''
-            if alt_phone_e164:
-                if row_region == 'IN' and alt_phone_e164.startswith('+91'):
-                    lead_alt_phone = alt_phone_e164[3:]
-                elif row_region == 'AU' and alt_phone_e164.startswith('+61'):
-                    lead_alt_phone = '0' + alt_phone_e164[3:]
-                else:
-                    lead_alt_phone = alt_phone_e164
-
             new_lead = Lead(
                 name=name[:150],
-                phone=lead_phone,
+                phone=norm_phone_e164,
                 phone_e164=norm_phone_e164,
                 phone_raw_backup=str(raw_phone)[:30],
-                alt_phone=lead_alt_phone,
+                alt_phone=alt_phone_e164 or (alt_phone[:20] if alt_phone else ''),
                 alt_phone_e164=alt_phone_e164,
                 email=email,
                 region_id=row_region,

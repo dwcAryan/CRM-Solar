@@ -47,12 +47,14 @@ import { LogOutcomeModal } from '../components/modals/LogOutcomeModal';
 import { AddRemarkModal } from '../components/modals/AddRemarkModal';
 import type { Lead, LeadSource, User } from '../api/types';
 import { useRegion } from '../context/RegionContext';
+import { useAuth } from '../context/AuthContext';
 
 export const LeadsListPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { selectedRegion } = useRegion();
+  const { can, isAdminOrManager } = useAuth();
 
   // Search & Filter state
   const initialSearch = searchParams.get('search') || '';
@@ -224,15 +226,17 @@ export const LeadsListPage: React.FC = () => {
             </Text>
           </div>
           <Group gap="xs">
-            <Button
-              variant="light"
-              color="gray"
-              size="xs"
-              leftSection={<IconDownload size={14} />}
-              onClick={handleExportFiltered}
-            >
-              Export to CSV
-            </Button>
+            {can('lead.export') && (
+              <Button
+                variant="light"
+                color="gray"
+                size="xs"
+                leftSection={<IconDownload size={14} />}
+                onClick={handleExportFiltered}
+              >
+                Export to CSV
+              </Button>
+            )}
             <Button
               color="yellow"
               size="xs"
@@ -337,20 +341,22 @@ export const LeadsListPage: React.FC = () => {
               style={{ minWidth: 150 }}
             />
 
-            <Select
-              placeholder="Filter by Assignee"
-              clearable
-              data={users.map((u) => ({
-                value: String(u.id),
-                label: `${u.first_name || u.username} (${u.role})`,
-              }))}
-              value={assigneeFilter}
-              onChange={(val) => {
-                setAssigneeFilter(val);
-                setPage(1);
-              }}
-              style={{ minWidth: 160 }}
-            />
+            {(can('user.view_team') || isAdminOrManager) && (
+              <Select
+                placeholder="Filter by Assignee"
+                clearable
+                data={users.map((u) => ({
+                  value: String(u.id),
+                  label: `${u.first_name || u.username} (${u.role})`,
+                }))}
+                value={assigneeFilter}
+                onChange={(val) => {
+                  setAssigneeFilter(val);
+                  setPage(1);
+                }}
+                style={{ minWidth: 160 }}
+              />
+            )}
           </Group>
         </Paper>
 
@@ -368,60 +374,66 @@ export const LeadsListPage: React.FC = () => {
               </Group>
 
               <Group gap="xs" wrap="wrap">
-                {/* Bulk Assign */}
-                <Group gap={4}>
-                  <Select
-                    placeholder="Assign to..."
-                    size="xs"
-                    data={users.map((u) => ({
-                      value: String(u.id),
-                      label: `${u.first_name || u.username}`,
-                    }))}
-                    value={bulkAssignee}
-                    onChange={setBulkAssignee}
-                    style={{ width: 140 }}
-                  />
+                {/* Bulk Assign (Managers & Admins only) */}
+                {can('lead.assign') && (
+                  <Group gap={4}>
+                    <Select
+                      placeholder="Assign to..."
+                      size="xs"
+                      data={users.map((u) => ({
+                        value: String(u.id),
+                        label: `${u.first_name || u.username}`,
+                      }))}
+                      value={bulkAssignee}
+                      onChange={setBulkAssignee}
+                      style={{ width: 140 }}
+                    />
+                    <Button
+                      size="xs"
+                      color="yellow"
+                      disabled={!bulkAssignee}
+                      onClick={() => bulkMutation.mutate({ action: 'assign', value: Number(bulkAssignee) })}
+                      loading={bulkMutation.isPending}
+                    >
+                      Assign
+                    </Button>
+                  </Group>
+                )}
+
+                {/* Bulk Change Source (Managers & Admins only) */}
+                {isAdminOrManager && (
+                  <Group gap={4}>
+                    <Select
+                      placeholder="Change source..."
+                      size="xs"
+                      data={sources.map((s) => ({ value: String(s.id), label: s.name }))}
+                      value={bulkSource}
+                      onChange={setBulkSource}
+                      style={{ width: 150 }}
+                    />
+                    <Button
+                      size="xs"
+                      color="yellow"
+                      disabled={!bulkSource}
+                      onClick={() => bulkMutation.mutate({ action: 'change_source', value: Number(bulkSource) })}
+                      loading={bulkMutation.isPending}
+                    >
+                      Set Source
+                    </Button>
+                  </Group>
+                )}
+
+                {can('lead.export') && (
                   <Button
                     size="xs"
-                    color="yellow"
-                    disabled={!bulkAssignee}
-                    onClick={() => bulkMutation.mutate({ action: 'assign', value: Number(bulkAssignee) })}
-                    loading={bulkMutation.isPending}
+                    variant="light"
+                    color="blue"
+                    leftSection={<IconDownload size={14} />}
+                    onClick={handleExportSelected}
                   >
-                    Assign
+                    Export Selected
                   </Button>
-                </Group>
-
-                {/* Bulk Change Source */}
-                <Group gap={4}>
-                  <Select
-                    placeholder="Change source..."
-                    size="xs"
-                    data={sources.map((s) => ({ value: String(s.id), label: s.name }))}
-                    value={bulkSource}
-                    onChange={setBulkSource}
-                    style={{ width: 150 }}
-                  />
-                  <Button
-                    size="xs"
-                    color="yellow"
-                    disabled={!bulkSource}
-                    onClick={() => bulkMutation.mutate({ action: 'change_source', value: Number(bulkSource) })}
-                    loading={bulkMutation.isPending}
-                  >
-                    Set Source
-                  </Button>
-                </Group>
-
-                <Button
-                  size="xs"
-                  variant="light"
-                  color="blue"
-                  leftSection={<IconDownload size={14} />}
-                  onClick={handleExportSelected}
-                >
-                  Export Selected
-                </Button>
+                )}
               </Group>
             </Group>
           </Paper>

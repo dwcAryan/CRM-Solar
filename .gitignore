@@ -21,6 +21,14 @@ frontend/dist/
 frontend/dist-ssr/
 *.local
 
+# Test artifacts
+test-results/
+frontend/test-results/
+playwright-report/
+frontend/playwright-report/
+frontend/playwright/.auth/
+playwright/.auth/
+
 # Database backups
 backend/backups/*.dump
 

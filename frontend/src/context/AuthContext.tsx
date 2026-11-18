@@ -12,6 +12,7 @@ interface AuthContextType {
   isAdminOrManager: boolean;
   isSurveyor: boolean;
   isSalesperson: boolean;
+  can: (permissionKey: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -64,6 +65,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isSurveyor = Boolean(user && user.role === 'surveyor');
   const isSalesperson = Boolean(user && user.role === 'salesperson');
 
+  const can = (permissionKey: string): boolean => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    if (!user.permissions || !Array.isArray(user.permissions)) return false;
+    return user.permissions.includes(permissionKey);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -76,6 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAdminOrManager,
         isSurveyor,
         isSalesperson,
+        can,
       }}
     >
       {children}

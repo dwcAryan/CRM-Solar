@@ -4,7 +4,7 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsAdminOrManager
+from accounts.permissions import IsAdmin
 
 from .help_service import get_faq_list, query_help_assistant
 from .models import (
@@ -43,7 +43,7 @@ class RegionViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminOrManager()]
+            return [IsAdmin()]
         return [permissions.IsAuthenticated()]
 
 
@@ -57,7 +57,7 @@ class StateViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminOrManager()]
+            return [IsAdmin()]
         return [permissions.IsAuthenticated()]
 
 
@@ -71,7 +71,7 @@ class PublicHolidayViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminOrManager()]
+            return [IsAdmin()]
         return [permissions.IsAuthenticated()]
 
 
@@ -85,7 +85,7 @@ class RoofTypeViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminOrManager()]
+            return [IsAdmin()]
         return [permissions.IsAuthenticated()]
 
 
@@ -99,7 +99,7 @@ class PropertyTypeViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminOrManager()]
+            return [IsAdmin()]
         return [permissions.IsAuthenticated()]
 
 
@@ -113,7 +113,7 @@ class OutcomeViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminOrManager()]
+            return [IsAdmin()]
         return [permissions.IsAuthenticated()]
 
 
@@ -127,7 +127,7 @@ class LostReasonViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminOrManager()]
+            return [IsAdmin()]
         return [permissions.IsAuthenticated()]
 
 
@@ -141,7 +141,7 @@ class NurtureReasonViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminOrManager()]
+            return [IsAdmin()]
         return [permissions.IsAuthenticated()]
 
 
@@ -155,7 +155,7 @@ class LeadSourceViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminOrManager()]
+            return [IsAdmin()]
         return [permissions.IsAuthenticated()]
 
 
@@ -165,7 +165,7 @@ class PolicySettingsViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminOrManager()]
+            return [IsAdmin()]
         return [permissions.IsAuthenticated()]
 
 

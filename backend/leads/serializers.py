@@ -160,6 +160,41 @@ class LeadSerializer(serializers.ModelSerializer):
         _, reason = check_calling_hours(obj)
         return reason
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request')
+        if request and getattr(request, 'user', None) and getattr(request.user, 'role', None) == 'surveyor':
+            sensitive_fields = [
+                'source',
+                'source_name',
+                'bill_amount',
+                'bill_period',
+                'normalized_monthly_bill',
+                'monthly_bill',
+                'electricity_provider',
+                'consent_status',
+                'consent_source',
+                'consent_date',
+                'opt_out_calls',
+                'opt_out_sms',
+                'opt_out_whatsapp',
+                'opt_out_email',
+                'dncr_status',
+                'dncr_checked_at',
+                'lost_reason',
+                'lost_reason_name',
+                'nurture_reason',
+                'nurture_reason_name',
+                'won_at',
+                'import_batch',
+                'remark',
+                'status_history',
+                'attempt_count',
+            ]
+            for f in sensitive_fields:
+                ret.pop(f, None)
+        return ret
+
     def get_next_followup_display(self, obj) -> str:
         if not obj.next_followup_at:
             return ""

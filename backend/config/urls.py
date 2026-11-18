@@ -17,7 +17,7 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 
-from accounts.views import MeView, UserViewSet
+from accounts.views import MeView, RolesMatrixView, UserViewSet
 from activities.views import ActivityViewSet
 from leads.views import (
     AuditLogViewSet,
@@ -104,6 +104,7 @@ urlpatterns = [
     # Current user & dashboard
     path('api/me/', MeView.as_view(), name='me'),
     path('api/dashboard/', DashboardView.as_view(), name='dashboard'),
+    path('api/roles-matrix/', RolesMatrixView.as_view(), name='roles-matrix'),
 
     # Help Assistant & FAQs
     path('api/help/query/', HelpQueryView.as_view(), name='help-query'),

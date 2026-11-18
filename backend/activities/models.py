@@ -34,6 +34,15 @@ class Activity(models.Model):
         blank=True,
         related_name='created_activities',
     )
+    admin_correction_note = models.TextField(blank=True, default='')
+    correction_added_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='corrected_activities',
+    )
+    correction_added_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

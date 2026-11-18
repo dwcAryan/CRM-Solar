@@ -116,3 +116,20 @@ Compliant with India's DPDP Act 2023 and Australia's Privacy Act 1988:
   - Adapts quote inputs: Panel capacity, battery storage (`battery_kwh`), and regional tax explanation.
 - **Calling Hours Badges**:
   - Displays live local customer time and calling status (e.g. `● Calling Hours: Open (14:35 AEDT)` or `⚠ Calling Hours: Closed`).
+
+
+---
+
+## 5. Strict Role-Based Access Control (RBAC) Architecture (Phase 9)
+
+### 5.1 Central Permission System (`backend/accounts/permissions.py`)
+- Complete authorization matrix `PERMISSION_MATRIX` mapping 20+ operations across 4 platform roles (`admin`, `manager`, `salesperson`, `surveyor`).
+- Central permission evaluator: `can(user, perm_key, obj=None)` combining regional access scoping (`allowed_regions`) and ownership check (`all`, `region`, `own`, `none`, `read_only`, `pending_only`, `remark_only`, `assigned_survey`).
+- DRF permission adapters: `DynamicRBACPermission`, `LeadPermission`, `SurveyPermission`, `QuotePermission`.
+- **Default Deny**: Any action or route not explicitly mapped is rejected with `HTTP 403 Forbidden`.
+
+### 5.2 Role-Specific Work Areas
+- **Admin**: Full system control, master data management, soft delete with mandatory audit reason (`is_deleted=True`), immutable activity corrections (`admin_correction_note`), user & role configuration, privacy governance.
+- **Manager**: Regional operations hub, **Manager Attention Queue** (`/manager-attention` with 4 operational tabs: Unassigned leads, Lost approvals pending, Surveys without surveyor, Overdue follow-ups), assignment tools (single, bulk, auto round-robin), read-only team and master views.
+- **Salesperson**: Dedicated sales workbench, owns assigned leads only. Cannot assign/reassign, bulk-assign, export, import, or merge. When an outcome leads to `Lost`, routes to `Lost approval pending` (`LOST_APPROVAL_PENDING`) and alerts regional managers.
+- **Surveyor**: Field inspection portal (`/my-surveys`), direct calling (`tel:`) and Google Maps navigation. Completely isolated from `/api/leads/` list (`HTTP 403`). Field-level stripping on API responses (no quotes, prices, financial metrics, sales remarks, or marketing sources).

@@ -3,7 +3,7 @@ import json
 from datetime import timedelta
 from typing import Dict
 
-from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.exceptions import PermissionDenied, ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Count, Q
 from django.http import HttpResponse
@@ -24,7 +24,7 @@ class PassthroughPdfRenderer(BaseRenderer):
         return data
 
 from accounts.models import User
-from accounts.permissions import LeadPermission
+from accounts.permissions import can, HasPermission, LeadPermission
 from activities.models import Activity
 from activities.serializers import ActivitySerializer
 from ai_assist.service import get_or_generate_ai_suggestion
@@ -65,6 +65,36 @@ class LeadViewSet(viewsets.ModelViewSet):
     queryset = Lead.objects.all().select_related('source', 'assigned_to', 'lost_reason', 'nurture_reason', 'region')
     serializer_class = LeadSerializer
     permission_classes = [LeadPermission]
+    permission_map = {
+        'list': 'lead.view',
+        'retrieve': 'lead.view',
+        'create': 'lead.create',
+        'update': 'lead.edit',
+        'partial_update': 'lead.edit',
+        'destroy': 'lead.delete',
+        'assign': 'lead.assign',
+        'bulk_assign': 'lead.assign',
+        'auto_distribute': 'lead.assign',
+        'unassigned': 'lead.unassigned_queue',
+        'lost_approvals': 'lead.lost_approval',
+        'approve_lost': 'lead.lost_approval',
+        'reject_lost': 'lead.lost_approval',
+        'soft_delete': 'lead.delete',
+        'manual_status': 'lead.manual_status_change',
+        'merge': 'lead.merge',
+        'export_csv': 'lead.export',
+        'preview_csv': 'lead.import',
+        'import_csv': 'lead.import',
+        'import_sample_csv': 'lead.import',
+        'today_queue': 'lead.view',
+        'bulk_action': 'lead.bulk_action',
+        'ai_suggestions': 'ai.suggest',
+        'privacy_export': 'privacy.manage',
+        'anonymize': 'privacy.manage',
+        'rectify': 'privacy.manage',
+        'log_activity': 'activity.log',
+        'add_remark': 'lead.bulk_action',
+    }
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['status', 'assigned_to', 'source', 'city', 'state', 'region', 'consent_status', 'dncr_status', 'do_not_contact', 'property_type']
     search_fields = ['name', 'phone', 'alt_phone', 'phone_e164', 'alt_phone_e164', 'email', 'city', 'suburb', 'postcode', 'pincode']
@@ -72,11 +102,15 @@ class LeadViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        qs = super().get_queryset()
+        qs = super().get_queryset().filter(is_deleted=False)
         if not user.is_authenticated:
             return qs.none()
 
-        # Multi-country region scoping: sales & surveyors restricted to allowed regions
+        # Surveyor cannot list leads directly
+        if user.role == User.Role.SURVEYOR and not user.is_superuser:
+            return qs.none()
+
+        # Multi-country region scoping: sales & managers restricted to allowed regions
         if not user.is_superuser:
             allowed = user.allowed_regions.all()
             if allowed.exists():
@@ -117,9 +151,20 @@ class LeadViewSet(viewsets.ModelViewSet):
 
         return qs
 
+    def list(self, request, *args, **kwargs):
+        if getattr(request.user, 'role', None) == User.Role.SURVEYOR and not request.user.is_superuser:
+            return Response(
+                {"error": "Surveyors do not have permission to view the leads list. Access your assigned surveys via My Surveys."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().list(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         user = self.request.user
-        extra = {}
+        if user.role == User.Role.SURVEYOR and not user.is_superuser:
+            raise PermissionDenied("Surveyors cannot create leads.")
+
+        extra = {'created_by': user}
         # Multi-country default region assignment
         if not serializer.validated_data.get('region'):
             if user.default_region:
@@ -127,11 +172,69 @@ class LeadViewSet(viewsets.ModelViewSet):
             elif user.allowed_regions.exists():
                 extra['region'] = user.allowed_regions.first()
 
-        # Auto-assign to creating salesperson if not explicitly assigned
-        if user.role == User.Role.SALESPERSON and not serializer.validated_data.get('assigned_to'):
+        # Auto-assign to creating salesperson; salesperson cannot pick assignee
+        if user.role == User.Role.SALESPERSON and not user.is_superuser:
             extra['assigned_to'] = user
 
         serializer.save(**extra)
+
+    def perform_update(self, serializer):
+        user = self.request.user
+        instance = serializer.instance
+
+        if user.role == User.Role.SALESPERSON and not user.is_superuser:
+            # Salesperson cannot reassign
+            new_assigned_to = serializer.validated_data.get('assigned_to')
+            if new_assigned_to and new_assigned_to != instance.assigned_to:
+                raise PermissionDenied("Salespeople cannot reassign leads. Manager or Admin action required.")
+
+            # Salesperson cannot change status directly (only through outcome logging)
+            new_status = serializer.validated_data.get('status')
+            if new_status and new_status != instance.status:
+                raise PermissionDenied("Salespeople cannot change status directly. Log an outcome to update status.")
+
+            # Salesperson cannot reverse Do Not Contact
+            if instance.do_not_contact and serializer.validated_data.get('do_not_contact') is False:
+                raise PermissionDenied("Salespeople cannot reverse Do Not Contact. Manager or Admin action required.")
+
+            # Salesperson cannot change region
+            new_region = serializer.validated_data.get('region')
+            if new_region and new_region != instance.region:
+                raise PermissionDenied("Salespeople cannot change the lead region.")
+
+        serializer.save()
+
+    def destroy(self, request, *args, **kwargs):
+        if not can(request.user, 'lead.delete'):
+            return Response(
+                {"error": "Only Administrators can delete leads."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        lead = self.get_object()
+        reason = (request.data.get('reason') if isinstance(request.data, dict) else None) or request.query_params.get('reason')
+        if not reason or not str(reason).strip():
+            return Response(
+                {"reason": "A deletion reason is required for soft deletion."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        reason = str(reason).strip()
+        with transaction.atomic():
+            lead.is_deleted = True
+            lead.deleted_at = timezone.now()
+            lead.deleted_by = request.user
+            lead.deleted_reason = reason
+            lead.save()
+
+            AuditLog.objects.create(
+                user=request.user,
+                action='lead_delete',
+                lead=lead,
+                reason=reason,
+                details={'lead_id': lead.id, 'lead_name': lead.name},
+            )
+
+        return Response({"message": f"Lead '{lead.name}' soft-deleted.", "id": lead.id}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], url_path='log-activity')
     def log_activity(self, request, pk=None):
@@ -192,6 +295,8 @@ class LeadViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='merge')
     def merge(self, request, pk=None):
+        if not can(request.user, 'lead.merge'):
+            return Response({"error": "You do not have permission to merge leads."}, status=status.HTTP_403_FORBIDDEN)
         duplicate_lead = self.get_object()
         serializer = MergeLeadInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -299,11 +404,361 @@ class LeadViewSet(viewsets.ModelViewSet):
         serializer = LeadSerializer(due_today_or_overdue, many=True, context={'request': request})
         return Response(serializer.data)
 
+    @action(detail=True, methods=['post'], url_path='assign')
+    def assign(self, request, pk=None):
+        """
+        Assigns or reassigns a lead to a salesperson or manager.
+        Allowed for Managers and Admins only.
+        """
+        if not can(request.user, 'lead.assign'):
+            return Response({"error": "You do not have permission to assign leads."}, status=status.HTTP_403_FORBIDDEN)
+
+        lead = self.get_object()
+        assigned_to_id = request.data.get('assigned_to_id')
+        reason = request.data.get('reason', 'Lead assigned by manager')
+
+        if not assigned_to_id:
+            return Response({"error": "assigned_to_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            target_user = User.objects.get(id=assigned_to_id, is_active=True)
+        except User.DoesNotExist:
+            return Response({"error": "Target user not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if target_user.role not in [User.Role.SALESPERSON, User.Role.MANAGER]:
+            return Response({"error": "Can only assign to salespersons or managers."}, status=status.HTTP_400_BAD_REQUEST)
+
+        old_user = lead.assigned_to
+        with transaction.atomic():
+            lead.assigned_to = target_user
+            lead.save()
+
+            LeadStatusHistory.objects.create(
+                lead=lead,
+                old_status=lead.status,
+                new_status=lead.status,
+                changed_by=request.user,
+                note=f"Assigned to {target_user.get_full_name() or target_user.username}. Reason: {reason}",
+            )
+
+            AuditLog.objects.create(
+                user=request.user,
+                action='lead_assign',
+                lead=lead,
+                reason=reason,
+                details={
+                    'lead_id': lead.id,
+                    'old_assigned_to_id': old_user.id if old_user else None,
+                    'new_assigned_to_id': target_user.id,
+                    'new_assigned_to_username': target_user.username,
+                },
+            )
+
+            from notifications.models import Notification
+            Notification.objects.create(
+                user=target_user,
+                message=f"You have been assigned lead '{lead.name}' ({lead.phone_e164 or lead.phone}).",
+                link=f"/leads/{lead.id}",
+            )
+
+        return Response({
+            "message": f"Lead '{lead.name}' successfully assigned to {target_user.username}.",
+            "lead": LeadSerializer(lead, context={'request': request}).data,
+        })
+
+    @action(detail=False, methods=['post'], url_path='bulk-assign')
+    def bulk_assign(self, request):
+        if not can(request.user, 'lead.assign'):
+            return Response({"error": "You do not have permission to assign leads."}, status=status.HTTP_403_FORBIDDEN)
+
+        lead_ids = request.data.get('lead_ids', [])
+        assigned_to_id = request.data.get('assigned_to_id')
+        reason = request.data.get('reason', 'Bulk assignment by manager')
+
+        if not lead_ids or not assigned_to_id:
+            return Response({"error": "lead_ids and assigned_to_id are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            target_user = User.objects.get(id=assigned_to_id, is_active=True)
+        except User.DoesNotExist:
+            return Response({"error": "Target user not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        qs = Lead.objects.filter(id__in=lead_ids, is_deleted=False)
+        updated_count = 0
+        with transaction.atomic():
+            for lead in qs:
+                lead.assigned_to = target_user
+                lead.save()
+                LeadStatusHistory.objects.create(
+                    lead=lead,
+                    old_status=lead.status,
+                    new_status=lead.status,
+                    changed_by=request.user,
+                    note=f"Bulk assigned to {target_user.username}. Reason: {reason}",
+                )
+                updated_count += 1
+
+            AuditLog.objects.create(
+                user=request.user,
+                action='lead_bulk_assign',
+                reason=reason,
+                details={
+                    'target_user_id': target_user.id,
+                    'target_username': target_user.username,
+                    'updated_count': updated_count,
+                    'lead_ids': lead_ids,
+                },
+            )
+
+            from notifications.models import Notification
+            Notification.objects.create(
+                user=target_user,
+                message=f"You have been assigned {updated_count} leads via bulk assignment.",
+                link="/leads",
+            )
+
+        return Response({
+            "message": f"Successfully assigned {updated_count} leads to {target_user.username}.",
+            "updated_count": updated_count,
+        })
+
+    @action(detail=False, methods=['post'], url_path='auto-distribute')
+    def auto_distribute(self, request):
+        if not can(request.user, 'lead.assign'):
+            return Response({"error": "You do not have permission to auto-distribute leads."}, status=status.HTTP_403_FORBIDDEN)
+
+        lead_ids = request.data.get('lead_ids', [])
+        salesperson_ids = request.data.get('salesperson_ids', [])
+        reason = request.data.get('reason', 'Manager auto-distribution (round-robin)')
+
+        if not lead_ids or not salesperson_ids:
+            return Response({"error": "lead_ids and salesperson_ids are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        salespeople = list(User.objects.filter(id__in=salesperson_ids, is_active=True, role__in=[User.Role.SALESPERSON, User.Role.MANAGER]))
+        if not salespeople:
+            return Response({"error": "No valid active salespeople selected."}, status=status.HTTP_400_BAD_REQUEST)
+
+        import itertools
+        cycle = itertools.cycle(salespeople)
+        leads = list(Lead.objects.filter(id__in=lead_ids, is_deleted=False))
+        distributed_count = 0
+
+        with transaction.atomic():
+            for lead in leads:
+                assigned_rep = next(cycle)
+                lead.assigned_to = assigned_rep
+                lead.save()
+                distributed_count += 1
+
+            AuditLog.objects.create(
+                user=request.user,
+                action='lead_auto_distribute',
+                reason=reason,
+                details={
+                    'distributed_count': distributed_count,
+                    'salesperson_ids': salesperson_ids,
+                    'lead_ids': lead_ids,
+                },
+            )
+
+        return Response({
+            "message": f"Successfully distributed {distributed_count} leads across {len(salespeople)} salespersons.",
+            "distributed_count": distributed_count,
+        })
+
+    @action(detail=False, methods=['get'], url_path='unassigned')
+    def unassigned(self, request):
+        if not can(request.user, 'lead.unassigned_queue'):
+            return Response({"error": "You do not have permission to access the unassigned leads queue."}, status=status.HTTP_403_FORBIDDEN)
+
+        qs = Lead.objects.filter(assigned_to__isnull=True, is_deleted=False)
+        if not request.user.is_superuser:
+            qs = qs.filter(region__in=request.user.allowed_regions.all())
+        serializer = LeadSerializer(qs, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='lost-approvals')
+    def lost_approvals(self, request):
+        if not can(request.user, 'lead.lost_approval'):
+            return Response({"error": "You do not have permission to view Lost approvals."}, status=status.HTTP_403_FORBIDDEN)
+
+        qs = Lead.objects.filter(status=Lead.Status.LOST_APPROVAL_PENDING, is_deleted=False)
+        if not request.user.is_superuser:
+            qs = qs.filter(region__in=request.user.allowed_regions.all())
+        serializer = LeadSerializer(qs, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='approve-lost')
+    def approve_lost(self, request, pk=None):
+        if not can(request.user, 'lead.lost_approval'):
+            return Response({"error": "You do not have permission to approve Lost leads."}, status=status.HTTP_403_FORBIDDEN)
+
+        lead = self.get_object()
+        if lead.status != Lead.Status.LOST_APPROVAL_PENDING:
+            return Response({"error": f"Lead is not pending Lost approval (current status: {lead.status})."}, status=status.HTTP_400_BAD_REQUEST)
+
+        lost_reason_id = request.data.get('lost_reason_id')
+        reason = request.data.get('reason', 'Manager approved Lost request')
+
+        from masters.models import LostReason
+        final_lost_reason = None
+        if lost_reason_id:
+            final_lost_reason = LostReason.objects.filter(id=lost_reason_id).first()
+        if not final_lost_reason:
+            final_lost_reason = lead.lost_pending_reason
+
+        with transaction.atomic():
+            old_status = lead.status
+            lead.status = Lead.Status.LOST
+            lead.lost_reason = final_lost_reason
+            lead.lost_pending_reason = None
+            lead.lost_pending_notes = ""
+            lead.next_action = "Closed - Lost"
+            lead.next_followup_at = None
+            lead.won_at = None
+            lead.save()
+
+            LeadStatusHistory.objects.create(
+                lead=lead,
+                old_status=old_status,
+                new_status=Lead.Status.LOST,
+                changed_by=request.user,
+                note=f"Lost approved by {request.user.get_full_name() or request.user.username}. {reason}",
+            )
+
+            AuditLog.objects.create(
+                user=request.user,
+                action='lead_lost_approve',
+                lead=lead,
+                reason=reason,
+                details={'lead_id': lead.id, 'lost_reason_id': final_lost_reason.id if final_lost_reason else None},
+            )
+
+            if lead.assigned_to:
+                from notifications.models import Notification
+                Notification.objects.create(
+                    user=lead.assigned_to,
+                    message=f"Lost status for lead '{lead.name}' was approved by manager.",
+                    link=f"/leads/{lead.id}",
+                )
+
+        return Response({
+            "message": f"Lead '{lead.name}' successfully closed as Lost.",
+            "lead": LeadSerializer(lead, context={'request': request}).data,
+        })
+
+    @action(detail=True, methods=['post'], url_path='reject-lost')
+    def reject_lost(self, request, pk=None):
+        if not can(request.user, 'lead.lost_approval'):
+            return Response({"error": "You do not have permission to reject Lost requests."}, status=status.HTTP_403_FORBIDDEN)
+
+        lead = self.get_object()
+        if lead.status != Lead.Status.LOST_APPROVAL_PENDING:
+            return Response({"error": f"Lead is not pending Lost approval (current status: {lead.status})."}, status=status.HTTP_400_BAD_REQUEST)
+
+        reason = request.data.get('reason')
+        next_followup_at = request.data.get('next_followup_at')
+
+        if not reason or not next_followup_at:
+            return Response({"error": "Both 'reason' and 'next_followup_at' are required to reject Lost request."}, status=status.HTTP_400_BAD_REQUEST)
+
+        target_status = lead.previous_status_before_lost or Lead.Status.FOLLOW_UP
+        with transaction.atomic():
+            old_status = lead.status
+            lead.status = target_status
+            lead.lost_pending_reason = None
+            lead.lost_pending_notes = ""
+            lead.next_action = f"Lost rejected by manager: {reason}"
+            lead.next_followup_at = next_followup_at
+            lead.save()
+
+            LeadStatusHistory.objects.create(
+                lead=lead,
+                old_status=old_status,
+                new_status=target_status,
+                changed_by=request.user,
+                note=f"Lost rejected by manager. Reason: {reason}",
+            )
+
+            AuditLog.objects.create(
+                user=request.user,
+                action='lead_lost_reject',
+                lead=lead,
+                reason=reason,
+                details={'lead_id': lead.id, 'reverted_status': target_status, 'next_followup_at': str(next_followup_at)},
+            )
+
+            if lead.assigned_to:
+                from notifications.models import Notification
+                Notification.objects.create(
+                    user=lead.assigned_to,
+                    message=f"Lost request for lead '{lead.name}' was rejected by manager: {reason}",
+                    link=f"/leads/{lead.id}",
+                )
+
+        return Response({
+            "message": f"Lead '{lead.name}' returned to status '{target_status}'.",
+            "lead": LeadSerializer(lead, context={'request': request}).data,
+        })
+
+    @action(detail=True, methods=['post'], url_path='manual-status')
+    def manual_status(self, request, pk=None):
+        if not can(request.user, 'lead.manual_status_change'):
+            return Response({"error": "Only Managers and Admins can manually change lead status without an outcome."}, status=status.HTTP_403_FORBIDDEN)
+
+        lead = self.get_object()
+        new_status = request.data.get('status')
+        reason = request.data.get('reason')
+        next_action = request.data.get('next_action', lead.next_action)
+        next_followup_at = request.data.get('next_followup_at')
+
+        if not new_status or not reason:
+            return Response({"error": "Both 'status' and 'reason' are required for manual status change."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if new_status not in Lead.Status.values:
+            return Response({"error": f"Invalid status '{new_status}'."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Enforce follow-up rule
+        if new_status not in Lead.TERMINAL_STATUSES and not next_followup_at and not lead.next_followup_at:
+            return Response({"error": "Next follow-up date is required for non-terminal statuses."}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            old_status = lead.status
+            lead.status = new_status
+            lead.next_action = next_action
+            if next_followup_at:
+                lead.next_followup_at = next_followup_at
+            if new_status in Lead.TERMINAL_STATUSES:
+                lead.next_followup_at = None
+            if new_status == Lead.Status.WON:
+                lead.won_at = timezone.now()
+            lead.save()
+
+            LeadStatusHistory.objects.create(
+                lead=lead,
+                old_status=old_status,
+                new_status=new_status,
+                changed_by=request.user,
+                note=f"Manual status change: {reason}",
+            )
+
+            AuditLog.objects.create(
+                user=request.user,
+                action='lead_manual_status',
+                lead=lead,
+                reason=reason,
+                details={'old_status': old_status, 'new_status': new_status},
+            )
+
+        return Response({
+            "message": f"Lead status updated to '{new_status}' manually.",
+            "lead": LeadSerializer(lead, context={'request': request}).data,
+        })
+
     @action(detail=False, methods=['post'], url_path='preview-csv')
     def preview_csv(self, request):
-        """
-        Parses uploaded file and returns 5-10 row preview with auto-matched column mapping.
-        """
+        if not can(request.user, 'lead.import'):
+            return Response({"error": "You do not have permission to import leads."}, status=status.HTTP_403_FORBIDDEN)
         file_obj = request.FILES.get('file')
         if not file_obj:
             return Response({"error": "No file uploaded. Please upload a file with key 'file'."}, status=400)
@@ -333,9 +788,8 @@ class LeadViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='import-csv')
     def import_csv(self, request):
-        """
-        Performs full CSV / Excel import with column mapping, duplicate options, and assignment.
-        """
+        if not can(request.user, 'lead.import'):
+            return Response({"error": "You do not have permission to import leads."}, status=status.HTTP_403_FORBIDDEN)
         file_obj = request.FILES.get('file')
         if not file_obj:
             return Response({"error": "No file uploaded. Please upload a file with key 'file'."}, status=400)
@@ -393,17 +847,16 @@ class LeadViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='import-sample-csv')
     def import_sample_csv(self, request):
-        """
-        Generates and serves a clean, formula-injection-safe sample CSV template.
-        Supports ?region=AU or ?region=IN.
-        """
-        raw_reg = (request.query_params.get('region') or '').upper().strip()
+        if not can(request.user, 'lead.import'):
+            return Response({"error": "You do not have permission to download sample CSV."}, status=status.HTTP_403_FORBIDDEN)
+        reg = (request.query_params.get('region') or (request.user.default_region.code if request.user.default_region else 'IN')).upper()
+
         response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+        response['Content-Disposition'] = f'attachment; filename="solar_leads_sample_{reg.lower()}.csv"'
 
         writer = csv.writer(response)
 
-        if raw_reg == 'AU':
-            response['Content-Disposition'] = 'attachment; filename="solar_leads_sample_au.csv"'
+        if reg == 'AU':
             headers = [
                 'Name',
                 'Phone',
@@ -467,8 +920,7 @@ class LeadViewSet(viewsets.ModelViewSet):
                     'Wants battery storage quote along with 10 kW panels',
                 ],
             ]
-        elif raw_reg == 'IN':
-            response['Content-Disposition'] = 'attachment; filename="solar_leads_sample_in.csv"'
+        else:
             headers = [
                 'Name',
                 'Phone',
@@ -529,50 +981,6 @@ class LeadViewSet(viewsets.ModelViewSet):
                     'Looking for 5 kW system for textile office',
                 ],
             ]
-        else:
-            response['Content-Disposition'] = 'attachment; filename="solar_leads_sample_template.csv"'
-            headers = [
-                'Name',
-                'Phone',
-                'Email',
-                'City',
-                'Address',
-                'Source',
-                'Monthly Bill',
-                'Roof Type',
-                'Property Type',
-                'Owner or Tenant',
-                'Remark',
-            ]
-            writer.writerow(headers)
-            sample_rows = [
-                [
-                    'Ramesh Patel',
-                    '9825012345',
-                    'ramesh.patel@example.com',
-                    'Ahmedabad',
-                    '12 Shantivan Bungalows, Bodakdev',
-                    'Cold Call',
-                    '4500',
-                    'RCC flat',
-                    'residential',
-                    'owner',
-                    'Interested in 3 kW rooftop solar with PM Surya Ghar subsidy',
-                ],
-                [
-                    'Sunita Sharma',
-                    '9825098765',
-                    'sunita.sharma@example.com',
-                    'Surat',
-                    '402 Royal Palms, Vesu',
-                    'Website Form',
-                    '7800',
-                    'tin shade',
-                    'commercial',
-                    'owner',
-                    'Looking for 5 kW system for textile office',
-                ],
-            ]
 
         for row in sample_rows:
             writer.writerow([sanitize_csv_cell(c) for c in row])
@@ -597,6 +1005,16 @@ class LeadViewSet(viewsets.ModelViewSet):
         remark = serializer.validated_data.get('remark', '')
 
         user = request.user
+        if user.role == User.Role.SALESPERSON and not user.is_superuser:
+            if action_name != 'add_remark':
+                return Response(
+                    {"error": "Salespeople are only permitted to execute 'add_remark' bulk actions on their own leads."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        if action_name == 'assign' and not can(user, 'lead.assign'):
+            return Response({"error": "You do not have permission to assign leads."}, status=status.HTTP_403_FORBIDDEN)
+
         qs = Lead.objects.filter(id__in=lead_ids)
         if user.role == User.Role.SALESPERSON and not user.is_superuser:
             qs = qs.filter(assigned_to=user)
@@ -635,6 +1053,23 @@ class LeadViewSet(viewsets.ModelViewSet):
                         lead.remark = remark[:500]
                     lead.save()
                     updated_count += 1
+
+            elif action_name == 'add_remark':
+                for lead in qs:
+                    if remark:
+                        lead.remark = remark[:500]
+                        lead.save()
+                        Activity.objects.create(
+                            lead=lead,
+                            type=Activity.Type.NOTE,
+                            notes=remark,
+                            remark=remark[:500],
+                            status_after=lead.status,
+                            next_action=lead.next_action,
+                            next_followup_at=lead.next_followup_at,
+                            created_by=user,
+                        )
+                        updated_count += 1
 
         return Response({
             "message": f"Successfully updated {updated_count} leads.",
@@ -787,6 +1222,11 @@ class LeadViewSet(viewsets.ModelViewSet):
         protected against formula injection, encoded as utf-8-sig.
         Logs bulk export action into the compliance AuditLog.
         """
+        if not can(request.user, 'lead.export'):
+            return Response(
+                {"error": "You do not have permission to export leads."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         queryset = self.filter_queryset(self.get_queryset())
 
         lead_ids_param = request.query_params.get('lead_ids')
@@ -897,7 +1337,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     """
     queryset = AuditLog.objects.all().select_related('user', 'lead').order_by('-timestamp')
     serializer_class = AuditLogSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [HasPermission('audit.view')]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['action', 'user', 'lead_id_recorded']
     search_fields = ['reason', 'user_name']
@@ -907,18 +1347,24 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
         user = self.request.user
         if not user.is_authenticated:
             return self.queryset.none()
-        if user.role not in [User.Role.ADMIN, User.Role.MANAGER] and not user.is_superuser:
-            return self.queryset.filter(lead__assigned_to=user)
+        if not can(user, 'audit.view'):
+            return self.queryset.none()
+        if user.role == User.Role.MANAGER and not user.is_superuser:
+            allowed = user.allowed_regions.all()
+            if allowed.exists():
+                return self.queryset.filter(Q(lead__region__in=allowed) | Q(lead__isnull=True))
         return self.queryset
 
 
 class ImportBatchViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ImportBatch.objects.all().select_related('imported_by', 'reverted_by').order_by('-imported_at')
     serializer_class = ImportBatchSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [HasPermission('lead.import')]
 
     @action(detail=True, methods=['post'], url_path='undo')
     def undo(self, request, pk=None):
+        if not can(request.user, 'lead.import'):
+            return Response({"error": "You do not have permission to undo import batches."}, status=status.HTTP_403_FORBIDDEN)
         batch = self.get_object()
         success, message, deleted_count = undo_import_batch(batch.id, user=request.user)
         if not success:
@@ -952,7 +1398,24 @@ class DashboardView(APIView):
 
     def get(self, request):
         user = request.user
-        qs = Lead.objects.all()
+        if not can(user, 'dashboard.view'):
+            return Response({"error": "You do not have permission to view dashboard."}, status=status.HTTP_403_FORBIDDEN)
+
+        # Surveyor role: role-specific survey statistics
+        if user.role == User.Role.SURVEYOR and not user.is_superuser:
+            from surveys.models import Survey
+            surveys_qs = Survey.objects.filter(surveyor=user)
+            today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            today_end = today_start + timedelta(days=1)
+            return Response({
+                "role": "surveyor",
+                "surveys_today_count": surveys_qs.filter(scheduled_at__gte=today_start, scheduled_at__lt=today_end).count(),
+                "surveys_completed_count": surveys_qs.filter(status=Survey.Status.DONE).count(),
+                "surveys_pending_count": surveys_qs.filter(status__in=[Survey.Status.BOOKED, Survey.Status.RESCHEDULED]).count(),
+                "total_assigned": surveys_qs.count(),
+            }, status=status.HTTP_200_OK)
+
+        qs = Lead.objects.filter(is_deleted=False)
 
         # Multi-country region scoping
         if not user.is_superuser:

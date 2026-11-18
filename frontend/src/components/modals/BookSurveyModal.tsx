@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Modal, Button, Stack, TextInput, Select, Textarea, Alert, Group, Text } from '@mantine/core';
 import { IconCalendarPlus, IconAlertCircle } from '@tabler/icons-react';
 import { bookSurvey, fetchUsers } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 import type { Lead, User } from '../../api/types';
 
 interface BookSurveyModalProps {
@@ -14,6 +15,7 @@ interface BookSurveyModalProps {
 
 export const BookSurveyModal: React.FC<BookSurveyModalProps> = ({ opened, onClose, lead, onSuccess }) => {
   const queryClient = useQueryClient();
+  const { can } = useAuth();
   const [scheduledAt, setScheduledAt] = useState('');
   const [surveyorId, setSurveyorId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
@@ -105,18 +107,24 @@ export const BookSurveyModal: React.FC<BookSurveyModalProps> = ({ opened, onClos
             description="Select visit date and approximate time"
           />
 
-          <Select
-            label="Assign Surveyor"
-            placeholder="Select solar technical surveyor"
-            data={surveyors.map((s) => ({
-              value: String(s.id),
-              label: `${s.first_name || s.username} (${s.role})`,
-            }))}
-            value={surveyorId}
-            onChange={setSurveyorId}
-            searchable
-            clearable
-          />
+          {can('survey.assign') ? (
+            <Select
+              label="Assign Surveyor"
+              placeholder="Select solar technical surveyor"
+              data={surveyors.map((s) => ({
+                value: String(s.id),
+                label: `${s.first_name || s.username} (${s.role})`,
+              }))}
+              value={surveyorId}
+              onChange={setSurveyorId}
+              searchable
+              clearable
+            />
+          ) : (
+            <Text size="xs" c="dimmed">
+              ℹ️ A field surveyor will be assigned to this inspection by your regional manager.
+            </Text>
+          )}
 
           <Textarea
             label="Survey Instructions / Site Notes"

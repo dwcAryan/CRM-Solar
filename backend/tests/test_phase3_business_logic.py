@@ -212,15 +212,15 @@ class TestPhase3BusinessLogic:
         diff_days = (lead.next_followup_at - timezone.now()).total_seconds() / 86400
         assert 13 < diff_days < 15
 
-        # While Unreachable, another "No answer" -> Lost with reason "no response"
+        # While Unreachable, another "No answer" logged by salesperson -> Lost approval pending with reason "no response"
         _, lead = process_log_activity(
             lead=lead,
             user=salesperson_user,
             data={'type': Activity.Type.CALL, 'outcome_id': outcome_no_answer.id}
         )
-        assert lead.status == Lead.Status.LOST
-        assert lead.lost_reason.name.lower() == 'no response'
-        assert lead.next_followup_at is None
+        assert lead.status == Lead.Status.LOST_APPROVAL_PENDING
+        assert lead.lost_pending_reason.name.lower() == 'no response'
+        assert lead.next_followup_at is not None
 
     def test_answered_call_resets_attempt_count(self, sample_lead, salesperson_user):
         """Call answered resets attempt_count to 0."""
@@ -291,14 +291,22 @@ class TestPhase3BusinessLogic:
         assert 'duplicate' in response2.data
         assert int(response2.data['existing_lead']['id']) == primary_id
 
-    def test_merge_endpoint(self, db, salesperson_user):
+    def test_merge_endpoint(self, db, salesperson_user, manager_user):
         """Merge a duplicate lead into a primary lead."""
         primary = Lead.objects.create(name='Primary Lead', phone='9825211111', status=Lead.Status.NEW, assigned_to=salesperson_user)
         duplicate = Lead.objects.create(name='Duplicate Lead', phone='9825222222', status=Lead.Status.NEW, assigned_to=salesperson_user)
 
         client = APIClient()
+        # Salesperson cannot merge leads
         client.force_authenticate(user=salesperson_user)
+        res_sales = client.post(f'/api/leads/{duplicate.id}/merge/', {
+            'target_lead_id': primary.id,
+            'note': 'Attempt by salesperson',
+        })
+        assert res_sales.status_code == status.HTTP_403_FORBIDDEN
 
+        # Manager CAN merge leads
+        client.force_authenticate(user=manager_user)
         response = client.post(f'/api/leads/{duplicate.id}/merge/', {
             'target_lead_id': primary.id,
             'note': 'Customer confirmed same person on different number.',
@@ -326,23 +334,30 @@ class TestPhase3BusinessLogic:
         response = client.get(f'/api/leads/{sample_lead.id}/')
         assert response.status_code == status.HTTP_200_OK
 
-        # Salesperson cannot mark lead as Lost
+        # Salesperson cannot mark lead directly as Lost (submits for Lost approval)
         lost_outcome = Outcome.objects.get(stage=Outcome.Stage.CALL, name='Not interested at all')
         lost_reason = LostReason.objects.first()
 
         sample_lead.assigned_to = salesperson_user
         sample_lead.save()
 
-        with pytest.raises(PermissionDenied):
-            process_log_activity(
-                lead=sample_lead,
-                user=salesperson_user,
-                data={
-                    'type': Activity.Type.CALL,
-                    'outcome_id': lost_outcome.id,
-                    'lost_reason_id': lost_reason.id,
-                }
-            )
+        # Salesperson logging Lost outcome routes to LOST_APPROVAL_PENDING
+        _, pending_lead = process_log_activity(
+            lead=sample_lead,
+            user=salesperson_user,
+            data={
+                'type': Activity.Type.CALL,
+                'outcome_id': lost_outcome.id,
+                'lost_reason_id': lost_reason.id,
+            }
+        )
+        assert pending_lead.status == Lead.Status.LOST_APPROVAL_PENDING
+        assert pending_lead.lost_pending_reason == lost_reason
+
+        # Salesperson cannot manually set status (manual_status endpoint is restricted)
+        client.force_authenticate(user=salesperson_user)
+        man_res = client.post(f'/api/leads/{sample_lead.id}/manual-status/', {'status': Lead.Status.LOST})
+        assert man_res.status_code == status.HTTP_403_FORBIDDEN
 
         # Manager CAN mark as Lost
         _, updated_lead = process_log_activity(

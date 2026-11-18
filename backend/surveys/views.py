@@ -10,7 +10,7 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 
 from accounts.models import User
-from accounts.permissions import SurveyPermission, can_user_mark_lost
+from accounts.permissions import SurveyPermission, can, can_user_mark_lost
 from activities.models import Activity
 from leads.models import Lead, LeadStatusHistory
 from masters.models import LostReason, Outcome
@@ -68,9 +68,17 @@ class SurveyViewSet(viewsets.ModelViewSet):
         except Lead.DoesNotExist:
             return Response({"lead_id": "Lead not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        surveyor = None
-        if surveyor_id:
-            surveyor = User.objects.filter(id=surveyor_id).first()
+        # Salesperson can only book for own leads and CANNOT assign surveyor
+        if request.user.role == User.Role.SALESPERSON and not request.user.is_superuser:
+            if lead.assigned_to_id != request.user.id:
+                raise PermissionDenied("Salespeople can only book surveys for their own leads.")
+            surveyor = None
+        elif request.user.role == User.Role.SURVEYOR and not request.user.is_superuser:
+            raise PermissionDenied("Surveyors cannot book surveys.")
+        else:
+            surveyor = None
+            if surveyor_id:
+                surveyor = User.objects.filter(id=surveyor_id).first()
 
         survey = Survey.objects.create(
             lead=lead,
@@ -351,6 +359,71 @@ class SurveyViewSet(viewsets.ModelViewSet):
 
         return Response(SurveySerializer(survey, context={'request': request}).data, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['post'], url_path='assign-surveyor')
+    def assign_surveyor(self, request, pk=None):
+        if not can(request.user, 'survey.assign'):
+            return Response({"error": "You do not have permission to assign surveyors."}, status=status.HTTP_403_FORBIDDEN)
+
+        survey = self.get_object()
+        surveyor_id = request.data.get('surveyor_id')
+        if not surveyor_id:
+            return Response({"error": "surveyor_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            surveyor = User.objects.get(id=surveyor_id, is_active=True, role=User.Role.SURVEYOR)
+        except User.DoesNotExist:
+            return Response({"error": "Valid active surveyor not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        old_surveyor = survey.surveyor
+        with transaction.atomic():
+            survey.surveyor = surveyor
+            survey.save()
+
+            from leads.models import AuditLog
+            AuditLog.objects.create(
+                user=request.user,
+                action='survey_assign',
+                lead=survey.lead,
+                reason=f"Survey assigned to {surveyor.get_full_name() or surveyor.username}",
+                details={
+                    'survey_id': survey.id,
+                    'old_surveyor_id': old_surveyor.id if old_surveyor else None,
+                    'new_surveyor_id': surveyor.id,
+                },
+            )
+
+            from notifications.models import Notification
+            Notification.objects.create(
+                user=surveyor,
+                message=f"You have been assigned site survey for '{survey.lead.name}' on {survey.scheduled_at.strftime('%Y-%m-%d %H:%M')}.",
+                link="/my-surveys",
+            )
+
+        return Response({
+            "message": f"Survey successfully assigned to {surveyor.username}.",
+            "survey": SurveySerializer(survey, context={'request': request}).data,
+        })
+
+    @action(detail=False, methods=['get'], url_path='my-surveys')
+    def my_surveys(self, request):
+        user = request.user
+        qs = Survey.objects.filter(surveyor=user).select_related('lead').prefetch_related('photos').order_by('scheduled_at')
+
+        tab = request.query_params.get('filter', 'today')
+        now = timezone.now()
+        start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_of_today = start_of_today + timedelta(days=1)
+
+        if tab == 'today':
+            qs = qs.filter(scheduled_at__gte=start_of_today, scheduled_at__lt=end_of_today)
+        elif tab == 'upcoming':
+            qs = qs.filter(scheduled_at__gte=end_of_today, status__in=[Survey.Status.BOOKED, Survey.Status.RESCHEDULED])
+        elif tab == 'completed':
+            qs = qs.filter(status__in=[Survey.Status.DONE, Survey.Status.MISSED])
+
+        serializer = SurveySerializer(qs, many=True, context={'request': request})
+        return Response(serializer.data)
+
 
 class SurveyPhotoViewSet(viewsets.ModelViewSet):
     queryset = SurveyPhoto.objects.all().select_related('survey').order_by('-uploaded_at')
@@ -359,3 +432,24 @@ class SurveyPhotoViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_fields = ['survey']
     ordering_fields = ['uploaded_at', 'id']
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = super().get_queryset()
+        if not user.is_authenticated:
+            return qs.none()
+        if user.is_superuser or user.role == User.Role.ADMIN:
+            return qs
+        if user.role == User.Role.SURVEYOR:
+            return qs.filter(survey__surveyor=user)
+        if user.role == User.Role.MANAGER:
+            return qs.filter(survey__lead__region__in=user.allowed_regions.all())
+        if user.role == User.Role.SALESPERSON:
+            return qs.filter(survey__lead__assigned_to=user)
+        return qs
+
+    def perform_create(self, serializer):
+        survey = serializer.validated_data['survey']
+        if not can(self.request.user, 'survey.complete', survey):
+            raise PermissionDenied("You do not have permission to upload photos for this survey.")
+        serializer.save()

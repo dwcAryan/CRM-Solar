@@ -84,6 +84,7 @@ export interface User {
   allowed_regions?: Region[] | string[];
   default_region?: string | null;
   default_timezone?: string;
+  permissions?: string[];
 }
 
 export interface TokenResponse {
@@ -188,6 +189,9 @@ export interface Lead {
   user_next_followup_display?: string;
   lost_reason?: number | null;
   lost_reason_name?: string;
+  lost_pending_reason?: number | null;
+  lost_pending_reason_name?: string | null;
+  lost_pending_notes?: string | null;
   nurture_reason?: number | null;
   nurture_reason_name?: string;
   do_not_contact: boolean;

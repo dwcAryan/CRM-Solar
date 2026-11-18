@@ -10,6 +10,7 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 
 from accounts.models import User
+from accounts.permissions import QuotePermission, can
 from accounts.permissions import can_user_mark_lost
 from activities.models import Activity
 from leads.models import Lead, LeadStatusHistory
@@ -27,7 +28,7 @@ from .serializers import (
 class QuoteViewSet(viewsets.ModelViewSet):
     queryset = Quote.objects.all().select_related('lead', 'created_by').order_by('lead', '-version')
     serializer_class = QuoteSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [QuotePermission]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['lead', 'status', 'brand']
     search_fields = ['lead__name', 'lead__phone', 'brand', 'notes']
@@ -284,9 +285,6 @@ class QuoteViewSet(viewsets.ModelViewSet):
         notes = serializer.validated_data.get('notes', '')
         remark = serializer.validated_data.get('remark', '') or notes
 
-        if not can_user_mark_lost(request.user):
-            raise PermissionDenied("You do not have permission to mark leads as Lost.")
-
         lost_reason = LostReason.objects.filter(id=lost_reason_id).first()
         if not lost_reason:
             return Response({"lost_reason_id": "Specified lost reason does not exist."}, status=status.HTTP_400_BAD_REQUEST)
@@ -300,15 +298,43 @@ class QuoteViewSet(viewsets.ModelViewSet):
 
         lead = quote.lead
         old_status = lead.status
-        target_status = Lead.Status.LOST
 
-        lead.status = target_status
-        lead.lost_reason = lost_reason
-        lead.next_action = f"Record lost reason: {lost_reason.name}"
-        lead.next_followup_at = None
-        if remark:
-            lead.remark = remark[:500]
-        lead.save()
+        from django.db.models import Q
+        from notifications.models import Notification
+
+        if not can_user_mark_lost(request.user):
+            if request.user.role == User.Role.SALESPERSON:
+                target_status = Lead.Status.LOST_APPROVAL_PENDING
+                lead.status = target_status
+                lead.lost_pending_reason = lost_reason
+                lead.lost_pending_notes = notes or remark
+                lead.previous_status_before_lost = old_status
+                lead.next_action = "Awaiting manager Lost approval"
+                lead.next_followup_at = timezone.now() + timedelta(days=2)
+                if remark:
+                    lead.remark = remark[:500]
+                lead.save()
+
+                mgr_qs = User.objects.filter(role__in=[User.Role.MANAGER, User.Role.ADMIN], is_active=True)
+                if lead.region_id:
+                    mgr_qs = mgr_qs.filter(Q(allowed_regions__code=lead.region_id) | Q(is_superuser=True)).distinct()
+                for mgr in mgr_qs:
+                    Notification.objects.create(
+                        user=mgr,
+                        message=f"Lead '{lead.name}' submitted for Lost approval by {request.user.get_full_name() or request.user.username}.",
+                        link=f"/leads/{lead.id}",
+                    )
+            else:
+                raise PermissionDenied("You do not have permission to mark leads as Lost.")
+        else:
+            target_status = Lead.Status.LOST
+            lead.status = target_status
+            lead.lost_reason = lost_reason
+            lead.next_action = f"Record lost reason: {lost_reason.name}"
+            lead.next_followup_at = None
+            if remark:
+                lead.remark = remark[:500]
+            lead.save()
 
         LeadStatusHistory.objects.create(
             lead=lead,

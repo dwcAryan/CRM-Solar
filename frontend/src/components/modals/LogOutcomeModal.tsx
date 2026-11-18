@@ -21,6 +21,7 @@ import {
   logActivity,
 } from '../../api/client';
 import { ConfirmActionModal } from './ConfirmActionModal';
+import { useAuth } from '../../context/AuthContext';
 import type { Lead, Outcome, LostReason, NurtureReason } from '../../api/types';
 
 interface LogOutcomeModalProps {
@@ -43,6 +44,7 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
   initialOutcomeName,
 }) => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [stage, setStage] = useState<'call' | 'survey' | 'quote'>(defaultStage);
   const [outcomeId, setOutcomeId] = useState<string | null>(null);
   const [statusVal, setStatusVal] = useState<string>('');
@@ -405,19 +407,29 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
         }}
         title={
           statusVal === 'Lost'
-            ? 'Confirm Marking Lead Lost'
+            ? user?.role === 'salesperson'
+              ? 'Submit for Lost Approval'
+              : 'Confirm Marking Lead Lost'
             : statusVal === 'Won'
             ? 'Confirm Proposal Won'
             : 'Confirm Do Not Contact'
         }
         message={
           statusVal === 'Lost'
-            ? `Are you sure you want to mark "${lead?.name}" as Lost? This is a terminal status.`
+            ? user?.role === 'salesperson'
+              ? `Submitting this outcome will request Lost closure for "${lead?.name}". Your regional manager will review and approve.`
+              : `Are you sure you want to mark "${lead?.name}" as Lost? This is a terminal status.`
             : statusVal === 'Won'
             ? `Are you sure you want to mark "${lead?.name}" as Won? The customer has accepted the solar proposal.`
             : `Are you sure you want to mark "${lead?.name}" as Do Not Contact? All further call and WhatsApp interactions will be permanently blocked.`
         }
-        confirmLabel={statusVal === 'Won' ? 'Confirm Won' : 'Confirm Action'}
+        confirmLabel={
+          statusVal === 'Won'
+            ? 'Confirm Won'
+            : statusVal === 'Lost' && user?.role === 'salesperson'
+            ? 'Submit for Approval'
+            : 'Confirm Action'
+        }
         confirmColor={statusVal === 'Won' ? 'green' : 'red'}
         loading={logActivityMutation.isPending}
       />

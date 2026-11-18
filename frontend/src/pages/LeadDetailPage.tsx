@@ -21,7 +21,10 @@ import {
   Divider,
   Box,
   ThemeIcon,
+  Modal,
+  Textarea,
 } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import {
   IconPhone,
   IconBrandWhatsapp,
@@ -41,6 +44,7 @@ import {
   IconNotes,
   IconDownload,
   IconShieldCheck,
+  IconTrash,
 } from '@tabler/icons-react';
 import {
   fetchLead,
@@ -51,6 +55,7 @@ import {
   markQuoteSent,
   acceptQuote,
   checkLeadDncr,
+  softDeleteLead,
 } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { LogOutcomeModal } from '../components/modals/LogOutcomeModal';
@@ -88,8 +93,10 @@ export const LeadDetailPage: React.FC = () => {
   const [confirmAcceptQuote, setConfirmAcceptQuote] = useState<Quote | null>(null);
   const [prefilledOutcome, setPrefilledOutcome] = useState<string | null>(null);
 
-  // Multi-country & Privacy states
-  const { isAdminOrManager } = useAuth();
+  // Multi-country & Privacy & RBAC states
+  const { isAdminOrManager, can } = useAuth();
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
   const [anonymizeModalOpen, setAnonymizeModalOpen] = useState(false);
   const [correctModalOpen, setCorrectModalOpen] = useState(false);
   const [dncrLoading, setDncrLoading] = useState(false);
@@ -165,6 +172,17 @@ export const LeadDetailPage: React.FC = () => {
     window.open(`${baseUrl}/api/leads/${leadId}/privacy-export/?format=${fmt}`, '_blank');
   };
 
+  const deleteMutation = useMutation({
+    mutationFn: () => softDeleteLead(leadId, deleteReason),
+    onSuccess: () => {
+      notifications.show({ title: 'Lead Deleted', message: 'Lead has been soft-deleted.', color: 'red' });
+      navigate('/leads');
+    },
+    onError: (err: any) => {
+      notifications.show({ title: 'Error', message: err?.message || 'Failed to delete lead.', color: 'red' });
+    },
+  });
+
   if (leadLoading) {
     return (
       <Center py="xl">
@@ -236,41 +254,63 @@ export const LeadDetailPage: React.FC = () => {
             >
               Add Remark
             </Button>
-            <Button
-              variant="outline"
-              color="orange"
-              size="xs"
-              leftSection={<IconGitMerge size={14} />}
-              onClick={() => setMergeModalOpen(true)}
-            >
-              Merge Duplicate
-            </Button>
-            <Button
-              variant="outline"
-              color="teal"
-              size="xs"
-              leftSection={<IconCalendarPlus size={14} />}
-              onClick={() => setBookSurveyOpen(true)}
-            >
-              Book Survey
-            </Button>
-            <Button
-              variant="outline"
-              color="blue"
-              size="xs"
-              leftSection={<IconFilePlus size={14} />}
-              onClick={() => setCreateQuoteOpen(true)}
-            >
-              Create Quote
-            </Button>
-            <Button
-              color="yellow"
-              size="xs"
-              leftSection={<IconClipboardCheck size={14} />}
-              onClick={() => setOutcomeModalOpen(true)}
-            >
-              Log Outcome
-            </Button>
+            {can('lead.merge') && (
+              <Button
+                variant="outline"
+                color="orange"
+                size="xs"
+                leftSection={<IconGitMerge size={14} />}
+                onClick={() => setMergeModalOpen(true)}
+              >
+                Merge Duplicate
+              </Button>
+            )}
+            {can('survey.book') && (
+              <Button
+                variant="outline"
+                color="teal"
+                size="xs"
+                leftSection={<IconCalendarPlus size={14} />}
+                onClick={() => setBookSurveyOpen(true)}
+              >
+                Book Survey
+              </Button>
+            )}
+            {can('quote.create') && (
+              <Button
+                variant="outline"
+                color="blue"
+                size="xs"
+                leftSection={<IconFilePlus size={14} />}
+                onClick={() => setCreateQuoteOpen(true)}
+              >
+                Create Quote
+              </Button>
+            )}
+            {can('activity.log') && (
+              <Button
+                color="yellow"
+                size="xs"
+                leftSection={<IconClipboardCheck size={14} />}
+                onClick={() => setOutcomeModalOpen(true)}
+              >
+                Log Outcome
+              </Button>
+            )}
+            {can('lead.delete') && (
+              <Button
+                variant="light"
+                color="red"
+                size="xs"
+                leftSection={<IconTrash size={14} />}
+                onClick={() => {
+                  setDeleteReason('');
+                  setDeleteModalOpen(true);
+                }}
+              >
+                Delete Lead
+              </Button>
+            )}
 
             {isAdminOrManager && (
               <>
@@ -339,13 +379,15 @@ export const LeadDetailPage: React.FC = () => {
         )}
 
         {/* Phase 7: AI Copilot & Next Action Suggestions */}
-        <AISuggestionsCard
-          lead={lead}
-          onPreFillOutcome={(outcomeName) => {
-            setPrefilledOutcome(outcomeName);
-            setOutcomeModalOpen(true);
-          }}
-        />
+        {can('ai.suggest') && (
+          <AISuggestionsCard
+            lead={lead}
+            onPreFillOutcome={(outcomeName) => {
+              setPrefilledOutcome(outcomeName);
+              setOutcomeModalOpen(true);
+            }}
+          />
+        )}
 
         {/* Lead Summary Card */}
         <Card shadow="sm" padding="lg" radius="md" withBorder>
@@ -1147,6 +1189,41 @@ export const LeadDetailPage: React.FC = () => {
           queryClient.invalidateQueries({ queryKey: ['leads'] });
         }}
       />
+
+      {/* Admin Soft-Delete Lead Modal */}
+      <Modal
+        opened={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Soft-Delete Lead"
+        radius="md"
+      >
+        <Stack gap="md">
+          <Text size="sm">
+            Are you sure you want to soft-delete <b>{lead.name}</b>?
+          </Text>
+          <Text size="xs" c="dimmed">
+            This lead will be removed from all active pipelines, sales queues, and reporting lists. A mandatory audit reason must be supplied.
+          </Text>
+          <Textarea
+            label="Mandatory Deletion Reason"
+            placeholder="e.g. Requested under Australian Privacy Principle 13 / GDPR / Duplicate error..."
+            required
+            value={deleteReason}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDeleteReason(e.target.value)}
+          />
+          <Group justify="flex-end">
+            <Button variant="light" color="gray" onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
+            <Button
+              color="red"
+              disabled={!deleteReason.trim()}
+              loading={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate()}
+            >
+              Confirm Soft-Delete
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Container>
   );
 };

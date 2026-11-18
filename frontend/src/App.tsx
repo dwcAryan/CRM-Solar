@@ -20,6 +20,9 @@ import { QuotesPage } from './pages/QuotesPage';
 import { ImportLeadsPage } from './pages/ImportLeadsPage';
 import { AdminPage } from './pages/AdminPage';
 import { HealthPage } from './pages/HealthPage';
+import { ManagerAttentionPage } from './pages/ManagerAttentionPage';
+import { SurveyorPortalPage } from './pages/SurveyorPortalPage';
+import { RolesMatrixPage } from './pages/RolesMatrixPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -56,12 +59,71 @@ export const App: React.FC = () => {
                   }
                 >
                   <Route path="/" element={<DashboardPage />} />
-                  <Route path="/today" element={<TodayPage />} />
-                  <Route path="/leads" element={<LeadsListPage />} />
-                  <Route path="/leads/:id" element={<LeadDetailPage />} />
-                  <Route path="/import-leads" element={<ImportLeadsPage />} />
+                  <Route
+                    path="/today"
+                    element={
+                      <ProtectedRoute permission="lead.view">
+                        <TodayPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/leads"
+                    element={
+                      <ProtectedRoute permission="lead.view">
+                        <LeadsListPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/leads/:id"
+                    element={
+                      <ProtectedRoute permission="lead.view">
+                        <LeadDetailPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/manager-attention"
+                    element={
+                      <ProtectedRoute allowedRoles={['admin', 'manager']}>
+                        <ManagerAttentionPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/my-surveys"
+                    element={
+                      <ProtectedRoute>
+                        <SurveyorPortalPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/roles-matrix"
+                    element={
+                      <ProtectedRoute allowedRoles={['admin', 'manager']}>
+                        <RolesMatrixPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/import-leads"
+                    element={
+                      <ProtectedRoute permission="lead.import">
+                        <ImportLeadsPage />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route path="/surveys" element={<SurveysPage />} />
-                  <Route path="/quotes" element={<QuotesPage />} />
+                  <Route
+                    path="/quotes"
+                    element={
+                      <ProtectedRoute permission="quote.view">
+                        <QuotesPage />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route
                     path="/admin"
                     element={

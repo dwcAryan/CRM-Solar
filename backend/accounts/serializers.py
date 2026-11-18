@@ -4,6 +4,9 @@ from .models import User
 
 
 class UserSerializer(serializers.ModelSerializer):
+    allowed_regions = serializers.SlugRelatedField(many=True, read_only=True, slug_field='code')
+    default_region = serializers.CharField(source='default_region.code', read_only=True, default='')
+
     class Meta:
         model = User
         fields = [
@@ -16,6 +19,9 @@ class UserSerializer(serializers.ModelSerializer):
             'phone',
             'is_active',
             'date_joined',
+            'allowed_regions',
+            'default_region',
+            'default_timezone',
         ]
         read_only_fields = ['id', 'date_joined']
 

@@ -58,41 +58,7 @@ class RulesProvider(AISuggestionProvider):
         bill_str = f"A${monthly_bill:.0f}/month" if monthly_bill else "electricity bill"
         latest_outcome = recent_activities[0]["outcome"] if recent_activities else ""
 
-        # Case 1: Price or budget concern
-        if latest_outcome == "Price or budget concern" or status == "Interested" and any("price" in str(a.get("notes", "")).lower() for a in recent_activities):
-            return {
-                "situation_summary": (
-                    f"{first_name} is evaluating solar but expressed hesitation on upfront investment. "
-                    "Demonstrating federal STC point-of-sale discounts and self-consumption savings will help progress this lead."
-                ),
-                "risk_level": "medium",
-                "risk_reason": "Price hesitation requires clear payback calculations against current retail electricity tariffs.",
-                "best_next_action": "Present an itemised proposal highlighting upfront STC incentives and estimated 3-4 year return on investment.",
-                "suggested_follow_up_timing": "Tomorrow afternoon around 2:00 PM",
-                "suggested_outcome_to_log": "Price or budget concern",
-                "talking_points": [
-                    "Clarify that federal STCs (Small-scale Technology Certificates) are applied as a point-of-sale discount off the gross price.",
-                    f"Self-consumption avoids retail power tariffs (approx 30-40c/kWh from {retailer}), delivering a rapid ~3.5 year payback.",
-                    "Highlight flexible green loan financing options where power bill savings typically exceed repayments.",
-                ],
-                "suggested_whatsapp_message": (
-                    f"Hi {first_name}! Good news on your {city} property: our quotes include the federal STC incentive applied upfront at point of sale. "
-                    f"Based on your {bill_str}, the system is projected to pay for itself in ~3.5 years. "
-                    "Would you like me to SMS through a 1-page financial payback summary? Reply STOP to opt out."
-                ),
-                "objections_to_expect": [
-                    {
-                        "objection": "Solar feed-in tariffs in Australia are too low now.",
-                        "reply": "You're spot on that feed-in tariffs are lower, which is why we size systems to maximize direct daytime self-consumption—saving you 30-40c/kWh on imported power."
-                    },
-                    {
-                        "objection": "How do I claim the STC government rebate?",
-                        "reply": "You don't need to do any paperwork. As a Clean Energy Council accredited installer, we apply the STC discount directly off your quote upfront."
-                    }
-                ],
-            }, 0
-
-        # Case 2: 3 or more failed call attempts
+        # Case 1: 3 or more failed call attempts
         if attempt_count >= 3 or latest_outcome in ["No answer", "Busy or switched off"]:
             return {
                 "situation_summary": (
@@ -122,6 +88,40 @@ class RulesProvider(AISuggestionProvider):
                     {
                         "objection": "Is this an unsolicited marketing call?",
                         "reply": "No, this is following up on your recent online solar enquiry for your property in Australia. If you're no longer interested, I can update our records immediately."
+                    }
+                ],
+            }, 0
+
+        # Case 2: Price or budget concern
+        if latest_outcome == "Price or budget concern" or status == "Interested" and any("price" in str(a.get("notes", "")).lower() for a in recent_activities):
+            return {
+                "situation_summary": (
+                    f"{first_name} is evaluating solar but expressed hesitation on upfront investment. "
+                    "Demonstrating federal STC point-of-sale discounts and self-consumption savings will help progress this lead."
+                ),
+                "risk_level": "medium",
+                "risk_reason": "Price hesitation requires clear payback calculations against current retail electricity tariffs.",
+                "best_next_action": "Present an itemised proposal highlighting upfront STC incentives and estimated 3-4 year return on investment.",
+                "suggested_follow_up_timing": "Tomorrow afternoon around 2:00 PM",
+                "suggested_outcome_to_log": "Price or budget concern",
+                "talking_points": [
+                    "Clarify that federal STCs (Small-scale Technology Certificates) are applied as a point-of-sale discount off the gross price.",
+                    f"Self-consumption avoids retail power tariffs (approx 30-40c/kWh from {retailer}), delivering a rapid ~3.5 year payback.",
+                    "Highlight flexible green loan financing options where power bill savings typically exceed repayments.",
+                ],
+                "suggested_whatsapp_message": (
+                    f"Hi {first_name}! Good news on your {city} property: our quotes include the federal STC incentive applied upfront at point of sale. "
+                    f"Based on your {bill_str}, the system is projected to pay for itself in ~3.5 years. "
+                    "Would you like me to SMS through a 1-page financial payback summary? Reply STOP to opt out."
+                ),
+                "objections_to_expect": [
+                    {
+                        "objection": "Solar feed-in tariffs in Australia are too low now.",
+                        "reply": "You're spot on that feed-in tariffs are lower, which is why we size systems to maximize direct daytime self-consumption—saving you 30-40c/kWh on imported power."
+                    },
+                    {
+                        "objection": "How do I claim the STC government rebate?",
+                        "reply": "You don't need to do any paperwork. As a Clean Energy Council accredited installer, we apply the STC discount directly off your quote upfront."
                     }
                 ],
             }, 0
@@ -244,41 +244,7 @@ class RulesProvider(AISuggestionProvider):
 
         latest_outcome = recent_activities[0]["outcome"] if recent_activities else ""
 
-        # Case 1: Price or budget concern
-        if latest_outcome == "Price or budget concern" or status == "Interested" and any("price" in str(a.get("notes", "")).lower() for a in recent_activities):
-            return {
-                "situation_summary": (
-                    f"{first_name} has demonstrated interest in solar but expressed reservations about the upfront capital expenditure. "
-                    "Clear ROI calculations and central subsidy awareness are critical to unlocking this deal."
-                ),
-                "risk_level": "medium",
-                "risk_reason": "Customer is price-sensitive and may stall without clear payback and EMI numbers.",
-                "best_next_action": "Share PM Surya Ghar subsidy breakdown and calculate exact 3-year payback period.",
-                "suggested_follow_up_timing": "Tomorrow around 11:30 AM",
-                "suggested_outcome_to_log": "Price or budget concern",
-                "talking_points": [
-                    "Highlight direct central government subsidy: ₹78,000 direct DBT for systems up to 3 kW.",
-                    "Present zero-down EMI options where the monthly electricity bill savings exceed the loan installment.",
-                    f"Typical payback in {city} is 3.2 to 3.8 years, followed by 20+ years of virtually free power.",
-                ],
-                "suggested_whatsapp_message": (
-                    f"Namaste {first_name} ji! Here is the good news: under the PM Surya Ghar scheme, you are eligible for up to ₹78,000 direct bank subsidy. "
-                    f"For a typical {monthly_bill or '₹3,000+'} monthly bill, your solar system pays for itself in less than 3.5 years. "
-                    "May I share a 1-page subsidy and EMI calculation sheet?"
-                ),
-                "objections_to_expect": [
-                    {
-                        "objection": "Solar is too expensive right now.",
-                        "reply": "With the ₹78,000 central subsidy and low-interest green loans (under 7%), your monthly electricity bill savings will actually be higher than your EMI."
-                    },
-                    {
-                        "objection": "How reliable is the government subsidy release?",
-                        "reply": "The PM Surya Ghar subsidy is credited directly to your bank account via DBT within 30 days of net-meter commissioning. We handle all paperwork."
-                    }
-                ],
-            }, 0
-
-        # Case 2: 3 or more failed call attempts
+        # Case 1: 3 or more failed call attempts
         if attempt_count >= 3 or latest_outcome in ["No answer", "Busy or switched off"]:
             return {
                 "situation_summary": (
@@ -308,6 +274,40 @@ class RulesProvider(AISuggestionProvider):
                     {
                         "objection": "Is this a promotional spam call?",
                         "reply": "Not at all. You recently filled out our solar enquiry form, and I am following up to assist with your rooftop eligibility and government subsidy."
+                    }
+                ],
+            }, 0
+
+        # Case 2: Price or budget concern
+        if latest_outcome == "Price or budget concern" or status == "Interested" and any("price" in str(a.get("notes", "")).lower() for a in recent_activities):
+            return {
+                "situation_summary": (
+                    f"{first_name} has demonstrated interest in solar but expressed reservations about the upfront capital expenditure. "
+                    "Clear ROI calculations and central subsidy awareness are critical to unlocking this deal."
+                ),
+                "risk_level": "medium",
+                "risk_reason": "Customer is price-sensitive and may stall without clear payback and EMI numbers.",
+                "best_next_action": "Share PM Surya Ghar subsidy breakdown and calculate exact 3-year payback period.",
+                "suggested_follow_up_timing": "Tomorrow around 11:30 AM",
+                "suggested_outcome_to_log": "Price or budget concern",
+                "talking_points": [
+                    "Highlight direct central government subsidy: ₹78,000 direct DBT for systems up to 3 kW.",
+                    "Present zero-down EMI options where the monthly electricity bill savings exceed the loan installment.",
+                    f"Typical payback in {city} is 3.2 to 3.8 years, followed by 20+ years of virtually free power.",
+                ],
+                "suggested_whatsapp_message": (
+                    f"Namaste {first_name} ji! Here is the good news: under the PM Surya Ghar scheme, you are eligible for up to ₹78,000 direct bank subsidy. "
+                    f"For a typical {monthly_bill or '₹3,000+'} monthly bill, your solar system pays for itself in less than 3.5 years. "
+                    "May I share a 1-page subsidy and EMI calculation sheet?"
+                ),
+                "objections_to_expect": [
+                    {
+                        "objection": "Solar is too expensive right now.",
+                        "reply": "With the ₹78,000 central subsidy and low-interest green loans (under 7%), your monthly electricity bill savings will actually be higher than your EMI."
+                    },
+                    {
+                        "objection": "How reliable is the government subsidy release?",
+                        "reply": "The PM Surya Ghar subsidy is credited directly to your bank account via DBT within 30 days of net-meter commissioning. We handle all paperwork."
                     }
                 ],
             }, 0

@@ -42,6 +42,8 @@ import {
   IconSearch,
   IconSparkles,
   IconWorld,
+  IconAlertCircle,
+  IconShieldCheck,
 } from '@tabler/icons-react';
 import { useAuth } from '../../context/AuthContext';
 import { useRegion } from '../../context/RegionContext';
@@ -57,7 +59,7 @@ import type { Notification } from '../../api/types';
 
 export const AppLayout: React.FC = () => {
   const [opened, { toggle, close }] = useDisclosure();
-  const { user, logout, isAdminOrManager } = useAuth();
+  const { user, logout, isAdminOrManager, can } = useAuth();
   const { selectedRegion, setSelectedRegion, activeRegion } = useRegion();
   const navigate = useNavigate();
   const location = useLocation();
@@ -139,13 +141,25 @@ export const AppLayout: React.FC = () => {
 
   const navItems = [
     { label: 'Dashboard', icon: IconDashboard, path: '/' },
-    { label: "Today's Follow-ups", icon: IconCalendarEvent, path: '/today' },
-    { label: 'All Leads', icon: IconUsers, path: '/leads' },
-    { label: 'Import Leads', icon: IconFileSpreadsheet, path: '/import-leads' },
-    { label: 'Site Surveys', icon: IconClipboardCheck, path: '/surveys' },
-    { label: 'Quotations', icon: IconFileText, path: '/quotes' },
-    ...(isAdminOrManager ? [{ label: 'Admin Hub', icon: IconSettings, path: '/admin' }] : []),
-    { label: 'System Health', icon: IconHeartbeat, path: '/health' },
+    ...(can('lead.view') ? [{ label: "Today's Follow-ups", icon: IconCalendarEvent, path: '/today' }] : []),
+    ...(can('lead.view') ? [{ label: 'All Leads', icon: IconUsers, path: '/leads' }] : []),
+    ...(can('lead.unassigned_queue') || can('lead.lost_approval')
+      ? [{ label: 'Manager Attention', icon: IconAlertCircle, path: '/manager-attention' }]
+      : []),
+    ...(user?.role === 'surveyor'
+      ? [{ label: 'My Site Surveys', icon: IconClipboardCheck, path: '/my-surveys' }]
+      : can('survey.view')
+      ? [{ label: 'Site Surveys', icon: IconClipboardCheck, path: '/surveys' }]
+      : []),
+    ...(can('quote.view') ? [{ label: 'Quotations', icon: IconFileText, path: '/quotes' }] : []),
+    ...(can('lead.import') ? [{ label: 'Import Leads', icon: IconFileSpreadsheet, path: '/import-leads' }] : []),
+    ...(can('user.view_team') ? [{ label: 'Roles Matrix', icon: IconShieldCheck, path: '/roles-matrix' }] : []),
+    ...(can('masters.manage') || user?.role === 'admin'
+      ? [{ label: 'Admin Hub', icon: IconSettings, path: '/admin' }]
+      : []),
+    ...(user?.role === 'admin' || user?.role === 'manager'
+      ? [{ label: 'System Health', icon: IconHeartbeat, path: '/health' }]
+      : []),
   ];
 
   const isDark = colorScheme === 'dark';

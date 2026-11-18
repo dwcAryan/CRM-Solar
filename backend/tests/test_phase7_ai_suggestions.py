@@ -98,6 +98,7 @@ class TestRulesProvider:
 
     def test_rules_provider_price_concern(self, sample_lead):
         sample_lead.status = Lead.Status.INTERESTED
+        sample_lead.attempt_count = 0
         sample_lead.save()
         context, _ = build_lead_summary_context(sample_lead)
         # Inject price outcome

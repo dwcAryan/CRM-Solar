@@ -59,6 +59,7 @@ class Lead(models.Model):
         UNREACHABLE = 'Unreachable', 'Unreachable'
         WON = 'Won', 'Won'
         LOST = 'Lost', 'Lost'
+        LOST_APPROVAL_PENDING = 'Lost approval pending', 'Lost approval pending'
         DO_NOT_CONTACT = 'Do not contact', 'Do not contact'
         MERGED = 'Merged', 'Merged'
 
@@ -193,6 +194,32 @@ class Lead(models.Model):
         related_name='leads',
     )
     remark = models.CharField(max_length=500, blank=True, default='')
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_leads',
+    )
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='deleted_leads',
+    )
+    deleted_reason = models.CharField(max_length=500, blank=True, default='')
+    lost_pending_reason = models.ForeignKey(
+        'masters.LostReason',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pending_lost_leads',
+    )
+    lost_pending_notes = models.TextField(blank=True, default='')
+    previous_status_before_lost = models.CharField(max_length=50, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

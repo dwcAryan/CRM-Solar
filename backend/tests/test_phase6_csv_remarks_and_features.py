@@ -46,14 +46,20 @@ def lost_reason(db):
 
 @pytest.mark.django_db
 class TestCsvLeadImport:
-    def test_sample_csv_download_and_sanitization(self, client, sales_user):
+    def test_sample_csv_download_and_sanitization(self, client, manager_user, sales_user):
+        # Salesperson denied
         client.force_login(sales_user)
+        assert client.get('/api/leads/import-sample-csv/').status_code == 403
+
+        # Manager allowed
+        client.force_login(manager_user)
         response = client.get('/api/leads/import-sample-csv/')
         assert response.status_code == 200
         assert 'text/csv' in response['Content-Type']
-        assert 'solar_leads_sample_template.csv' in response['Content-Disposition']
+        assert 'solar_leads_sample_' in response['Content-Disposition']
         content = response.content.decode('utf-8-sig')
-        assert 'Name,Phone,Email,City' in content
+        assert 'Name,Phone,Email' in content
+        assert 'City' in content
         assert 'Ramesh Patel' in content
 
     def test_sanitize_csv_cell_formula_injection(self):
@@ -65,7 +71,8 @@ class TestCsvLeadImport:
         assert sanitize_csv_cell("Safe String") == "Safe String"
         assert sanitize_csv_cell(123) == "123"
 
-    def test_preview_csv_endpoint(self, client, sales_user):
+    def test_preview_csv_endpoint(self, client, manager_user, sales_user):
+        # Salesperson denied
         client.force_login(sales_user)
         csv_data = (
             "Customer Name,Mobile Number,Town,Monthly Power Bill\n"
@@ -73,7 +80,11 @@ class TestCsvLeadImport:
             "Geeta Ben,9825022222,Surat,6000\n"
         ).encode('utf-8-sig')
         file_obj = SimpleUploadedFile("leads.csv", csv_data, content_type="text/csv")
+        assert client.post('/api/leads/preview-csv/', {'file': file_obj}).status_code == 403
 
+        # Manager allowed
+        client.force_login(manager_user)
+        file_obj.seek(0)
         response = client.post('/api/leads/preview-csv/', {'file': file_obj})
         assert response.status_code == 200
         data = response.json()
@@ -111,7 +122,8 @@ class TestCsvLeadImport:
         assert data['duplicate_count'] == 0
 
         # Verify leads in database
-        lead1 = Lead.objects.get(phone='9825033333')
+        lead1 = Lead.objects.filter(phone__contains='9825033333').first()
+        assert lead1 is not None
         assert lead1.name == 'Harish Bhai'
         assert lead1.status == Lead.Status.NEW
         assert lead1.next_action == 'First call attempt'
@@ -248,7 +260,7 @@ class TestCsvLeadImport:
         )
         assert response.status_code == 201
 
-        assigned_sales = list(Lead.objects.filter(phone__startswith='982510000').order_by('id').values_list('assigned_to_id', flat=True))
+        assigned_sales = list(Lead.objects.filter(phone__contains='982510000').order_by('id').values_list('assigned_to_id', flat=True))
         assert assigned_sales == [sales_user.id, sales2.id, sales_user.id, sales2.id]
 
     def test_undo_import_batch(self, client, manager_user):

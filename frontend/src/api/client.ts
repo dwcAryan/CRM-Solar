@@ -412,8 +412,8 @@ export const fetchUnreadNotificationCount = async (): Promise<number> => {
   return res.data.unread_count;
 };
 
-export const fetchUsers = async (): Promise<User[]> => {
-  const res = await apiClient.get<any>('/api/users/');
+export const fetchUsers = async (params?: Record<string, any>): Promise<User[]> => {
+  const res = await apiClient.get<any>('/api/users/', { params });
   return Array.isArray(res.data) ? res.data : (res.data.results || []);
 };
 
@@ -499,5 +499,92 @@ export const correctLeadData = async (leadId: number, updates: Record<string, an
 
 export const checkLeadDncr = async (leadId: number, dncr_status?: string, notes?: string): Promise<{ message: string; lead: Lead }> => {
   const res = await apiClient.post(`/api/leads/${leadId}/check-dncr/`, { dncr_status, notes });
+  return res.data;
+};
+
+// Phase 9: RBAC & Work Areas
+export const fetchUnassignedLeads = async (): Promise<Lead[]> => {
+  const res = await apiClient.get<any>('/api/leads/unassigned/');
+  return Array.isArray(res.data) ? res.data : (res.data.results || []);
+};
+
+export const fetchLostApprovals = async (): Promise<Lead[]> => {
+  const res = await apiClient.get<any>('/api/leads/lost-approvals/');
+  return Array.isArray(res.data) ? res.data : (res.data.results || []);
+};
+
+export const approveLostLead = async (leadId: number, data?: { notes?: string; remark?: string }): Promise<any> => {
+  const res = await apiClient.post(`/api/leads/${leadId}/approve-lost/`, data || {});
+  return res.data;
+};
+
+export const rejectLostLead = async (
+  leadId: number,
+  data: { reason: string; next_followup_at: string }
+): Promise<any> => {
+  const res = await apiClient.post(`/api/leads/${leadId}/reject-lost/`, data);
+  return res.data;
+};
+
+export const assignLead = async (leadId: number, userId: number, reason?: string): Promise<any> => {
+  const res = await apiClient.post(`/api/leads/${leadId}/assign/`, { assigned_to_id: userId, reason });
+  return res.data;
+};
+
+export const bulkAssignLeads = async (leadIds: number[], userId: number, reason?: string): Promise<any> => {
+  const res = await apiClient.post('/api/leads/bulk-assign/', {
+    lead_ids: leadIds,
+    assigned_to_id: userId,
+    reason,
+  });
+  return res.data;
+};
+
+export const autoDistributeLeads = async (leadIds?: number[], salespersonIds?: number[]): Promise<any> => {
+  const res = await apiClient.post('/api/leads/auto-distribute/', {
+    lead_ids: leadIds,
+    salesperson_ids: salespersonIds,
+  });
+  return res.data;
+};
+
+export const assignSurveyor = async (surveyId: number, surveyorId: number): Promise<any> => {
+  const res = await apiClient.post(`/api/surveys/${surveyId}/assign-surveyor/`, {
+    surveyor_id: surveyorId,
+  });
+  return res.data;
+};
+
+export const fetchMySurveys = async (params?: Record<string, any>): Promise<Survey[]> => {
+  const res = await apiClient.get<any>('/api/surveys/my-surveys/', { params });
+  return Array.isArray(res.data) ? res.data : (res.data.results || []);
+};
+
+export const uploadSurveyPhoto = async (surveyId: number, file: File, caption?: string): Promise<any> => {
+  const formData = new FormData();
+  formData.append('survey', String(surveyId));
+  formData.append('image', file);
+  if (caption) formData.append('caption', caption);
+  const res = await apiClient.post('/api/surveys/photos/', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return res.data;
+};
+
+export const fetchRolesMatrix = async (): Promise<Record<string, Record<string, string>>> => {
+  const res = await apiClient.get<Record<string, Record<string, string>>>('/api/roles-matrix/');
+  return res.data;
+};
+
+export const softDeleteLead = async (leadId: number, reason: string): Promise<any> => {
+  const res = await apiClient.delete(`/api/leads/${leadId}/`, { data: { reason } });
+  return res.data;
+};
+
+export const manualChangeStatus = async (
+  leadId: number,
+  data: { status: string; reason: string; next_action?: string; next_followup_at?: string }
+): Promise<any> => {
+  const res = await apiClient.post(`/api/leads/${leadId}/manual-status/`, data);
   return res.data;
 };

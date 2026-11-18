@@ -2,7 +2,7 @@ from datetime import timedelta
 from typing import Any, Dict, Optional, Tuple
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 
 from accounts.models import User
@@ -197,17 +197,40 @@ def process_log_activity(
             {"next_followup_at": "Next follow-up date and time is required for non-terminal statuses."}
         )
 
-    # 5. Reason validations
+    # 5. Reason validations & Lost Approval Pending flow
     if target_status == Lead.Status.LOST:
         if not lost_reason:
             raise ValidationError({"lost_reason_id": "A lost reason is required when marking a lead as Lost."})
 
-        # Permission check: WHO_CAN_MARK_LOST (applies to manual marking, not auto-close from Unreachable)
-        if not is_no_answer_on_unreachable and lead.status != Lead.Status.LOST and not can_user_mark_lost(user):
-            raise PermissionDenied(
-                f"Your role ({user.role}) does not have permission to mark leads as Lost. "
-                f"Policy requires role '{policy.who_can_mark_lost}' or higher."
-            )
+        # Salespeople cannot finalize Lost; puts lead into Lost approval pending
+        if getattr(user, 'role', None) == 'salesperson' and not getattr(user, 'is_superuser', False):
+            target_status = Lead.Status.LOST_APPROVAL_PENDING
+            lead.lost_pending_reason = lost_reason
+            lead.lost_pending_notes = notes or remark
+            lead.previous_status_before_lost = lead.status
+            target_next_action = "Awaiting manager Lost approval"
+            target_followup_at = now + timedelta(days=2)  # Non-terminal, so follow-up required
+            is_terminal = False
+
+            # Notify managers of pending approval
+            from notifications.models import Notification
+            from accounts.models import User as AppUser
+            mgr_qs = AppUser.objects.filter(role__in=[AppUser.Role.MANAGER, AppUser.Role.ADMIN], is_active=True)
+            if lead.region_id:
+                mgr_qs = mgr_qs.filter(models.Q(allowed_regions__code=lead.region_id) | models.Q(is_superuser=True)).distinct()
+            for mgr in mgr_qs:
+                Notification.objects.create(
+                    user=mgr,
+                    message=f"Lead '{lead.name}' submitted for Lost approval by {user.get_full_name() or user.username}.",
+                    link=f"/leads/{lead.id}",
+                )
+        else:
+            # Permission check: WHO_CAN_MARK_LOST (applies to direct marking by managers/admins)
+            if not is_no_answer_on_unreachable and lead.status != Lead.Status.LOST and not can_user_mark_lost(user):
+                raise PermissionDenied(
+                    f"Your role ({user.role}) does not have permission to mark leads as Lost. "
+                    f"Policy requires role '{policy.who_can_mark_lost}' or higher."
+                )
 
     if target_status == Lead.Status.NURTURE and not nurture_reason:
         raise ValidationError({"nurture_reason_id": "A nurture reason is required when placing a lead into Nurture."})

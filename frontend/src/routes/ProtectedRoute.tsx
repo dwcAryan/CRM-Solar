@@ -6,10 +6,11 @@ import { useAuth } from '../context/AuthContext';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   allowedRoles?: Array<'admin' | 'manager' | 'salesperson' | 'surveyor'>;
+  permission?: string;
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
-  const { user, isAuthenticated, isLoading } = useAuth();
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles, permission }) => {
+  const { user, isAuthenticated, isLoading, can } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -24,7 +25,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowe
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+  const roleDenied = allowedRoles && user && !allowedRoles.includes(user.role);
+  const permissionDenied = permission && !can(permission);
+
+  if (roleDenied || permissionDenied) {
     return (
       <Container size="sm" py="xl">
         <Paper withBorder p="xl" radius="md" style={{ textAlign: 'center' }}>
@@ -32,7 +36,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowe
             Access Denied
           </Text>
           <Text size="sm" c="dimmed" mb="md">
-            Your role ({user.role}) is not authorized to access this page.
+            Your role ({user?.role}) does not have permission to access this work area.
           </Text>
           <Button variant="light" onClick={() => window.history.back()}>
             Go Back
