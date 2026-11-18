@@ -40,7 +40,6 @@ import {
   IconLogout,
   IconHeartbeat,
   IconSearch,
-  IconSparkles,
   IconWorld,
   IconAlertCircle,
   IconShieldCheck,
@@ -53,8 +52,6 @@ import {
   markNotificationRead,
   markAllNotificationsRead,
 } from '../../api/client';
-import { SystemTour } from '../tour/SystemTour';
-import { HelpChatbot } from '../help/HelpChatbot';
 import { InstallAppButton } from '../pwa/InstallAppButton';
 import { NotificationPermissionModal } from '../notifications/NotificationPermissionModal';
 import { NotificationSettingsModal } from '../notifications/NotificationSettingsModal';
@@ -73,20 +70,12 @@ export const AppLayout: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // System tour state
-  const [tourOpened, setTourOpened] = useState(false);
   const [settingsOpened, setSettingsOpened] = useState(false);
   const shownNotifIds = useRef<Set<number>>(new Set());
 
-  // Auto-launch tour for first-time visitors
+  // One-time cleanup of legacy tour localStorage key (Phase 13a)
   useEffect(() => {
-    const hasSeen = localStorage.getItem('solar_crm_has_seen_tour');
-    if (!hasSeen) {
-      const timer = setTimeout(() => {
-        setTourOpened(true);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
+    localStorage.removeItem('solar_crm_has_seen_tour');
   }, []);
 
   // Keyboard shortcut: '/' focuses global search
@@ -281,19 +270,6 @@ export const AppLayout: React.FC = () => {
               </Badge>
             )}
 
-            {/* Take a Tour Button */}
-            <Button
-              variant="light"
-              color="yellow"
-              size="xs"
-              radius="md"
-              leftSection={<IconSparkles size={14} />}
-              onClick={() => setTourOpened(true)}
-              visibleFrom="sm"
-            >
-              Take a Tour
-            </Button>
-
             {/* Dark Mode Toggle */}
             <ActionIcon
               variant="light"
@@ -401,9 +377,6 @@ export const AppLayout: React.FC = () => {
 
               <Menu.Dropdown>
                 <Menu.Label>Signed in as {user?.username}</Menu.Label>
-                <Menu.Item leftSection={<IconSparkles size={14} />} onClick={() => setTourOpened(true)}>
-                  Take a Tour
-                </Menu.Item>
                 <Menu.Item leftSection={<IconBell size={14} />} onClick={() => setSettingsOpened(true)}>
                   Notification Settings
                 </Menu.Item>
@@ -456,12 +429,6 @@ export const AppLayout: React.FC = () => {
       {/* PWA & Push Notification Modals */}
       <NotificationPermissionModal />
       <NotificationSettingsModal opened={settingsOpened} onClose={() => setSettingsOpened(false)} />
-
-      {/* Interactive System Tour Modal */}
-      <SystemTour opened={tourOpened} onClose={() => setTourOpened(false)} />
-
-      {/* Floating In-App Help Chatbot */}
-      <HelpChatbot onStartTour={() => setTourOpened(true)} />
     </AppShell>
   );
 };

@@ -408,23 +408,6 @@ export interface CsvImportResponse {
   }>;
 }
 
-export interface HelpQueryResponse {
-  matched: boolean;
-  id?: string;
-  title: string;
-  category: string;
-  answer: string;
-  action?: { label: string; path: string };
-  related?: string[];
-}
-
-export interface HelpFaqItem {
-  id: string;
-  title: string;
-  category: string;
-  action?: { label: string; path: string };
-}
-
 // Phase 7 AI Suggestions Types
 export interface AIOnjectionReply {
   objection: string;

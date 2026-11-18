@@ -18,8 +18,6 @@ import type {
   ImportBatch,
   CsvPreviewResponse,
   CsvImportResponse,
-  HelpQueryResponse,
-  HelpFaqItem,
   AISuggestion,
   Region,
   State,
@@ -424,16 +422,6 @@ export const fetchTemplates = async (): Promise<MessageTemplate[]> => {
     { id: 3, name: 'brochure_and_savings', body: 'Namaste {customer_name}! Thank you for your interest in rooftop solar. You can save up to 80% on your electricity bill.', is_active: true, created_at: '' },
     { id: 4, name: 'quote_sent', body: 'Namaste {customer_name}! Your customized solar proposal for a {system_size_kw} kW system ({brand}) amounting to ₹{price} is ready.', is_active: true, created_at: '' },
   ];
-};
-
-export const queryHelpAssistant = async (query: string): Promise<HelpQueryResponse> => {
-  const res = await apiClient.post<HelpQueryResponse>('/api/help/query/', { query });
-  return res.data;
-};
-
-export const fetchHelpFaqs = async (): Promise<HelpFaqItem[]> => {
-  const res = await apiClient.get<{ faqs: HelpFaqItem[] }>('/api/help/faqs/');
-  return res.data.faqs || [];
 };
 
 // Phase 7 AI Suggestions

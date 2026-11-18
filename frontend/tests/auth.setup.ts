@@ -62,7 +62,6 @@ for (const role of roles) {
     await page.evaluate(({ access, refresh }) => {
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
-      localStorage.setItem('solar_crm_has_seen_tour', 'true');
     }, { access: data.access, refresh: data.refresh });
 
     // Reload page to verify authenticated state
