@@ -30,10 +30,14 @@ solar-crm/
     surveys/        # Site surveys, schedule tracking, and site photos
     quotes/         # Versioned solar proposals (never deleted or overwritten)
   frontend/         # Vite React TypeScript application with Mantine UI
-  docs/             # Process definition documentation & references
+  docs/             # Process definition & official User Manual (USER_MANUAL.md)
   .gitignore
   README.md
 ```
+
+## Documentation
+- Detailed Operations & User Manual: [`docs/USER_MANUAL.md`](docs/USER_MANUAL.md)
+- Process Definition: `docs/Solar CRM – All Process Paths and Outcomes (v0.1).pdf`
 
 ## Getting Started
 
