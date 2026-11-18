@@ -43,6 +43,7 @@ import {
   IconWorld,
   IconAlertCircle,
   IconShieldCheck,
+  IconCompass,
 } from '@tabler/icons-react';
 import { useAuth } from '../../context/AuthContext';
 import { useRegion } from '../../context/RegionContext';
@@ -51,10 +52,14 @@ import {
   fetchUnreadNotificationCount,
   markNotificationRead,
   markAllNotificationsRead,
+  fetchTourState,
 } from '../../api/client';
 import { InstallAppButton } from '../pwa/InstallAppButton';
 import { NotificationPermissionModal } from '../notifications/NotificationPermissionModal';
 import { NotificationSettingsModal } from '../notifications/NotificationSettingsModal';
+import { TourCenterDrawer } from '../tour/TourCenterDrawer';
+import { HelpbotFab } from '../helpbot/HelpbotFab';
+import { startTour } from '../tour/ProductTourService';
 import type { Notification } from '../../api/types';
 
 export const AppLayout: React.FC = () => {
@@ -71,11 +76,22 @@ export const AppLayout: React.FC = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [settingsOpened, setSettingsOpened] = useState(false);
+  const [tourCenterOpened, setTourCenterOpened] = useState(false);
   const shownNotifIds = useRef<Set<number>>(new Set());
 
   // One-time cleanup of legacy tour localStorage key (Phase 13a)
   useEffect(() => {
     localStorage.removeItem('solar_crm_has_seen_tour');
+    // Check if user has seen modern product tour (Phase 13)
+    fetchTourState()
+      .then((state) => {
+        if (!state.has_seen_tour && !state.dismissed_at) {
+          setTimeout(() => {
+            startTour('complete');
+          }, 800);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Keyboard shortcut: '/' focuses global search
@@ -173,20 +189,20 @@ export const AppLayout: React.FC = () => {
   const navItems = [
     { label: 'Dashboard', icon: IconDashboard, path: '/' },
     ...(can('lead.view') ? [{ label: "Today's Follow-ups", icon: IconCalendarEvent, path: '/today' }] : []),
-    ...(can('lead.view') ? [{ label: 'All Leads', icon: IconUsers, path: '/leads' }] : []),
+    ...(can('lead.view') ? [{ label: 'All Leads', icon: IconUsers, path: '/leads', dataTour: 'sidebar-leads' }] : []),
     ...(can('lead.unassigned_queue') || can('lead.lost_approval')
       ? [{ label: 'Manager Attention', icon: IconAlertCircle, path: '/manager-attention' }]
       : []),
     ...(user?.role === 'surveyor'
-      ? [{ label: 'My Site Surveys', icon: IconClipboardCheck, path: '/my-surveys' }]
+      ? [{ label: 'My Site Surveys', icon: IconClipboardCheck, path: '/my-surveys', dataTour: 'sidebar-surveys' }]
       : can('survey.view')
-      ? [{ label: 'Site Surveys', icon: IconClipboardCheck, path: '/surveys' }]
+      ? [{ label: 'Site Surveys', icon: IconClipboardCheck, path: '/surveys', dataTour: 'sidebar-surveys' }]
       : []),
-    ...(can('quote.view') ? [{ label: 'Quotations', icon: IconFileText, path: '/quotes' }] : []),
+    ...(can('quote.view') ? [{ label: 'Quotations', icon: IconFileText, path: '/quotes', dataTour: 'sidebar-quotes' }] : []),
     ...(can('lead.import') ? [{ label: 'Import Leads', icon: IconFileSpreadsheet, path: '/import-leads' }] : []),
     ...(can('user.view_team') ? [{ label: 'Roles Matrix', icon: IconShieldCheck, path: '/roles-matrix' }] : []),
     ...(can('masters.manage') || user?.role === 'admin'
-      ? [{ label: 'Admin Hub', icon: IconSettings, path: '/admin' }]
+      ? [{ label: 'Admin Hub', icon: IconSettings, path: '/admin', dataTour: 'sidebar-admin' }]
       : []),
     ...(user?.role === 'admin' || user?.role === 'manager'
       ? [{ label: 'System Health', icon: IconHeartbeat, path: '/health' }]
@@ -225,7 +241,7 @@ export const AppLayout: React.FC = () => {
           </Group>
 
           {/* Global Search Box (name, phone, city) */}
-          <Box style={{ flex: 1, maxWidth: 450 }} mx="md" visibleFrom="xs">
+          <Box style={{ flex: 1, maxWidth: 450 }} mx="md" visibleFrom="xs" data-tour="header-search">
             <form onSubmit={handleSearchSubmit}>
               <TextInput
                 ref={searchInputRef}
@@ -242,33 +258,48 @@ export const AppLayout: React.FC = () => {
 
           <Group gap="xs">
             {/* Multi-Country Region Filter / Badge */}
-            {isAdminOrManager ? (
-              <Select
-                size="xs"
-                radius="md"
-                w={145}
-                leftSection={<IconWorld size={14} />}
-                value={selectedRegion}
-                onChange={(val) => {
-                  setSelectedRegion(val || '');
-                  queryClient.invalidateQueries();
-                }}
-                data={[
-                  { value: '', label: '🌐 All Regions' },
-                  { value: 'IN', label: '🇮🇳 India (IN)' },
-                  { value: 'AU', label: '🇦🇺 Australia (AU)' },
-                ]}
-              />
-            ) : (
-              <Badge
-                size="md"
-                variant="light"
-                color={activeRegion === 'AU' ? 'blue' : 'green'}
-                leftSection={<IconWorld size={12} />}
-              >
-                {activeRegion === 'AU' ? '🇦🇺 Australia' : '🇮🇳 India'}
-              </Badge>
-            )}
+            <Box data-tour="header-region">
+              {isAdminOrManager ? (
+                <Select
+                  size="xs"
+                  radius="md"
+                  w={145}
+                  leftSection={<IconWorld size={14} />}
+                  value={selectedRegion}
+                  onChange={(val) => {
+                    setSelectedRegion(val || '');
+                    queryClient.invalidateQueries();
+                  }}
+                  data={[
+                    { value: '', label: '🌐 All Regions' },
+                    { value: 'IN', label: '🇮🇳 India (IN)' },
+                    { value: 'AU', label: '🇦🇺 Australia (AU)' },
+                  ]}
+                />
+              ) : (
+                <Badge
+                  size="md"
+                  variant="light"
+                  color={activeRegion === 'AU' ? 'blue' : 'green'}
+                  leftSection={<IconWorld size={12} />}
+                >
+                  {activeRegion === 'AU' ? '🇦🇺 Australia' : '🇮🇳 India'}
+                </Badge>
+              )}
+            </Box>
+
+            {/* Product Tour Center Button */}
+            <ActionIcon
+              variant="light"
+              size="lg"
+              radius="md"
+              color="blue"
+              onClick={() => setTourCenterOpened(true)}
+              title="Product Tour Center & Guided Walkthroughs"
+              data-tour="header-help"
+            >
+              <IconCompass size={20} />
+            </ActionIcon>
 
             {/* Dark Mode Toggle */}
             <ActionIcon
@@ -283,20 +314,21 @@ export const AppLayout: React.FC = () => {
             </ActionIcon>
 
             {/* Notification Bell Menu */}
-            <Menu position="bottom-end" shadow="md" width={320}>
-              <Menu.Target>
-                <Indicator
-                  disabled={unreadCount === 0}
-                  color="red"
-                  size={14}
-                  label={unreadCount > 9 ? '9+' : unreadCount}
-                  offset={4}
-                >
-                  <ActionIcon variant="light" size="lg" radius="md">
-                    <IconBell size={20} />
-                  </ActionIcon>
-                </Indicator>
-              </Menu.Target>
+            <Box data-tour="header-notifications">
+              <Menu position="bottom-end" shadow="md" width={320}>
+                <Menu.Target>
+                  <Indicator
+                    disabled={unreadCount === 0}
+                    color="red"
+                    size={14}
+                    label={unreadCount > 9 ? '9+' : unreadCount}
+                    offset={4}
+                  >
+                    <ActionIcon variant="light" size="lg" radius="md">
+                      <IconBell size={20} />
+                    </ActionIcon>
+                  </Indicator>
+                </Menu.Target>
 
               <Menu.Dropdown>
                 <Group justify="space-between" p="xs">
@@ -356,11 +388,12 @@ export const AppLayout: React.FC = () => {
                 </ScrollArea.Autosize>
               </Menu.Dropdown>
             </Menu>
+          </Box>
 
             {/* User Profile Menu */}
             <Menu position="bottom-end" shadow="md">
               <Menu.Target>
-                <Group gap="xs" style={{ cursor: 'pointer' }}>
+                <Group gap="xs" style={{ cursor: 'pointer' }} data-tour="header-user-menu">
                   <Avatar color="yellow" radius="xl">
                     {user?.first_name ? user.first_name[0] : (user?.username ? user.username[0].toUpperCase() : 'U')}
                   </Avatar>
@@ -377,6 +410,9 @@ export const AppLayout: React.FC = () => {
 
               <Menu.Dropdown>
                 <Menu.Label>Signed in as {user?.username}</Menu.Label>
+                <Menu.Item leftSection={<IconCompass size={14} />} onClick={() => setTourCenterOpened(true)}>
+                  Product Tour Center
+                </Menu.Item>
                 <Menu.Item leftSection={<IconBell size={14} />} onClick={() => setSettingsOpened(true)}>
                   Notification Settings
                 </Menu.Item>
@@ -396,7 +432,7 @@ export const AppLayout: React.FC = () => {
       <AppShell.Navbar p="xs">
         <Stack justify="space-between" h="100%">
           <ScrollArea style={{ flex: 1 }}>
-            <Stack gap={4}>
+            <Stack gap={4} data-tour="sidebar-nav">
               {navItems.map((item) => {
                 const active = location.pathname === item.path;
                 return (
@@ -409,6 +445,7 @@ export const AppLayout: React.FC = () => {
                     variant="light"
                     color="yellow"
                     style={{ borderRadius: rem(8) }}
+                    data-tour={(item as any).dataTour}
                   />
                 );
               })}
@@ -429,6 +466,14 @@ export const AppLayout: React.FC = () => {
       {/* PWA & Push Notification Modals */}
       <NotificationPermissionModal />
       <NotificationSettingsModal opened={settingsOpened} onClose={() => setSettingsOpened(false)} />
+
+      {/* Phase 13 Product Tour & Helpbot Components */}
+      <TourCenterDrawer
+        opened={tourCenterOpened}
+        onClose={() => setTourCenterOpened(false)}
+        userRole={user?.role}
+      />
+      <HelpbotFab userRole={user?.role} />
     </AppShell>
   );
 };

@@ -486,3 +486,61 @@ export interface EmailSettingsResponse {
   logs: EmailLog[];
 }
 
+// Phase 13 Product Tour & Helpbot
+export interface UserTourState {
+  has_seen_tour: boolean;
+  tour_version: number;
+  completed_tours: string[];
+  dismissed_at?: string | null;
+  checklist_state?: Record<string, boolean>;
+}
+
+export interface HelpbotTourRef {
+  id: string;
+  title: string;
+}
+
+export interface HelpbotAskResponse {
+  query_id: number;
+  answer: string;
+  topic: string;
+  confidence: number;
+  is_refusal: boolean;
+  suggested_questions: string[];
+  tour: HelpbotTourRef | null;
+  response_time_ms: number;
+}
+
+export interface HelpbotSuggestionsResponse {
+  suggestions: string[];
+}
+
+export interface HelpbotFeedbackPayload {
+  query_id: number;
+  helpful: boolean;
+  comment?: string;
+}
+
+export interface HelpbotStatsResponse {
+  total_queries: number;
+  refusal_count: number;
+  refusal_rate: number;
+  positive_feedback: number;
+  negative_feedback: number;
+  helpful_rate: number;
+  avg_latency_ms: number;
+  unresolved_count: number;
+  top_topics: { topic: string; count: number }[];
+}
+
+export interface HelpbotUnansweredItem {
+  id: number;
+  question: string;
+  user_name?: string;
+  topic_guess: string;
+  confidence: number;
+  resolved: boolean;
+  created_at: string;
+}
+
+

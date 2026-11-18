@@ -44,3 +44,28 @@ class User(AbstractUser):
         full_name = self.get_full_name()
         display = full_name if full_name else self.username
         return f"{display} ({self.get_role_display()})"
+
+
+class UserTourState(models.Model):
+    class Status(models.TextChoices):
+        NOT_STARTED = 'not_started', 'Not Started'
+        IN_PROGRESS = 'in_progress', 'In Progress'
+        COMPLETED = 'completed', 'Completed'
+        DISMISSED = 'dismissed', 'Dismissed'
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tour_states')
+    tour_id = models.CharField(max_length=50, default='main')
+    version = models.IntegerField(default=1)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.NOT_STARTED)
+    last_step = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('user', 'tour_id')
+        verbose_name = 'User Tour State'
+        verbose_name_plural = 'User Tour States'
+
+    def __str__(self) -> str:
+        return f"{self.user.username} - {self.tour_id} (v{self.version}): {self.status}"
+

@@ -31,6 +31,10 @@ This document provides a comprehensive inventory of all technologies, libraries,
 | **reportlab** | `>=4.2.0` | PDF document generation engine for downloading customer solar proposals. | BSD 3-Clause |
 | **pywebpush** | `>=2.5.0` | Encrypted Web Push notification delivery using the VAPID protocol. | MIT |
 | **aiosmtpd** | `>=1.4.6` | Asynchronous in-process local fake SMTP server for automated integration tests. | Apache 2.0 |
+| **rapidfuzz** | `>=3.9.0` | High-performance C++ string matching and Hinglish synonym normalization for Helpbot. | MIT |
+| **scikit-learn** | `>=1.5.0` | TF-IDF text vectorization and calibrated linear intent classification for Helpbot. | BSD 3-Clause |
+| **rank-bm25** | `>=0.2.2` | Fast BM25Okapi search algorithm over knowledge base articles and live dynamic policy facts. | Apache 2.0 |
+| **joblib** | `>=1.4.0` | Serializes and loads pre-trained NLP intent models and TF-IDF matrices with sub-millisecond overhead. | BSD 3-Clause |
 
 ---
 
@@ -50,6 +54,7 @@ This document provides a comprehensive inventory of all technologies, libraries,
 | **@tanstack/react-query** | `^5.107.2` | Server-state caching, background refetching, and optimistic mutations. | MIT |
 | **axios** | `^1.21.1` | HTTP client with automatic JWT token refresh interceptors. | MIT |
 | **dayjs** | `^1.11.23` | Date formatting and manipulation library. | MIT |
+| **driver.js** | `^1.14.0` | Lightweight vanilla spotlight library powering the interactive Product Tour. | MIT |
 
 ### Development & Tooling Dependencies
 | Package | Version | Purpose in Solar CRM | License |

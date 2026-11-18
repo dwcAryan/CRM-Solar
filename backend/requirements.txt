@@ -21,5 +21,8 @@ factory-boy>=3.3.0
 time-machine>=2.14.0
 pywebpush>=2.5.0
 aiosmtpd>=1.4.6
+rapidfuzz>=3.0.0
+scikit-learn>=1.4.0
+rank-bm25>=0.2.2
 
 

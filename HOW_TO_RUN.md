@@ -298,6 +298,25 @@ python backend/manage.py check_email --to name@example.com
 
 ---
 
+## Product Tour & In-App Help Assistant (Phase 13)
+
+### 1. Interactive Product Tour
+* **Automatic Onboarding**: New users receive a guided walkthrough spotlighting navigation, leads, surveys, and quotes upon first login.
+* **Tour Center**: Click the compass icon in the header or select **Product Tour Center** from the user profile dropdown to launch specialized modular walkthroughs (Getting Started, Leads & Retry Ladder, Surveys, Quotes, CSV Import, Regions, Notifications).
+* **Resetting Tours**: Admins or users can reset tour completion states anytime from the Tour Center drawer.
+
+### 2. Help Assistant Chatbot (`helpbot`)
+* **Quick Access**: Click the floating assistant button in the bottom right corner or press `?` on your keyboard from any screen to open the Help Assistant.
+* **Scope-Gated Knowledge**: The assistant strictly answers questions about using this CRM application (call outcomes, retry rules, site surveys, pricing proposals, role permissions, and policies) and politely declines unrelated inquiries.
+* **Show Me How**: Whenever an answer relates to a feature with a guided tour, click the **Show me how** button directly inside the chat response to jump straight into the interactive walkthrough!
+* **Rebuilding Knowledge Index**:
+  ```bash
+  python backend/manage.py build_helpbot_index --force
+  ```
+  This command parses markdown articles in `backend/helpbot/knowledge/`, extracts live dynamic policies from PostgreSQL, trains the in-process NLP intent classifier, and updates the BM25 search index.
+
+---
+
 ## Troubleshooting Guide
 
 | Problem | Cause | Solution |

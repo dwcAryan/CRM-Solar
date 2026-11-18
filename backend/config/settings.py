@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'quotes',
     'notifications',
     'messaging',
+    'helpbot',
 ]
 
 MIDDLEWARE = [
@@ -224,4 +225,10 @@ else:
 
 # Password Reset Token Timeout (1 hour = 3600 seconds)
 PASSWORD_RESET_TIMEOUT = 3600
+
+# Help Chatbot Configuration (Phase 13)
+HELPBOT_PROVIDER = os.getenv('HELPBOT_PROVIDER', 'local').lower().strip()
+HELPBOT_MODEL = os.getenv('HELPBOT_MODEL', 'claude-haiku-5-5').strip()
+HELPBOT_TIMEOUT_SECONDS = int(os.getenv('HELPBOT_TIMEOUT_SECONDS', '15'))
+HELPBOT_MAX_QUESTIONS_PER_USER_PER_DAY = int(os.getenv('HELPBOT_MAX_QUESTIONS_PER_USER_PER_DAY', '50'))
 

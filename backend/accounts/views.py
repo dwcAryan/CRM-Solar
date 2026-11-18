@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 
 from leads.models import AuditLog, Lead
 from notifications.models import Notification
-from .models import User
+from .models import User, UserTourState
 from .permissions import (
     PERMISSION_MATRIX,
     can,
@@ -153,3 +153,81 @@ class RolesMatrixView(APIView):
         if not can(request.user, 'user.view_team'):
             return Response({"error": "You do not have permission to view roles matrix."}, status=status.HTTP_403_FORBIDDEN)
         return Response(PERMISSION_MATRIX)
+
+
+TOUR_VERSION = 1
+
+
+class TourStateView(APIView):
+    """
+    Tracks and persists interactive product tour progress and completion per user.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        states = UserTourState.objects.filter(user=request.user)
+        tours_dict = {
+            s.tour_id: {
+                "status": s.status,
+                "last_step": s.last_step,
+                "version": s.version,
+                "updated_at": s.updated_at.isoformat(),
+            }
+            for s in states
+        }
+        return Response({
+            "tour_version": TOUR_VERSION,
+            "tours": tours_dict,
+        }, status=status.HTTP_200_OK)
+
+    def patch(self, request):
+        tour_id = request.data.get('tour_id', 'main')
+        new_status = request.data.get('status')
+        last_step = request.data.get('last_step')
+        version = request.data.get('version', TOUR_VERSION)
+
+        state, _ = UserTourState.objects.get_or_create(
+            user=request.user,
+            tour_id=tour_id,
+            defaults={"version": version, "status": UserTourState.Status.NOT_STARTED, "last_step": 0},
+        )
+        if new_status in UserTourState.Status.values:
+            state.status = new_status
+        if last_step is not None:
+            state.last_step = int(last_step)
+        state.version = version
+        state.save()
+
+        return Response({
+            "tour_id": state.tour_id,
+            "status": state.status,
+            "last_step": state.last_step,
+            "version": state.version,
+            "updated_at": state.updated_at.isoformat(),
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        """Admin or user reset of tour states."""
+        reset_all = request.data.get('all', False)
+        target_user_id = request.data.get('user_id')
+
+        if reset_all or target_user_id:
+            if not can(request.user, 'user.manage') and not request.user.is_superuser:
+                return Response(
+                    {"error": "Admin permission required to reset tours for other users."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            if reset_all:
+                count = UserTourState.objects.all().update(status=UserTourState.Status.NOT_STARTED, last_step=0)
+                return Response({"message": f"Successfully reset tour for all {count} user states.", "count": count})
+            else:
+                count = UserTourState.objects.filter(user_id=target_user_id).update(
+                    status=UserTourState.Status.NOT_STARTED, last_step=0
+                )
+                return Response({"message": f"Reset tour for user {target_user_id}.", "count": count})
+        else:
+            UserTourState.objects.filter(user=request.user).update(
+                status=UserTourState.Status.NOT_STARTED, last_step=0
+            )
+            return Response({"message": "Successfully reset tour for your account."})
+

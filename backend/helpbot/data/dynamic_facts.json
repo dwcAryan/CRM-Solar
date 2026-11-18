@@ -1,0 +1,90 @@
+[
+  {
+    "id": "fact_policy_unreachable",
+    "topic": "retry_rules",
+    "title": "Live Policy: Max Call Attempts",
+    "content": "According to current live Policy Settings, a lead is automatically moved to Unreachable after 5 failed call attempts, with a default follow-up of 14 days.",
+    "roles": [
+      "admin",
+      "manager",
+      "salesperson"
+    ],
+    "regions": [
+      "IN",
+      "AU"
+    ]
+  },
+  {
+    "id": "fact_policy_mark_lost",
+    "topic": "lost_rules",
+    "title": "Live Policy: Authority to Mark Lost",
+    "content": "According to current live Policy Settings, 'who_can_mark_lost' is set to 'manager'. Users must have the role of manager or higher to mark leads as Lost.",
+    "roles": [
+      "admin",
+      "manager",
+      "salesperson"
+    ],
+    "regions": [
+      "IN",
+      "AU"
+    ]
+  },
+  {
+    "id": "fact_region_in",
+    "topic": "regions_compliance",
+    "title": "Live Region Setting: India (IN)",
+    "content": "Region India (IN) uses currency INR (\u20b9), dialing prefix +91, timezone Asia/Kolkata, tax label 'GST' (5.0%), incentive label 'Subsidy', and electricity provider label 'DISCOM'.",
+    "roles": [
+      "admin",
+      "manager",
+      "salesperson"
+    ],
+    "regions": [
+      "IN"
+    ]
+  },
+  {
+    "id": "fact_region_au",
+    "topic": "regions_compliance",
+    "title": "Live Region Setting: Australia (AU)",
+    "content": "Region Australia (AU) uses currency AUD (A$), dialing prefix +61, timezone Australia/Sydney, tax label 'GST' (10.0%), incentive label 'Government incentive (STCs and rebates)', and electricity provider label 'Electricity retailer'.",
+    "roles": [
+      "admin",
+      "manager",
+      "salesperson"
+    ],
+    "regions": [
+      "AU"
+    ]
+  },
+  {
+    "id": "fact_call_outcomes_list",
+    "topic": "call_outcomes",
+    "title": "Live Configured Call Outcomes",
+    "content": "Active call outcomes configured in the system are: No answer, Busy or switched off, Customer asks to call later, Wrong or invalid number, Not the decision maker, Interested, wants more information, Agrees, ready for site survey, Wants to discuss with family, Price or budget concern, Not interested for now, Not interested at all, Already installed solar or booked with someone else, Not the owner, rented house or no suitable roof, Asked not to be called again, Duplicate enquiry.",
+    "roles": [
+      "admin",
+      "manager",
+      "salesperson"
+    ],
+    "regions": [
+      "IN",
+      "AU"
+    ]
+  },
+  {
+    "id": "fact_lost_reasons_list",
+    "topic": "lost_rules",
+    "title": "Live Configured Lost Reasons",
+    "content": "Active reasons for closing a lead as Lost are: price too high, chose a competitor, not interested, no response, not the owner, no suitable roof, already installed, bought elsewhere, trust or brand concern, wrong or invalid contact, other.",
+    "roles": [
+      "admin",
+      "manager",
+      "salesperson"
+    ],
+    "regions": [
+      "IN",
+      "AU"
+    ]
+  }
+]

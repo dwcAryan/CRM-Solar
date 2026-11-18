@@ -133,3 +133,40 @@ Compliant with India's DPDP Act 2023 and Australia's Privacy Act 1988:
 - **Manager**: Regional operations hub, **Manager Attention Queue** (`/manager-attention` with 4 operational tabs: Unassigned leads, Lost approvals pending, Surveys without surveyor, Overdue follow-ups), assignment tools (single, bulk, auto round-robin), read-only team and master views.
 - **Salesperson**: Dedicated sales workbench, owns assigned leads only. Cannot assign/reassign, bulk-assign, export, import, or merge. When an outcome leads to `Lost`, routes to `Lost approval pending` (`LOST_APPROVAL_PENDING`) and alerts regional managers.
 - **Surveyor**: Field inspection portal (`/my-surveys`), direct calling (`tel:`) and Google Maps navigation. Completely isolated from `/api/leads/` list (`HTTP 403`). Field-level stripping on API responses (no quotes, prices, financial metrics, sales remarks, or marketing sources).
+
+---
+
+## 6. Product Tour and In-App Help Assistant Architecture (Phase 13)
+
+### 6.1 Professional Product Tour System
+- **Driver.js v1 Integration**: Lightweight spotlight walkthroughs configured with custom CSS tokens (`.solar-tour-popover`) matching Mantine theme tokens.
+- **Server-Side Persistence (`UserTourState`)**:
+  - Model: `backend/accounts/models.py:UserTourState` tracks `has_seen_tour`, `tour_version = 1`, `completed_tours` list, `dismissed_at`, and `checklist_state`.
+  - Endpoints: `GET /api/me/tour/`, `PATCH /api/me/tour/`, and `POST /api/me/tour/` (reset action).
+- **Modular Tour Catalog (`frontend/src/tours/tourDefinitions.ts`)**:
+  - Full 3-minute complete system tour.
+  - Specialized topic tours: Getting started, Leads & retry ladder, Site surveys, Quotes & proposals, CSV bulk import, Multi-country settings, Notifications, and Admin hub.
+  - Stable `data-tour="..."` DOM anchors ensuring resilience across layout changes.
+- **Tour Center Drawer (`TourCenterDrawer.tsx`)**:
+  - Accessible from the header compass button and user profile menu.
+  - Lists tours filtered by user role with duration badges, completion markers, and instant replay capability.
+- **Brevo-Style "Get Started" Checklist (`GetStartedChecklist.tsx`)**:
+  - Displayed prominently on the Dashboard for new users.
+  - Role-tailored tasks with progress percentage bar, auto-checking, and collapsible state.
+
+### 6.2 Help Assistant Chatbot (`helpbot` Module)
+- **Zero-Dependency Core**: Operates 100% locally in-process with zero API keys required (`HELPBOT_PROVIDER=local`). Optional Anthropic Claude integration (`HELPBOT_PROVIDER=anthropic`) with automatic fallback to local retrieval.
+- **Hybrid NLP Pipeline (`backend/helpbot/nlp.py`)**:
+  1. *Prompt Injection Defense*: Detects jailbreaks, prompt override attempts, and system prompt extractors.
+  2. *PII Sanitization*: Regex-masks customer phone numbers, emails, passwords, and secret tokens before processing or logging.
+  3. *Normalizer*: Handles Indian Hinglish (`kya`, `kaise`, `karna`, `bhejo`) and Australian vernacular (`arvo`, `brekkie`, `rego`, `sparkie`).
+  4. *Intent Classifier*: Scikit-learn `TfidfVectorizer` (unigrams + bigrams) paired with a calibrated `LogisticRegression` trained on `helpbot/training/intents.yaml`.
+  5. *Rank-BM25 Passage Retriever*: Indexes structured Markdown knowledge articles (`helpbot/knowledge/*.md`) alongside dynamic live database facts (`helpbot/data/dynamic_facts.json`).
+  6. *Scope Gate*: Strict software-only perimeter. Politeness-refuses general world questions (weather, jokes, coding, cooking, medical/legal advice) and generates 3 relevant CRM starter suggestions.
+- **Live Dynamic Knowledge Indexing (`python manage.py build_helpbot_index`)**:
+  - Queries active `PolicySettings`, `Region`, `Outcome`, and `LostReason` records to inject live operational constraints into the search index.
+- **Telemetry, Auditing, and Admin Insights**:
+  - `HelpbotQueryLog`: Records queries, topics, confidence scores, providers used, and user feedback ratings (`helpful: true/false`).
+  - `HelpbotUnanswered`: Captures out-of-scope or low-confidence queries for administrator review and documentation planning.
+  - Admin Insights Tab (`HelpbotInsightsTab.tsx`): Displays query volumes, refusal rates, helpful ratings, top queried topics, and a one-click "Rebuild Knowledge Index" trigger.
+

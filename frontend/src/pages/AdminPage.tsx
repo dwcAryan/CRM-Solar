@@ -32,8 +32,10 @@ import {
   IconCheck,
   IconAlertTriangle,
   IconMail,
+  IconSparkles,
 } from '@tabler/icons-react';
 import { EmailSettingsTab } from '../components/admin/EmailSettingsTab';
+import { HelpbotInsightsTab } from '../components/admin/HelpbotInsightsTab';
 import {
   fetchUsers,
   fetchOutcomes,
@@ -202,6 +204,9 @@ export const AdminPage: React.FC = () => {
             </Tabs.Tab>
             <Tabs.Tab value="email" leftSection={<IconMail size={16} />}>
               Email Settings
+            </Tabs.Tab>
+            <Tabs.Tab value="helpbot" leftSection={<IconSparkles size={16} />}>
+              Help Assistant Insights
             </Tabs.Tab>
           </Tabs.List>
 
@@ -565,6 +570,11 @@ export const AdminPage: React.FC = () => {
           {/* TAB 7: EMAIL (SMTP) SETTINGS */}
           <Tabs.Panel value="email" pt="md">
             <EmailSettingsTab />
+          </Tabs.Panel>
+
+          {/* TAB 8: HELP ASSISTANT INSIGHTS */}
+          <Tabs.Panel value="helpbot" pt="md">
+            <HelpbotInsightsTab />
           </Tabs.Panel>
         </Tabs>
       </Stack>

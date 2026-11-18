@@ -17,7 +17,7 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 
-from accounts.views import MeView, RolesMatrixView, UserViewSet
+from accounts.views import MeView, RolesMatrixView, TourStateView, UserViewSet
 from accounts.password_reset_views import PasswordResetRequestView, PasswordResetConfirmView
 from activities.views import ActivityViewSet
 from leads.views import (
@@ -102,6 +102,7 @@ urlpatterns = [
 
     # Current user & dashboard
     path('api/me/', MeView.as_view(), name='me'),
+    path('api/me/tour/', TourStateView.as_view(), name='tour-state'),
     path('api/dashboard/', DashboardView.as_view(), name='dashboard'),
     path('api/roles-matrix/', RolesMatrixView.as_view(), name='roles-matrix'),
 
@@ -121,4 +122,7 @@ urlpatterns = [
     # Password Reset Flow (Phase 12)
     path('api/auth/password-reset/', PasswordResetRequestView.as_view(), name='password_reset_request'),
     path('api/auth/password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+
+    # Helpbot (Phase 13)
+    path('api/helpbot/', include('helpbot.urls')),
 ]

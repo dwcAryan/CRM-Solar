@@ -602,3 +602,69 @@ export const confirmPasswordReset = async (data: {
   return res.data;
 };
 
+// Phase 13 Tour & Helpbot API
+export const fetchTourState = async (): Promise<import('./types').UserTourState> => {
+  const res = await apiClient.get<import('./types').UserTourState>('/api/me/tour/');
+  return res.data;
+};
+
+export const updateTourState = async (
+  data: Partial<import('./types').UserTourState>
+): Promise<import('./types').UserTourState> => {
+  const res = await apiClient.patch<import('./types').UserTourState>('/api/me/tour/', data);
+  return res.data;
+};
+
+export const resetTourState = async (): Promise<{ status: string }> => {
+  const res = await apiClient.post<{ status: string }>('/api/me/tour/', { action: 'reset' });
+  return res.data;
+};
+
+export const askHelpbot = async (
+  query: string,
+  context?: Record<string, any>
+): Promise<import('./types').HelpbotAskResponse> => {
+  const res = await apiClient.post<import('./types').HelpbotAskResponse>('/api/helpbot/ask/', {
+    query,
+    context: context || {},
+  });
+  return res.data;
+};
+
+export const fetchHelpbotSuggestions = async (): Promise<string[]> => {
+  const res = await apiClient.get<import('./types').HelpbotSuggestionsResponse>('/api/helpbot/suggestions/');
+  return res.data.suggestions;
+};
+
+export const submitHelpbotFeedback = async (
+  payload: import('./types').HelpbotFeedbackPayload
+): Promise<{ status: string }> => {
+  const res = await apiClient.post<{ status: string }>('/api/helpbot/feedback/', payload);
+  return res.data;
+};
+
+export const fetchHelpbotStats = async (): Promise<import('./types').HelpbotStatsResponse> => {
+  const res = await apiClient.get<import('./types').HelpbotStatsResponse>('/api/helpbot/stats/');
+  return res.data;
+};
+
+export const fetchHelpbotUnanswered = async (resolved?: boolean): Promise<import('./types').HelpbotUnansweredItem[]> => {
+  const params = resolved !== undefined ? { resolved } : {};
+  const res = await apiClient.get<import('./types').HelpbotUnansweredItem[]>('/api/helpbot/unanswered/', { params });
+  return res.data;
+};
+
+export const updateHelpbotUnanswered = async (
+  id: number,
+  resolved: boolean
+): Promise<{ status: string }> => {
+  const res = await apiClient.patch<{ status: string }>(`/api/helpbot/unanswered/${id}/`, { resolved });
+  return res.data;
+};
+
+export const triggerHelpbotReindex = async (): Promise<{ status: string; message: string }> => {
+  const res = await apiClient.post<{ status: string; message: string }>('/api/helpbot/rebuild-index/');
+  return res.data;
+};
+
+

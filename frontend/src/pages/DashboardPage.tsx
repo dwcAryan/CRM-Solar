@@ -29,9 +29,12 @@ import {
 import { fetchDashboard } from '../api/client';
 import type { DashboardData } from '../api/types';
 import { useRegion } from '../context/RegionContext';
+import { useAuth } from '../context/AuthContext';
+import { GetStartedChecklist } from '../components/tour/GetStartedChecklist';
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { selectedRegion, formatMoney } = useRegion();
 
   const { data, isLoading, error, refetch } = useQuery<DashboardData>({
@@ -76,6 +79,15 @@ export const DashboardPage: React.FC = () => {
   return (
     <Container size="xl" py="sm">
       <Stack gap="lg">
+        {/* Get Started Onboarding Checklist (Brevo-style) */}
+        <GetStartedChecklist
+          userRole={user?.role}
+          onOpenTourCenter={() => {
+            const helpBtn = document.querySelector('[data-tour="header-help"]') as HTMLElement;
+            helpBtn?.click();
+          }}
+        />
+
         <Group justify="space-between" align="center">
           <div>
             <Title order={2}>Sales Overview</Title>
