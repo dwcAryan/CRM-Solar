@@ -8,6 +8,7 @@ from accounts.models import User
 from leads.models import Lead
 from messaging.providers import get_sms_provider, get_whatsapp_provider
 from notifications.models import Notification
+from notifications.push_service import send_push_notification
 from surveys.models import Survey
 
 logger = logging.getLogger(__name__)
@@ -78,6 +79,10 @@ def notify_salespersons_daily_followups(
             next_followup_at__lte=today_end,
         ).exclude(status__in=Lead.TERMINAL_STATUSES)
 
+        # Filter by salesperson's allowed regions
+        if sp.allowed_regions.exists():
+            active_leads = active_leads.filter(region__in=sp.allowed_regions.all())
+
         overdue_count = active_leads.filter(next_followup_at__lt=today_start).count()
         due_today_count = active_leads.filter(
             next_followup_at__gte=today_start,
@@ -95,6 +100,14 @@ def notify_salespersons_daily_followups(
             )
             created_notifications.append(notif)
             logger.info(f"Created followup reminder for salesperson {sp.username} in {sp_tz_str}: {msg}")
+
+            # Also dispatch Web Push notification (safe payload, no customer details)
+            send_push_notification(
+                user=sp,
+                title="Follow-ups Due Today",
+                body=f"You have {due_today_count} follow-ups due today and {overdue_count} overdue.",
+                url="/leads/today",
+            )
 
     return created_notifications
 
@@ -152,21 +165,37 @@ def remind_surveys_scheduled_tomorrow(
 
         # 1. Notify Surveyor
         if s.surveyor:
-            Notification.objects.create(
-                user=s.surveyor,
-                message=f"Reminder: Site survey for {lead.name} is scheduled tomorrow at {formatted_time} ({lead.city or lead.suburb}).",
-                link=f"/surveys/{s.id}",
-            )
-            notifs_created += 1
+            if not s.surveyor.allowed_regions.exists() or s.surveyor.allowed_regions.filter(code=lead.region_id).exists():
+                Notification.objects.create(
+                    user=s.surveyor,
+                    message=f"Reminder: Site survey for {lead.name} is scheduled tomorrow at {formatted_time} ({lead.city or lead.suburb}).",
+                    link=f"/surveys/{s.id}",
+                )
+                notifs_created += 1
+                send_push_notification(
+                    user=s.surveyor,
+                    title="Survey Tomorrow",
+                    body=f"Site survey scheduled tomorrow at {formatted_time}",
+                    lead_id=lead.id,
+                    url=f"/surveys/{s.id}",
+                )
 
         # 2. Notify Salesperson
         if lead.assigned_to and (not s.surveyor or lead.assigned_to_id != s.surveyor_id):
-            Notification.objects.create(
-                user=lead.assigned_to,
-                message=f"Reminder: Site survey for your lead {lead.name} is tomorrow at {formatted_time}.",
-                link=f"/surveys/{s.id}",
-            )
-            notifs_created += 1
+            if not lead.assigned_to.allowed_regions.exists() or lead.assigned_to.allowed_regions.filter(code=lead.region_id).exists():
+                Notification.objects.create(
+                    user=lead.assigned_to,
+                    message=f"Reminder: Site survey for your lead {lead.name} is tomorrow at {formatted_time}.",
+                    link=f"/surveys/{s.id}",
+                )
+                notifs_created += 1
+                send_push_notification(
+                    user=lead.assigned_to,
+                    title="Survey Tomorrow",
+                    body=f"Site survey scheduled tomorrow at {formatted_time}",
+                    lead_id=lead.id,
+                    url=f"/surveys/{s.id}",
+                )
 
         # 3. Customer Outbound (Channel determined by region preferred channel)
         preferred_channel = 'whatsapp'

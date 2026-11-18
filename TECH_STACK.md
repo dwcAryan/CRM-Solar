@@ -29,6 +29,7 @@ This document provides a comprehensive inventory of all technologies, libraries,
 | **phonenumbers** | `>=8.13.0` | Google libphonenumber Python port for international E.164 phone normalization and validation. | Apache 2.0 |
 | **tzdata** | `>=2024.1` | IANA standard time zone database supporting Indian (`Asia/Kolkata`) and Australian zones. | Public Domain / Apache 2.0 |
 | **reportlab** | `>=4.2.0` | PDF document generation engine for downloading customer solar proposals. | BSD 3-Clause |
+| **pywebpush** | `>=2.5.0` | Encrypted Web Push notification delivery using the VAPID protocol. | MIT |
 
 ---
 
@@ -59,6 +60,7 @@ This document provides a comprehensive inventory of all technologies, libraries,
 | **@types/react-dom** | `^19.3.0` | TypeScript definitions for React DOM. | MIT |
 | **@types/node** | `^24.19.2` | TypeScript definitions for Node.js APIs. | MIT |
 | **@playwright/test** | `^1.65.1` | Browser end-to-end automation and testing framework. | Apache 2.0 |
+| **vite-plugin-pwa** | `^1.2.0` | Zero-config Progressive Web App (PWA) and Service Worker plugin for Vite. | MIT |
 | **oxlint** | `^1.90.0` | High-performance JavaScript/TypeScript linter. | MIT |
 
 ---

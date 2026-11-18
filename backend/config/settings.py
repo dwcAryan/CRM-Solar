@@ -182,3 +182,14 @@ SMS_PROVIDER = os.getenv('SMS_PROVIDER', 'console').lower()
 ENABLED_COUNTRIES = [
     c.strip().upper() for c in os.getenv('ENABLED_COUNTRIES', 'IN,AU').split(',') if c.strip()
 ]
+
+# Web Push (VAPID) Settings (Phase 11)
+VAPID_PUBLIC_KEY = os.getenv(
+    'VAPID_PUBLIC_KEY',
+    'BBYDXW27Rt7hD5XQ_vzAj7efBlRaBP8rfAXQqO0vlK7_s3eykQWCFJXzEX2rfxTi10kCOQmI1IivqttUENZUtkE',
+).strip()
+VAPID_PRIVATE_KEY = os.getenv(
+    'VAPID_PRIVATE_KEY',
+    '-----BEGIN PRIVATE KEY-----\nMIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg3vspuPhbkG/AeXAT\nT0jbcJVl3AyyJyTr3zX3H3Hj41qhRANCAAQWA11tu0be4Q+V0P78wI+3nwZUWgT/\nK3wF0KjtL5Su/7N3spEFghSV8xF9q38U4tdJAjkJiNSIr6rbVBDWVLZB\n-----END PRIVATE KEY-----',
+).strip()
+VAPID_ADMIN_EMAIL = os.getenv('VAPID_ADMIN_EMAIL', 'admin@solarcrm.com').strip()

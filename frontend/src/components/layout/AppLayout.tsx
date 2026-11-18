@@ -55,6 +55,9 @@ import {
 } from '../../api/client';
 import { SystemTour } from '../tour/SystemTour';
 import { HelpChatbot } from '../help/HelpChatbot';
+import { InstallAppButton } from '../pwa/InstallAppButton';
+import { NotificationPermissionModal } from '../notifications/NotificationPermissionModal';
+import { NotificationSettingsModal } from '../notifications/NotificationSettingsModal';
 import type { Notification } from '../../api/types';
 
 export const AppLayout: React.FC = () => {
@@ -72,6 +75,8 @@ export const AppLayout: React.FC = () => {
 
   // System tour state
   const [tourOpened, setTourOpened] = useState(false);
+  const [settingsOpened, setSettingsOpened] = useState(false);
+  const shownNotifIds = useRef<Set<number>>(new Set());
 
   // Auto-launch tour for first-time visitors
   useEffect(() => {
@@ -105,18 +110,55 @@ export const AppLayout: React.FC = () => {
     }
   };
 
-  // Notifications queries
+  // Notifications queries (refreshed every 60s and on window focus)
   const { data: unreadCount = 0 } = useQuery<number>({
     queryKey: ['notifications-unread-count'],
     queryFn: fetchUnreadNotificationCount,
-    refetchInterval: 20000,
+    refetchInterval: 60000,
+    refetchOnWindowFocus: true,
   });
 
   const { data: notifications = [] } = useQuery<Notification[]>({
     queryKey: ['notifications'],
     queryFn: fetchNotifications,
-    refetchInterval: 30000,
+    refetchInterval: 60000,
+    refetchOnWindowFocus: true,
   });
+
+  // Trigger browser notification for unread notifications while app is open (no duplicates)
+  useEffect(() => {
+    if (notifications.length > 0 && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      notifications.forEach((notif) => {
+        if (!notif.is_read && !shownNotifIds.current.has(notif.id)) {
+          shownNotifIds.current.add(notif.id);
+          try {
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+              navigator.serviceWorker.ready.then((reg) => {
+                reg.showNotification('Solar CRM', {
+                  body: notif.message,
+                  icon: '/icon-192x192.png',
+                  tag: `solar-notif-${notif.id}`,
+                  data: { url: notif.link || '/' },
+                });
+              });
+            } else {
+              const n = new window.Notification('Solar CRM', {
+                body: notif.message,
+                icon: '/icon-192x192.png',
+                tag: `solar-notif-${notif.id}`,
+              });
+              n.onclick = () => {
+                window.focus();
+                if (notif.link) navigate(notif.link);
+              };
+            }
+          } catch (e) {
+            console.warn('Failed to display browser notification:', e);
+          }
+        }
+      });
+    }
+  }, [notifications, navigate]);
 
   const markReadMutation = useMutation({
     mutationFn: (id: number) => markNotificationRead(id),
@@ -362,6 +404,9 @@ export const AppLayout: React.FC = () => {
                 <Menu.Item leftSection={<IconSparkles size={14} />} onClick={() => setTourOpened(true)}>
                   Take a Tour
                 </Menu.Item>
+                <Menu.Item leftSection={<IconBell size={14} />} onClick={() => setSettingsOpened(true)}>
+                  Notification Settings
+                </Menu.Item>
                 <Menu.Item leftSection={<IconHeartbeat size={14} />} onClick={() => navigate('/health')}>
                   System Health
                 </Menu.Item>
@@ -376,30 +421,41 @@ export const AppLayout: React.FC = () => {
       </AppShell.Header>
 
       <AppShell.Navbar p="xs">
-        <ScrollArea>
-          <Stack gap={4}>
-            {navItems.map((item) => {
-              const active = location.pathname === item.path;
-              return (
-                <NavLink
-                  key={item.path}
-                  label={item.label}
-                  leftSection={<item.icon size={18} stroke={1.5} />}
-                  active={active}
-                  onClick={() => handleNav(item.path)}
-                  variant="light"
-                  color="yellow"
-                  style={{ borderRadius: rem(8) }}
-                />
-              );
-            })}
-          </Stack>
-        </ScrollArea>
+        <Stack justify="space-between" h="100%">
+          <ScrollArea style={{ flex: 1 }}>
+            <Stack gap={4}>
+              {navItems.map((item) => {
+                const active = location.pathname === item.path;
+                return (
+                  <NavLink
+                    key={item.path}
+                    label={item.label}
+                    leftSection={<item.icon size={18} stroke={1.5} />}
+                    active={active}
+                    onClick={() => handleNav(item.path)}
+                    variant="light"
+                    color="yellow"
+                    style={{ borderRadius: rem(8) }}
+                  />
+                );
+              })}
+            </Stack>
+          </ScrollArea>
+
+          {/* Desktop PWA Install Button at the bottom of the sidebar */}
+          <Box p="xs" style={{ borderTop: '1px solid var(--mantine-color-default-border)' }}>
+            <InstallAppButton isMobile={false} />
+          </Box>
+        </Stack>
       </AppShell.Navbar>
 
       <AppShell.Main>
         <Outlet />
       </AppShell.Main>
+
+      {/* PWA & Push Notification Modals */}
+      <NotificationPermissionModal />
+      <NotificationSettingsModal opened={settingsOpened} onClose={() => setSettingsOpened(false)} />
 
       {/* Interactive System Tour Modal */}
       <SystemTour opened={tourOpened} onClose={() => setTourOpened(false)} />

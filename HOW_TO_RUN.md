@@ -146,6 +146,12 @@ Once started, access the application at:
 | **API Documentation** | [http://localhost:8000/api/schema/swagger-ui/](http://localhost:8000/api/schema/swagger-ui/) | Interactive OpenAPI / Swagger documentation and sandbox. |
 | **Django Admin** | [http://localhost:8000/admin/](http://localhost:8000/admin/) | System administrative back-office portal. |
 
+> [!NOTE]
+> **Desktop PWA & Push Notification Security Requirements:**
+> Web browsers (Chrome, Edge, Safari, Brave) require a secure origin to enable Service Workers, the **"Download for desktop"** PWA installation button, and Web Push notifications.
+> - **Local Development:** `http://localhost:5173` or `http://127.0.0.1:5173` is considered secure by default.
+> - **Production Deployment:** Must be served over **HTTPS** with a valid TLS/SSL certificate. Accessing via plain HTTP over non-localhost IP addresses will prevent app installation and push subscription prompts.
+
 ---
 
 ## Where to Find Demo Logins
