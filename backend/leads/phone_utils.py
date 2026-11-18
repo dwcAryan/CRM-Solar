@@ -1,6 +1,7 @@
 import re
 import urllib.parse
 from typing import Optional, Tuple
+
 import phonenumbers
 from phonenumbers import NumberParseException, PhoneNumberFormat
 
@@ -23,8 +24,6 @@ def normalize_phone_number(
     region_code = (default_region or "IN").upper()
 
     # Pre-clean obvious spacing / formatting artifacts
-    # Protect a leading '+'
-    has_plus = raw_phone.startswith('+')
     clean_digits = re.sub(r'[^\d+]', '', raw_phone)
 
     # Specific quick pre-checks for common user mistakes

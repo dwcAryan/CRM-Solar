@@ -1,20 +1,20 @@
-import time
 import logging
+import time
+
 from django.core.management import call_command
-from django.db.models import Count, Avg
+from django.db.models import Avg, Count
 from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import HelpbotQueryLog, HelpbotUnanswered
+from .nlp import Normalizer, get_helpbot_engine
 from .serializers import (
     HelpbotAskInputSerializer,
     HelpbotFeedbackInputSerializer,
-    HelpbotQueryLogSerializer,
     HelpbotUnansweredSerializer,
 )
-from .nlp import get_helpbot_engine, Normalizer
 
 logger = logging.getLogger(__name__)
 

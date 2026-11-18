@@ -18,6 +18,8 @@ class UserSerializer(serializers.ModelSerializer):
             'role',
             'phone',
             'is_active',
+            'is_demo',
+            'must_change_password',
             'date_joined',
             'allowed_regions',
             'default_region',
@@ -28,6 +30,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 class UserCreateUpdateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False)
+    must_change_password = serializers.BooleanField(required=False, default=True)
 
     class Meta:
         model = User
@@ -41,11 +44,14 @@ class UserCreateUpdateSerializer(serializers.ModelSerializer):
             'phone',
             'is_active',
             'password',
+            'must_change_password',
         ]
 
     def create(self, validated_data):
         password = validated_data.pop('password', None)
+        must_change = validated_data.pop('must_change_password', True)
         user = User(**validated_data)
+        user.must_change_password = must_change
         if password:
             user.set_password(password)
         else:

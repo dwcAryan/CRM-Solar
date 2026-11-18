@@ -11,19 +11,26 @@ import {
   Stack,
   Alert,
   ThemeIcon,
-  Divider,
-  SimpleGrid,
   Anchor,
   Group,
+  Modal,
 } from '@mantine/core';
-import { IconSun, IconAlertCircle } from '@tabler/icons-react';
+import { IconSun, IconAlertCircle, IconLockCheck } from '@tabler/icons-react';
 import { useAuth } from '../context/AuthContext';
+import { changePassword } from '../api/client';
 
 export const LoginPage: React.FC = () => {
-  const [username, setUsername] = useState('demo_sales1');
-  const [password, setPassword] = useState('Sales1@Demo2026!');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Forced password change state
+  const [showChangeModal, setShowChangeModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changeError, setChangeError] = useState<string | null>(null);
+  const [changing, setChanging] = useState(false);
 
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -37,8 +44,12 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
 
     try {
-      await login({ username, password });
-      navigate(from, { replace: true });
+      const user = await login({ username, password });
+      if (user.must_change_password) {
+        setShowChangeModal(true);
+      } else {
+        navigate(from, { replace: true });
+      }
     } catch (err: any) {
       const msg = err.response?.data?.detail || 'Invalid username or password. Please try again.';
       setError(msg);
@@ -47,10 +58,26 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleDemoSelect = (u: string, p: string) => {
-    setUsername(u);
-    setPassword(p);
-    setError(null);
+  const handleForcedPasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setChangeError(null);
+
+    if (newPassword !== confirmPassword) {
+      setChangeError('Passwords do not match.');
+      return;
+    }
+
+    setChanging(true);
+    try {
+      await changePassword({ old_password: password, new_password: newPassword });
+      setShowChangeModal(false);
+      navigate(from, { replace: true });
+    } catch (err: any) {
+      const msg = err.response?.data?.error || 'Password does not meet complexity requirements (min 10 characters, upper, lower, digit, special character).';
+      setChangeError(msg);
+    } finally {
+      setChanging(false);
+    }
   };
 
   return (
@@ -78,14 +105,14 @@ export const LoginPage: React.FC = () => {
           <Stack gap="md">
             <TextInput
               label="Username"
-              placeholder="e.g. demo_sales1"
+              placeholder="Username"
               value={username}
               onChange={(e) => setUsername(e.currentTarget.value)}
               required
             />
             <PasswordInput
               label="Password"
-              placeholder="Your password"
+              placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.currentTarget.value)}
               required
@@ -100,44 +127,60 @@ export const LoginPage: React.FC = () => {
             </Button>
           </Stack>
         </form>
-
-        <Divider label="Or 1-Click Demo Accounts" labelPosition="center" my="lg" />
-
-        <SimpleGrid cols={2} spacing="xs">
-          <Button
-            variant="light"
-            color="green"
-            size="xs"
-            onClick={() => handleDemoSelect('demo_sales1', 'Sales1@Demo2026!')}
-          >
-            Salesperson 1
-          </Button>
-          <Button
-            variant="light"
-            color="green"
-            size="xs"
-            onClick={() => handleDemoSelect('demo_sales2', 'Sales2@Demo2026!')}
-          >
-            Salesperson 2
-          </Button>
-          <Button
-            variant="light"
-            color="blue"
-            size="xs"
-            onClick={() => handleDemoSelect('demo_manager', 'Manager@Demo2026!')}
-          >
-            Manager
-          </Button>
-          <Button
-            variant="light"
-            color="red"
-            size="xs"
-            onClick={() => handleDemoSelect('demo_admin', 'Admin@Demo2026!')}
-          >
-            Admin
-          </Button>
-        </SimpleGrid>
       </Paper>
+
+      {/* Mandatory Password Change Modal for new accounts */}
+      <Modal
+        opened={showChangeModal}
+        onClose={() => {}}
+        closeOnClickOutside={false}
+        closeOnEscape={false}
+        withCloseButton={false}
+        title={
+          <Group gap="xs">
+            <ThemeIcon color="blue" size="sm" variant="light">
+              <IconLockCheck size={16} />
+            </ThemeIcon>
+            <Text fw={600} size="sm">
+              Password Change Required
+            </Text>
+          </Group>
+        }
+      >
+        <Text size="xs" c="dimmed" mb="md">
+          Your account was provisioned with a temporary password. Please set a new, secure password to continue.
+        </Text>
+
+        {changeError && (
+          <Alert icon={<IconAlertCircle size={14} />} color="red" mb="sm">
+            {changeError}
+          </Alert>
+        )}
+
+        <form onSubmit={handleForcedPasswordChange}>
+          <Stack gap="sm">
+            <PasswordInput
+              label="New Password"
+              placeholder="Min 10 chars, uppercase, lowercase, number, symbol"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.currentTarget.value)}
+              required
+              size="xs"
+            />
+            <PasswordInput
+              label="Confirm New Password"
+              placeholder="Re-enter new password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.currentTarget.value)}
+              required
+              size="xs"
+            />
+            <Button type="submit" color="blue" fullWidth loading={changing} mt="xs" size="xs">
+              Save Password & Enter CRM
+            </Button>
+          </Stack>
+        </form>
+      </Modal>
     </Container>
   );
 };

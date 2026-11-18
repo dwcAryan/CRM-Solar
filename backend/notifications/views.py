@@ -6,6 +6,7 @@ from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 
 from accounts.permissions import can
+
 from .email_service import run_smtp_diagnostics, send_test_email
 from .models import EmailLog, Notification, NotificationPreference, PushSubscription
 from .serializers import (

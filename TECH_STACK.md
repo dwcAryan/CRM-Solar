@@ -35,6 +35,9 @@ This document provides a comprehensive inventory of all technologies, libraries,
 | **scikit-learn** | `>=1.5.0` | TF-IDF text vectorization and calibrated linear intent classification for Helpbot. | BSD 3-Clause |
 | **rank-bm25** | `>=0.2.2` | Fast BM25Okapi search algorithm over knowledge base articles and live dynamic policy facts. | Apache 2.0 |
 | **joblib** | `>=1.4.0` | Serializes and loads pre-trained NLP intent models and TF-IDF matrices with sub-millisecond overhead. | BSD 3-Clause |
+| **whitenoise** | `>=6.8.0` | High-performance static file serving and SPA fallback for production mode. | MIT |
+| **waitress** | `>=3.0.0` | Production-quality pure-Python WSGI web server for Windows environments. | ZPL 2.1 |
+| **gunicorn** | `>=21.2.0` | Industry-standard UNIX WSGI HTTP server for production Linux/macOS environments. | MIT |
 
 ---
 

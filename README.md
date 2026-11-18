@@ -80,59 +80,50 @@ solar-crm/
 
 ## Getting Started
 
-### 1. Database Setup
-Create database `sky_electrical_solar` in your local PostgreSQL:
-```sql
-CREATE DATABASE sky_electrical_solar;
+### 1. Unified Quick Start (Recommended)
+Solar CRM provides a zero-dependency universal runner:
+```bash
+# Development mode (API on :8000, Vite SPA on :5173, background scheduler)
+python run.py
+
+# Production mode (Whitenoise static SPA + Waitress/Gunicorn on :8000)
+python run.py --prod
 ```
 
-### 2. Backend Setup
-```powershell
-cd backend
-python -m venv venv
-.\venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env
-python manage.py migrate
-python manage.py seed_masters
-python manage.py seed_demo
-python manage.py runserver
-```
-- Swagger API Docs: `http://localhost:8000/api/docs/`
-- Django Admin: `http://localhost:8000/admin/`
-
-### 3. Frontend Setup
-```powershell
-cd frontend
-npm install
-npm run dev
-```
-Runs at `http://localhost:5173`.
+### 2. Administrator & UAT Setup
+- **Create Administrator**:
+  ```bash
+  python backend/manage.py create_admin
+  ```
+  Interactive prompt requiring a strong password ($\ge 10$ characters, upper, lower, digit, symbol).
+- **Seed Training/Demo Accounts (UAT only)**:
+  ```bash
+  python backend/manage.py seed_demo
+  ```
+  Generates randomized credentials recorded in local `docs/DEMO_ACCOUNTS.md` (git-ignored).
+- **Purge All Demo Data**:
+  ```bash
+  python backend/manage.py remove_demo_data
+  ```
 
 ---
 
-## Demo Credentials
+## Application Access & Security
 
-All demo accounts use the standard password: `Admin@Demo2026!` (Admin), `Manager@Demo2026!` (Manager), `Sales@Demo2026!` (Sales), or `Surveyor@Demo2026!` (Surveyor):
-
-| Role | Username | Password | Regions |
-| :--- | :--- | :--- | :--- |
-| **Admin** | `demo_admin` | `Admin@Demo2026!` | India & Australia |
-| **Manager** | `demo_manager` | `Manager@Demo2026!` | India & Australia |
-| **Salesperson (India)** | `demo_sales_in` | `Sales@Demo2026!` | India |
-| **Salesperson (Australia)**| `demo_sales_au` | `Sales@Demo2026!` | Australia |
-| **Surveyor (India)** | `demo_surveyor_in` | `Surveyor@Demo2026!` | India |
-| **Surveyor (Australia)** | `demo_surveyor_au` | `Surveyor@Demo2026!` | Australia |
+- **Login Page**: Clean standard credentials form (no pre-filled credentials, no demo shortcut buttons).
+- **Initial Password Change**: Accounts created by administrators require setting a new password upon first login.
+- **Unified Health Endpoint**: `/api/health/` reports database connectivity and migration status.
+- **Interactive OpenAPI Docs**: `/api/schema/swagger-ui/` (available in development; restricted to authenticated administrators in production).
 
 ---
 
 ## Testing
 
-Run the automated test suite (73 passing tests covering business logic, privacy, calling hours, CSV import, and multi-country features):
+Run the automated backend test suite:
 ```powershell
-backend/venv/Scripts/python.exe -m pytest backend/tests/
+backend/venv/Scripts/python.exe -m pytest -n auto --reuse-db
 ```
-Run frontend TypeScript and production build:
+Run frontend TypeScript check and production build:
 ```powershell
 npm --prefix frontend run build
 ```

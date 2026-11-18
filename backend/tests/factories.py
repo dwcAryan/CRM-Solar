@@ -1,11 +1,12 @@
 import factory
 from django.utils import timezone
+
 from accounts.models import User
+from activities.models import Activity
 from leads.models import Lead
 from masters.models import Region
-from surveys.models import Survey
 from quotes.models import Quote
-from activities.models import Activity
+from surveys.models import Survey
 
 
 class RegionFactory(factory.django.DjangoModelFactory):

@@ -2,23 +2,25 @@
 URL configuration for Solar CRM backend.
 """
 
+from django.conf import settings
 from django.contrib import admin
 from django.db import connection
-from django.http import JsonResponse
-from django.urls import include, path
+from django.http import FileResponse, HttpResponse, JsonResponse
+from django.urls import include, path, re_path
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
+from rest_framework import permissions
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
 
-from accounts.views import MeView, RolesMatrixView, TourStateView, UserViewSet
-from accounts.password_reset_views import PasswordResetRequestView, PasswordResetConfirmView
+from accounts.password_reset_views import PasswordResetConfirmView, PasswordResetRequestView
+from accounts.views import MeView, PasswordChangeView, RolesMatrixView, TourStateView, UserViewSet
 from activities.views import ActivityViewSet
 from leads.views import (
     AuditLogViewSet,
@@ -46,30 +48,57 @@ from surveys.views import SurveyPhotoViewSet, SurveyViewSet
 
 def health_check(request):
     """
-    Health check endpoint: verifies DB connectivity and returns system status.
+    Readiness & health check endpoint: verifies DB connectivity and migrations status.
     """
+    db_status = "connected"
+    migrations_status = "up_to_date"
+    errors = []
+
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1;")
             cursor.fetchone()
     except Exception as e:
-        return JsonResponse(
-            {
-                "status": "degraded",
-                "database": "disconnected",
-                "error": str(e),
-            },
-            status=503,
-        )
+        db_status = "disconnected"
+        errors.append(f"Database error: {e}")
 
+    try:
+        from django.db.migrations.executor import MigrationExecutor
+        executor = MigrationExecutor(connection)
+        plan = executor.migration_plan(executor.loader.graph.leaf_nodes())
+        if plan:
+            migrations_status = "pending"
+            errors.append(f"{len(plan)} pending migrations found")
+    except Exception as e:
+        errors.append(f"Migration check error: {e}")
+
+    is_ready = db_status == "connected" and migrations_status == "up_to_date"
+    app_env = getattr(settings, 'APP_ENV', 'development')
+
+    status_code = 200 if is_ready else 503
     return JsonResponse(
         {
-            "status": "ok",
-            "database": "connected",
+            "status": "ok" if is_ready else "degraded",
+            "ready": is_ready,
+            "database": db_status,
+            "migrations": migrations_status,
+            "environment": app_env,
             "service": "Solar CRM Backend",
+            "errors": errors if errors else None,
         },
-        status=200,
+        status=status_code,
     )
+
+
+def serve_spa(request):
+    """Serves the built SPA frontend or an instructional message if not built."""
+    index_file = settings.BASE_DIR.parent / 'frontend' / 'dist' / 'index.html'
+    if index_file.exists():
+        return FileResponse(open(index_file, 'rb'), content_type='text/html')
+    return HttpResponse("Solar CRM frontend is not built. Run 'npm run build' inside frontend/.", status=404)
+
+
+doc_permissions = [permissions.IsAdminUser] if getattr(settings, 'APP_ENV', '') == 'production' else []
 
 
 router = DefaultRouter()
@@ -110,19 +139,23 @@ urlpatterns = [
     path('api/', include(router.urls)),
 
     # OpenAPI schema and Swagger / Redoc documentation
-    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
-    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-    path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui-alias'),
-    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    path('api/schema/', SpectacularAPIView.as_view(permission_classes=doc_permissions), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema', permission_classes=doc_permissions), name='swagger-ui'),
+    path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema', permission_classes=doc_permissions), name='swagger-ui-alias'),
+    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema', permission_classes=doc_permissions), name='redoc'),
 
     # JWT Authentication
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
-    # Password Reset Flow (Phase 12)
+    # Password Reset & Change Flow
     path('api/auth/password-reset/', PasswordResetRequestView.as_view(), name='password_reset_request'),
     path('api/auth/password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+    path('api/auth/change-password/', PasswordChangeView.as_view(), name='password_change'),
 
     # Helpbot (Phase 13)
     path('api/helpbot/', include('helpbot.urls')),
+
+    # SPA Fallback for production serving
+    re_path(r'^(?!api/|admin/|static/|media/).*$', serve_spa, name='spa_fallback'),
 ]

@@ -1,8 +1,9 @@
 import json
 import logging
+
+import pywebpush
 from django.conf import settings
 from django.utils import timezone
-import pywebpush
 from pywebpush import WebPushException
 
 from notifications.models import NotificationPreference, PushSubscription

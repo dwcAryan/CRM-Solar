@@ -1,9 +1,10 @@
-from pathlib import Path
 import re
+from pathlib import Path
+
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from py_vapid import Vapid, b64urlencode
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 
 class Command(BaseCommand):

@@ -667,4 +667,12 @@ export const triggerHelpbotReindex = async (): Promise<{ status: string; message
   return res.data;
 };
 
+export const changePassword = async (data: {
+  old_password?: string;
+  new_password: string;
+}): Promise<{ status: string; message: string }> => {
+  const res = await apiClient.post<{ status: string; message: string }>('/api/auth/change-password/', data);
+  return res.data;
+};
+
 

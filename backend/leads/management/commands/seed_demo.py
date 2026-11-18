@@ -1,19 +1,19 @@
-from decimal import Decimal
 import random
 import secrets
 import string
 from datetime import timedelta
+from decimal import Decimal
 from pathlib import Path
 
 from django.conf import settings
 from django.core.management import call_command
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from accounts.models import User
 from activities.models import Activity
 from leads.models import Lead, LeadStatusHistory
-from masters.models import LeadSource, LostReason, NurtureReason, Region, State
+from masters.models import LeadSource, LostReason, NurtureReason, Region
 from quotes.models import Quote
 from surveys.models import Survey
 
@@ -41,6 +41,10 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        app_env = getattr(settings, 'APP_ENV', 'development').lower()
+        if app_env == 'production':
+            raise CommandError("seed_demo cannot be run in production environment (APP_ENV=production).")
+
         if options.get('reset'):
             self.stdout.write(self.style.WARNING("Reset requested: deleting existing leads, quotes, surveys and activities..."))
             Quote.objects.all().delete()
@@ -182,6 +186,7 @@ class Command(BaseCommand):
                 }
             )
             u.set_password(password)
+            u.is_demo = True
             u.save()
             u.allowed_regions.set(spec['allowed_regions'])
             created_users[spec['username']] = u

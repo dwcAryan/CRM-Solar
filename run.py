@@ -240,8 +240,78 @@ def setup_frontend_npm(npm_bin, skip_install=False):
         log_info("Frontend packages up to date (cached).")
 
 
-def run_database_tasks(reset_demo=False, auto_yes=False):
-    """Run migrations, seed_masters, and seed_demo if needed."""
+def verify_production_secrets():
+    """Ensure production environment has a valid strong SECRET_KEY."""
+    env_file = BACKEND_DIR / ".env"
+    secret_key = ""
+    if env_file.exists():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            if line.startswith("SECRET_KEY="):
+                secret_key = line.split("=", 1)[1].strip().strip('"').strip("'")
+    if not secret_key or secret_key == "django-insecure-default-dev-key" or len(secret_key) < 32:
+        import secrets
+        new_secret = secrets.token_urlsafe(50)
+        log_warn("Generating a strong, secure SECRET_KEY for production...")
+        content = env_file.read_text(encoding="utf-8") if env_file.exists() else ""
+        if "SECRET_KEY=" in content:
+            content = re.sub(r"SECRET_KEY=.*", f"SECRET_KEY={new_secret}", content)
+        else:
+            content += f"\nSECRET_KEY={new_secret}\n"
+        env_file.write_text(content, encoding="utf-8")
+        log_info("Generated and saved a 50-character cryptographically secure SECRET_KEY.")
+
+
+def check_admin_account():
+    """Verify at least one real non-demo admin user exists. If not, prompt to create one."""
+    log_step("Checking administrator account...")
+    try:
+        cmd = [
+            str(VENV_PYTHON),
+            "manage.py",
+            "shell",
+            "-c",
+            "from accounts.models import User; print(User.objects.filter(role='admin', is_demo=False).count())",
+        ]
+        res = subprocess.run(cmd, cwd=str(BACKEND_DIR), capture_output=True, text=True, check=True)
+        admin_count = 0
+        for line in res.stdout.splitlines():
+            if line.strip().isdigit():
+                admin_count = int(line.strip())
+                break
+        if admin_count == 0:
+            print("\n" + "=" * 68)
+            log_warn("No real administrator account found (is_demo=False).")
+            print("    Solar CRM requires an initial administrator account.")
+            print("=" * 68)
+            if sys.stdin.isatty():
+                prompt = input("Create an administrator account now? (Y/n): ").strip().lower()
+                if prompt in ("", "y", "yes"):
+                    subprocess.run([str(VENV_PYTHON), "manage.py", "create_admin"], cwd=str(BACKEND_DIR))
+            else:
+                log_info("Non-interactive mode: run 'python manage.py create_admin' to create an admin.")
+        else:
+            log_info(f"Verified {admin_count} non-demo administrator account(s) present.")
+    except Exception as e:
+        log_warn(f"Admin verification skipped: {e}")
+
+
+def build_frontend(npm_bin):
+    """Build the frontend SPA for production."""
+    log_step("Building frontend for production (npm run build)...")
+    res = subprocess.run([npm_bin, "run", "build"], cwd=str(FRONTEND_DIR))
+    if res.returncode != 0:
+        log_error("Frontend production build failed.")
+        sys.exit(res.returncode)
+    log_info("Frontend built successfully into frontend/dist.")
+
+    # Run collectstatic for Django static files
+    log_step("Collecting static files...")
+    subprocess.run([str(VENV_PYTHON), "manage.py", "collectstatic", "--no-input"], cwd=str(BACKEND_DIR), check=False)
+    log_info("Static files ready.")
+
+
+def run_database_tasks(reset_demo=False, seed_demo=False, auto_yes=False):
+    """Run migrations, seed_masters, and seed_demo if explicitly requested."""
     log_step("Preparing database schema and masters...")
 
     # Migrations
@@ -279,18 +349,9 @@ def run_database_tasks(reset_demo=False, auto_yes=False):
             subprocess.run([str(VENV_PYTHON), "manage.py", "seed_demo", "--reset"], cwd=str(BACKEND_DIR), check=True)
         else:
             log_info("Demo reset skipped.")
-    elif leads_count == 0:
-        should_seed = auto_yes
-        if not should_seed:
-            if sys.stdin.isatty():
-                prompt = input("\n[DATABASE] Database contains 0 leads. Seed demo accounts and sample leads? (Y/n): ").strip().lower()
-                should_seed = prompt in ("", "y", "yes")
-            else:
-                should_seed = True
-
-        if should_seed:
-            log_info("Seeding demo accounts and leads...")
-            subprocess.run([str(VENV_PYTHON), "manage.py", "seed_demo"], cwd=str(BACKEND_DIR), check=True)
+    elif seed_demo:
+        log_info("Explicitly seeding demo accounts and sample leads for training/UAT...")
+        subprocess.run([str(VENV_PYTHON), "manage.py", "seed_demo"], cwd=str(BACKEND_DIR), check=True)
     else:
         log_info(f"Database currently contains {leads_count} lead(s).")
 
@@ -327,9 +388,11 @@ def pipe_logger(pipe, prefix, color):
 
 def main():
     parser = argparse.ArgumentParser(description="Solar CRM Unified Runner")
+    parser.add_argument("--prod", action="store_true", help="Run in production mode (Whitenoise + Waitress/Gunicorn).")
     parser.add_argument("--no-browser", action="store_true", help="Do not open web browser automatically.")
     parser.add_argument("--skip-install", action="store_true", help="Skip checking and installing dependencies.")
     parser.add_argument("--backend-only", action="store_true", help="Start backend server only (no frontend/scheduler).")
+    parser.add_argument("--seed-demo", action="store_true", help="Seed demo accounts and sample leads for training/UAT.")
     parser.add_argument("--reset-demo", action="store_true", help="Reset and regenerate all demo accounts and sample leads.")
     parser.add_argument("-y", "--yes", action="store_true", help="Automatically accept confirmation prompts.")
     args = parser.parse_args()
@@ -339,50 +402,32 @@ def main():
     check_postgres_reachable(db_config)
     setup_backend_venv(skip_install=args.skip_install)
 
-    if not args.backend_only:
-        setup_frontend_npm(npm_bin, skip_install=args.skip_install)
+    if args.prod:
+        os.environ["APP_ENV"] = "production"
+        verify_production_secrets()
+        if not args.backend_only:
+            setup_frontend_npm(npm_bin, skip_install=args.skip_install)
+            build_frontend(npm_bin)
+        run_database_tasks(reset_demo=args.reset_demo, seed_demo=args.seed_demo, auto_yes=args.yes)
+        check_admin_account()
 
-    run_database_tasks(reset_demo=args.reset_demo, auto_yes=args.yes)
+        print("\n" + "=" * 70)
+        print(f" {BOLD}SOLAR CRM IS RUNNING IN PRODUCTION MODE{RESET}")
+        print("=" * 70)
+        print(f"  {BOLD}Unified Web Application:{RESET} http://localhost:8000/")
+        print(f"  {BOLD}Readiness & Health Check:{RESET} http://localhost:8000/api/health/")
+        print(f"  {BOLD}Interactive API Docs:{RESET}     http://localhost:8000/api/schema/swagger-ui/ (Admin only)")
+        print(f"  {BOLD}Django Administration:{RESET}    http://localhost:8000/admin/")
+        print("=" * 70)
+        print("  Production logs streaming below. Press Ctrl+C to shut down cleanly.\n")
 
-    # Print Access Banner
-    demo_doc = DOCS_DIR / "DEMO_ACCOUNTS.md"
-    print("\n" + "=" * 70)
-    print(f" {BOLD}SOLAR CRM IS STARTING UP{RESET}")
-    print("=" * 70)
-    if not args.backend_only:
-        print(f"  {BOLD}Frontend Web App:{RESET}  http://localhost:5173")
-    print(f"  {BOLD}Backend REST API:{RESET}  http://localhost:8000/api/")
-    print(f"  {BOLD}Interactive Docs:{RESET}  http://localhost:8000/api/schema/swagger-ui/")
-    print(f"  {BOLD}Django Admin:{RESET}      http://localhost:8000/admin/")
-    if demo_doc.exists():
-        print(f"  {BOLD}Demo Logins:{RESET}       docs/DEMO_ACCOUNTS.md (git-ignored)")
-    print("=" * 70)
-    print("  Combined live logs streaming below. Press Ctrl+C to shut down cleanly.\n")
+        processes = []
+        threads = []
+        py_env = os.environ.copy()
+        py_env["APP_ENV"] = "production"
+        py_env["PYTHONUNBUFFERED"] = "1"
 
-    # Start child processes
-    processes = []
-    threads = []
-
-    # 1. Backend Server
-    py_env = os.environ.copy()
-    py_env["PYTHONUNBUFFERED"] = "1"
-    backend_proc = subprocess.Popen(
-        [str(VENV_PYTHON), "manage.py", "runserver", "8000"],
-        cwd=str(BACKEND_DIR),
-        env=py_env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-    )
-    processes.append(("BACKEND", backend_proc))
-    t_back = threading.Thread(target=pipe_logger, args=(backend_proc.stdout, "BACKEND  ", CYAN), daemon=True)
-    t_back.start()
-    threads.append(t_back)
-
-    # 2. Frontend & Scheduler (if not backend-only)
-    if not args.backend_only:
-        # Scheduler
+        # 1. Scheduler
         sched_proc = subprocess.Popen(
             [str(VENV_PYTHON), "manage.py", "run_scheduler"],
             cwd=str(BACKEND_DIR),
@@ -397,33 +442,124 @@ def main():
         t_sched.start()
         threads.append(t_sched)
 
-        # Frontend Vite
-        front_proc = subprocess.Popen(
-            [npm_bin, "run", "dev"],
-            cwd=str(FRONTEND_DIR),
+        # 2. Production WSGI Server (Waitress on Windows, Gunicorn / Waitress on Unix)
+        if sys.platform == "win32":
+            server_cmd = [str(VENV_PYTHON), "-m", "waitress", "--port=8000", "config.wsgi:application"]
+        else:
+            gunicorn_bin = shutil.which("gunicorn") or str(VENV_DIR / "bin" / "gunicorn")
+            if Path(gunicorn_bin).exists():
+                server_cmd = [gunicorn_bin, "config.wsgi:application", "--bind", "0.0.0.0:8000"]
+            else:
+                server_cmd = [str(VENV_PYTHON), "-m", "waitress", "--port=8000", "config.wsgi:application"]
+
+        server_proc = subprocess.Popen(
+            server_cmd,
+            cwd=str(BACKEND_DIR),
+            env=py_env,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
         )
-        processes.append(("FRONTEND", front_proc))
-        t_front = threading.Thread(target=pipe_logger, args=(front_proc.stdout, "FRONTEND ", GREEN), daemon=True)
-        t_front.start()
-        threads.append(t_front)
+        processes.append(("PROD-SERVER", server_proc))
+        t_serv = threading.Thread(target=pipe_logger, args=(server_proc.stdout, "SERVER   ", CYAN), daemon=True)
+        t_serv.start()
+        threads.append(t_serv)
 
         # Open Browser
         if not args.no_browser:
             def open_browser():
-                time.sleep(2.5)
-                webbrowser.open("http://localhost:5173")
+                time.sleep(2.0)
+                webbrowser.open("http://localhost:8000")
             t_browse = threading.Thread(target=open_browser, daemon=True)
             t_browse.start()
+
+    else:
+        # Development mode
+        if not args.backend_only:
+            setup_frontend_npm(npm_bin, skip_install=args.skip_install)
+
+        run_database_tasks(reset_demo=args.reset_demo, seed_demo=args.seed_demo, auto_yes=args.yes)
+        check_admin_account()
+
+        demo_doc = DOCS_DIR / "DEMO_ACCOUNTS.md"
+        print("\n" + "=" * 70)
+        print(f" {BOLD}SOLAR CRM IS STARTING UP (DEVELOPMENT){RESET}")
+        print("=" * 70)
+        if not args.backend_only:
+            print(f"  {BOLD}Frontend Web App:{RESET}  http://localhost:5173")
+        print(f"  {BOLD}Backend REST API:{RESET}  http://localhost:8000/api/")
+        print(f"  {BOLD}Interactive Docs:{RESET}  http://localhost:8000/api/schema/swagger-ui/")
+        print(f"  {BOLD}Django Admin:{RESET}      http://localhost:8000/admin/")
+        if demo_doc.exists():
+            print(f"  {BOLD}Demo Logins:{RESET}       docs/DEMO_ACCOUNTS.md (git-ignored)")
+        print("=" * 70)
+        print("  Combined live logs streaming below. Press Ctrl+C to shut down cleanly.\n")
+
+        # Start child processes
+        processes = []
+        threads = []
+
+        # 1. Backend Server
+        py_env = os.environ.copy()
+        py_env["PYTHONUNBUFFERED"] = "1"
+        backend_proc = subprocess.Popen(
+            [str(VENV_PYTHON), "manage.py", "runserver", "8000"],
+            cwd=str(BACKEND_DIR),
+            env=py_env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+        processes.append(("BACKEND", backend_proc))
+        t_back = threading.Thread(target=pipe_logger, args=(backend_proc.stdout, "BACKEND  ", CYAN), daemon=True)
+        t_back.start()
+        threads.append(t_back)
+
+        # 2. Frontend & Scheduler (if not backend-only)
+        if not args.backend_only:
+            # Scheduler
+            sched_proc = subprocess.Popen(
+                [str(VENV_PYTHON), "manage.py", "run_scheduler"],
+                cwd=str(BACKEND_DIR),
+                env=py_env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+            )
+            processes.append(("SCHEDULER", sched_proc))
+            t_sched = threading.Thread(target=pipe_logger, args=(sched_proc.stdout, "SCHEDULER", MAGENTA), daemon=True)
+            t_sched.start()
+            threads.append(t_sched)
+
+            # Frontend Vite
+            front_proc = subprocess.Popen(
+                [npm_bin, "run", "dev"],
+                cwd=str(FRONTEND_DIR),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+            )
+            processes.append(("FRONTEND", front_proc))
+            t_front = threading.Thread(target=pipe_logger, args=(front_proc.stdout, "FRONTEND ", GREEN), daemon=True)
+            t_front.start()
+            threads.append(t_front)
+
+            # Open Browser
+            if not args.no_browser:
+                def open_browser():
+                    time.sleep(2.5)
+                    webbrowser.open("http://localhost:5173")
+                t_browse = threading.Thread(target=open_browser, daemon=True)
+                t_browse.start()
 
     # Wait for Ctrl+C or process exit
     try:
         while True:
             time.sleep(0.5)
-            # Check if any process died unexpectedly
             for name, proc in processes:
                 if proc.poll() is not None:
                     log_warn(f"{name} exited unexpectedly with code {proc.returncode}.")

@@ -22,7 +22,7 @@ test.describe('Helpbot Assistant & Insights @smoke', () => {
     await fab.click();
 
     // 2. Chat modal should open with title and PII disclaimer
-    await expect(page.locator('text=Solar CRM Help Assistant')).toBeVisible();
+    await expect(page.locator('text=Solar CRM Help Assistant').first()).toBeVisible();
     await expect(page.locator('text=Specialized in Solar CRM features only')).toBeVisible();
 
     // 3. Ask an in-scope question

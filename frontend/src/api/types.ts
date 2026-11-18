@@ -84,6 +84,8 @@ export interface User {
   allowed_regions?: Region[] | string[];
   default_region?: string | null;
   default_timezone?: string;
+  is_demo?: boolean;
+  must_change_password?: boolean;
   permissions?: string[];
 }
 

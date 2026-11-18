@@ -1,10 +1,11 @@
 """NLP evaluation test suite for Solar CRM Helpbot."""
 
-import pytest
-import yaml
 from pathlib import Path
 
-from helpbot.nlp import get_helpbot_engine, Normalizer
+import pytest
+import yaml
+
+from helpbot.nlp import get_helpbot_engine
 
 EVAL_FILE = Path(__file__).resolve().parent / 'eval_questions.yaml'
 

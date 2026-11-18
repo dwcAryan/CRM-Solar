@@ -1,11 +1,12 @@
 from django.urls import path
+
 from .views import (
     HelpbotAskView,
-    HelpbotSuggestionsView,
     HelpbotFeedbackView,
-    HelpbotUnansweredView,
-    HelpbotStatsView,
     HelpbotRebuildIndexView,
+    HelpbotStatsView,
+    HelpbotSuggestionsView,
+    HelpbotUnansweredView,
 )
 
 urlpatterns = [

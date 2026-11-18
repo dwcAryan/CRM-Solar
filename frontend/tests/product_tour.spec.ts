@@ -29,24 +29,23 @@ test.describe('Product Tour & Walkthroughs @smoke', () => {
     await page.locator('[data-tour="header-help"]').click();
     await expect(page.locator('text=Product Tour Center')).toBeVisible();
     await expect(page.locator('text=Complete System Tour')).toBeVisible();
-    await expect(page.locator('text=Getting Started')).toBeVisible();
+    await expect(page.getByText('Getting Started', { exact: true })).toBeVisible();
 
-    // 4. Start Getting Started tour from Tour Center
-    const startButtons = page.locator('button:has-text("Start"), button:has-text("Replay")');
-    if ((await startButtons.count()) > 0) {
-      await startButtons.first().click();
-      // Tour driver popover should appear with progress
-      const popover = page.locator('.driver-popover');
-      await expect(popover).toBeVisible({ timeout: 5000 });
-      await expect(popover).toContainText('Core Workspaces');
+    // 4. Start Getting Started tour from Tour Center drawer
+    const drawer = page.locator('.mantine-Drawer-content');
+    const startButton = drawer.locator('button:has-text("Start"), button:has-text("Replay")').first();
+    await startButton.click();
+    // Tour driver popover should appear with progress
+    const popover = page.locator('.driver-popover');
+    await expect(popover).toBeVisible({ timeout: 10000 });
+    await expect(popover).toContainText(/Navigation Sidebar|Core Workspaces/);
 
-      // Close popover
-      const closeBtn = page.locator('.driver-popover-close-btn');
-      if (await closeBtn.isVisible()) {
-        await closeBtn.click();
-      } else {
-        await page.keyboard.press('Escape');
-      }
+    // Close popover
+    const closeBtn = page.locator('.driver-popover-close-btn');
+    if (await closeBtn.isVisible()) {
+      await closeBtn.click();
+    } else {
+      await page.keyboard.press('Escape');
     }
 
     await context.close();

@@ -1,8 +1,8 @@
 import datetime
-from typing import Optional, Tuple
 import zoneinfo
-from django.utils import timezone
+from typing import Optional, Tuple
 
+from django.utils import timezone
 
 AU_STATE_TIMEZONES = {
     'NSW': 'Australia/Sydney',

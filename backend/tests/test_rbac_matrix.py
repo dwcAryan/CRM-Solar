@@ -4,16 +4,13 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from accounts.permissions import PERMISSION_MATRIX, can, get_user_permissions
+from accounts.permissions import PERMISSION_MATRIX, get_user_permissions
 from activities.models import Activity
-from leads.models import AuditLog, Lead
-from masters.models import LostReason, Outcome, Region
-from quotes.models import Quote
-from surveys.models import Survey
+from leads.models import Lead
+from masters.models import LostReason, Outcome
 from tests.factories import (
     ActivityFactory,
     LeadFactory,
-    QuoteFactory,
     RegionFactory,
     SurveyFactory,
     UserFactory,
@@ -210,7 +207,7 @@ class TestRoleWorkAreasAndAccess:
         res_unassigned = client.get('/api/leads/unassigned/')
         assert res_unassigned.status_code == status.HTTP_200_OK
         unassigned_list = res_unassigned.data if isinstance(res_unassigned.data, list) else res_unassigned.data.get('results', [])
-        unassigned_ids = [l['id'] for l in unassigned_list]
+        unassigned_ids = [item['id'] for item in unassigned_list]
         assert unassigned_lead.id in unassigned_ids
 
     def test_activity_immutability_and_correction_notes(self, admin_user, salesperson_user, region_in):
@@ -281,7 +278,7 @@ class TestRoleWorkAreasAndAccess:
         # Soft-deleted lead hidden from leads list
         res_list = client.get('/api/leads/')
         data_list = res_list.data if isinstance(res_list.data, list) else res_list.data.get('results', [])
-        lead_ids = [l['id'] for l in data_list]
+        lead_ids = [item['id'] for item in data_list]
         assert lead.id not in lead_ids
 
 

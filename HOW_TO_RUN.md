@@ -128,10 +128,30 @@ python run.py
 
 ### Useful Command Flags
 You can run `python run.py [FLAG]`:
+- `--prod`: Run in production mode: compiles frontend build, serves via Whitenoise + Waitress/Gunicorn on port 8000, enforces strict security, and launches the background scheduler.
 - `--no-browser`: Do not auto-launch the web browser.
 - `--skip-install`: Skip checking and updating pip/npm dependencies for ultra-fast startup.
 - `--backend-only`: Run only the Django API server.
+- `--seed-demo`: Seed demo accounts and sample leads for training and UAT.
 - `--reset-demo`: Clear existing sample leads and regenerate fresh demo accounts with new secure passwords.
+
+---
+
+## Administrator & Demo Management Commands
+
+### 1. Creating Real Administrator Accounts
+To create an initial production administrator account with strong password verification:
+```bash
+python backend/manage.py create_admin
+```
+Enforces a minimum of 10 characters with uppercase, lowercase, numbers, and special symbols.
+
+### 2. Purging All Demo Data for Production Readiness
+Before going live, purge all training accounts and sample leads with:
+```bash
+python backend/manage.py remove_demo_data
+```
+This inspects the database, displays an inventory of all demo items, and prompts for confirmation (`delete demo` or `yes`) before executing atomic cascade removal.
 
 ---
 
@@ -141,9 +161,11 @@ Once started, access the application at:
 
 | Component | URL | Description |
 |:---|:---|:---|
-| **Frontend Web App** | [http://localhost:5173](http://localhost:5173) | Main single-page application for all users (Sales, Managers, Surveyors, Admins). |
+| **Development Web App** | [http://localhost:5173](http://localhost:5173) | Vite dev server with hot-reload (in development mode). |
+| **Production Web App** | [http://localhost:8000](http://localhost:8000) | Single-origin unified application (when running with `--prod`). |
 | **Backend REST API** | [http://localhost:8000/api/](http://localhost:8000/api/) | REST API root endpoints. |
-| **API Documentation** | [http://localhost:8000/api/schema/swagger-ui/](http://localhost:8000/api/schema/swagger-ui/) | Interactive OpenAPI / Swagger documentation and sandbox. |
+| **Readiness Check** | [http://localhost:8000/api/health/](http://localhost:8000/api/health/) | JSON health check (DB connectivity & migrations status). |
+| **API Documentation** | [http://localhost:8000/api/schema/swagger-ui/](http://localhost:8000/api/schema/swagger-ui/) | Interactive OpenAPI / Swagger docs (admin-only in production). |
 | **Django Admin** | [http://localhost:8000/admin/](http://localhost:8000/admin/) | System administrative back-office portal. |
 
 > [!NOTE]

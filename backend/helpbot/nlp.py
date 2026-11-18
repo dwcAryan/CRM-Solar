@@ -1,20 +1,20 @@
 """Natural Language Processing, retrieval, classification, and answer generation for Helpbot."""
 
-import os
-import re
 import json
 import logging
+import os
+import re
 from pathlib import Path
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
+import joblib
 import yaml
+from django.conf import settings
 from rank_bm25 import BM25Okapi
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-import joblib
 
-from django.conf import settings
-from .prompts import SYSTEM_PROMPT, REFUSAL_MESSAGE, DEFAULT_STARTER_QUESTIONS
+from .prompts import DEFAULT_STARTER_QUESTIONS, REFUSAL_MESSAGE, SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 

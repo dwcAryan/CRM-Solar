@@ -10,18 +10,6 @@ from .models import MessageLog, MessageTemplate
 logger = logging.getLogger(__name__)
 
 
-import logging
-import os
-from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
-
-from leads.models import Lead
-
-from .models import MessageLog, MessageTemplate
-
-logger = logging.getLogger(__name__)
-
-
 class WhatsAppProvider(ABC):
     @abstractmethod
     def send_template(

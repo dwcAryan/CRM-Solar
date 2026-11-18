@@ -1,9 +1,11 @@
 import csv
 import json
+import logging
 from datetime import timedelta
 from typing import Dict
 
-from django.core.exceptions import PermissionDenied, ValidationError as DjangoValidationError
+from django.core.exceptions import PermissionDenied
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Count, Q
 from django.http import HttpResponse
@@ -16,15 +18,8 @@ from rest_framework.renderers import BaseRenderer, BrowsableAPIRenderer, JSONRen
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-class PassthroughPdfRenderer(BaseRenderer):
-    media_type = 'application/pdf'
-    format = 'pdf'
-
-    def render(self, data, accepted_media_type=None, renderer_context=None):
-        return data
-
 from accounts.models import User
-from accounts.permissions import can, HasPermission, LeadPermission
+from accounts.permissions import HasPermission, LeadPermission, can
 from activities.models import Activity
 from activities.serializers import ActivitySerializer
 from ai_assist.service import get_or_generate_ai_suggestion
@@ -59,6 +54,18 @@ from .serializers import (
     PrivacyCorrectInputSerializer,
 )
 from .services import process_log_activity
+
+
+class PassthroughPdfRenderer(BaseRenderer):
+    media_type = 'application/pdf'
+    format = 'pdf'
+
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        return data
+
+
+logger = logging.getLogger(__name__)
+
 
 
 class LeadViewSet(viewsets.ModelViewSet):
@@ -390,7 +397,6 @@ class LeadViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='today')
     def today_queue(self, request):
-        user = request.user
         now = timezone.now()
         start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
         end_of_today = start_of_today + timedelta(days=1)

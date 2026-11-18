@@ -11,10 +11,9 @@ from rest_framework.test import APIClient
 from accounts.models import User
 from leads.models import Lead
 from masters.models import LeadSource, Region
-from notifications.models import Notification, NotificationPreference, PushSubscription
+from notifications.models import NotificationPreference, PushSubscription
 from notifications.push_service import send_push_notification
-from notifications.scheduler import notify_salespersons_daily_followups, remind_surveys_scheduled_tomorrow
-from surveys.models import Survey
+from notifications.scheduler import notify_salespersons_daily_followups
 
 
 @pytest.fixture
@@ -142,7 +141,7 @@ class TestPushServiceAndPrivacy:
 
     def test_payload_privacy_rule(self, test_user):
         """Verifies customer phone numbers and PII are NEVER included in push payloads."""
-        sub = PushSubscription.objects.create(
+        PushSubscription.objects.create(
             user=test_user,
             endpoint="https://example.pushservice.com/sub/1",
             p256dh="dummy_p256dh",
@@ -205,7 +204,7 @@ class TestSchedulerRegionAndRoleFiltering:
         now = timezone.now()
 
         # Lead 1: in IN (Salesperson test_user's allowed region)
-        lead_in = Lead.objects.create(
+        Lead.objects.create(
             name="Indian Customer",
             phone="+919825100001",
             phone_e164="+919825100001",
@@ -217,7 +216,7 @@ class TestSchedulerRegionAndRoleFiltering:
         )
 
         # Lead 2: in AU (NOT allowed for test_user)
-        lead_au = Lead.objects.create(
+        Lead.objects.create(
             name="Australian Customer",
             phone="+61412000001",
             phone_e164="+61412000001",

@@ -9,12 +9,13 @@ from rest_framework.views import APIView
 
 from leads.models import AuditLog, Lead
 from notifications.models import Notification
+
 from .models import User, UserTourState
 from .permissions import (
     PERMISSION_MATRIX,
+    HasPermission,
     can,
     get_user_permissions,
-    HasPermission,
 )
 from .serializers import UserCreateUpdateSerializer, UserSerializer
 
@@ -255,4 +256,43 @@ class TourStateView(APIView):
                 status=UserTourState.Status.NOT_STARTED, last_step=0
             )
             return Response({"message": "Successfully reset tour for your account."})
+
+
+class PasswordChangeView(APIView):
+    """
+    Enforces strong password update for authenticated users (mandatory on first login if flagged).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        old_password = request.data.get('old_password')
+        new_password = request.data.get('new_password')
+
+        if not new_password:
+            return Response({"error": "New password is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check existing password if usable
+        if user.has_usable_password() and old_password:
+            if not user.check_password(old_password):
+                return Response({"error": "Incorrect current password."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate password complexity
+        import re
+        if len(new_password) < 10:
+            return Response({"error": "Password must be at least 10 characters long."}, status=status.HTTP_400_BAD_REQUEST)
+        if not re.search(r'[A-Z]', new_password):
+            return Response({"error": "Password must include at least one uppercase letter."}, status=status.HTTP_400_BAD_REQUEST)
+        if not re.search(r'[a-z]', new_password):
+            return Response({"error": "Password must include at least one lowercase letter."}, status=status.HTTP_400_BAD_REQUEST)
+        if not re.search(r'[0-9]', new_password):
+            return Response({"error": "Password must include at least one digit."}, status=status.HTTP_400_BAD_REQUEST)
+        if not re.search(r'[^A-Za-z0-9]', new_password):
+            return Response({"error": "Password must include at least one special character."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_password)
+        user.must_change_password = False
+        user.save(update_fields=['password', 'must_change_password'])
+
+        return Response({"status": "success", "message": "Password changed successfully."})
 

@@ -39,6 +39,14 @@ class User(AbstractUser):
         default='Asia/Kolkata',
         help_text="User's primary operating timezone for reminders and digest notifications.",
     )
+    is_demo = models.BooleanField(
+        default=False,
+        help_text="Designates whether this user was created as part of demo/training data.",
+    )
+    must_change_password = models.BooleanField(
+        default=False,
+        help_text="Requires the user to change their password on next login.",
+    )
 
     def __str__(self) -> str:
         full_name = self.get_full_name()

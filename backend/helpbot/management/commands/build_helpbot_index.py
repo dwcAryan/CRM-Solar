@@ -1,12 +1,14 @@
 import json
 import logging
+
 from django.core.management.base import BaseCommand
+
 from helpbot.nlp import (
     DYNAMIC_FACTS_FILE,
     IntentEngine,
     KnowledgeRetriever,
 )
-from masters.models import PolicySettings, Region, Outcome, LostReason
+from masters.models import LostReason, Outcome, PolicySettings, Region
 
 logger = logging.getLogger(__name__)
 

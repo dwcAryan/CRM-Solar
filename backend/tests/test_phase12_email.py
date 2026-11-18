@@ -1,22 +1,18 @@
 import datetime
 import socket
-from unittest.mock import patch
-import zoneinfo
 
 import pytest
+from aiosmtpd.controller import Controller
+from aiosmtpd.smtp import AuthResult
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
-from django.core.exceptions import ImproperlyConfigured
 from django.core.management import call_command
 from django.test import override_settings
 from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
-
-from aiosmtpd.controller import Controller
-from aiosmtpd.smtp import AuthResult
 
 from leads.models import Lead
 from masters.models import LeadSource, Region
@@ -26,11 +22,8 @@ from notifications.email_service import (
     render_base_email,
     run_smtp_diagnostics,
     send_daily_morning_digest,
-    send_email_with_retry,
     send_lead_assigned_notification,
-    send_password_reset_email,
     send_survey_reminder,
-    send_test_email,
 )
 from notifications.models import EmailLog, NotificationPreference
 from surveys.models import Survey

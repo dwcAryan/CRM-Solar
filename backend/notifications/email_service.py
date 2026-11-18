@@ -4,17 +4,17 @@ Handles HTML and plain-text email generation, regional localization (AU/IN spell
 retry with exponential backoff, compliance guardrails, and audit logging to EmailLog.
 """
 
-import html
+import datetime
 import logging
 import re
 import smtplib
 import socket
 import time
-from typing import Any, Dict, List, Optional
 import zoneinfo
+from typing import Any, Dict, List, Optional
 
 from django.conf import settings
-from django.core.mail import EmailMultiAlternatives, get_connection
+from django.core.mail import EmailMultiAlternatives
 from django.utils import timezone
 from django.utils.html import escape
 
@@ -224,33 +224,31 @@ def send_daily_morning_digest(
     # Regional spelling
     org_label = "organised" if is_au else "organized"
     prioritise_label = "prioritise" if is_au else "prioritize"
-    favour_label = "favour" if is_au else "favor"
 
-    total_leads = len(due_today_leads) + len(overdue_leads)
     subject = f"Solar CRM: Daily Follow-up Digest - {len(due_today_leads)} due today, {len(overdue_leads)} overdue"
 
     # HTML Body
     rows_html = []
-    for l in overdue_leads:
-        formatted_time = _format_lead_time_with_zone(l.next_followup_at, l)
+    for lead_item in overdue_leads:
+        formatted_time = _format_lead_time_with_zone(lead_item.next_followup_at, lead_item)
         rows_html.append(
             f"<tr>"
             f"<td><span class='badge badge-overdue'>Overdue</span></td>"
-            f"<td><a href='{site_url}/leads/{l.id}'><strong>{escape(l.name)}</strong></a></td>"
-            f"<td>{escape(l.phone)}</td>"
+            f"<td><a href='{site_url}/leads/{lead_item.id}'><strong>{escape(lead_item.name)}</strong></a></td>"
+            f"<td>{escape(lead_item.phone)}</td>"
             f"<td>{escape(formatted_time)}</td>"
-            f"<td>{escape(l.next_action or 'Follow-up')}</td>"
+            f"<td>{escape(lead_item.next_action or 'Follow-up')}</td>"
             f"</tr>"
         )
-    for l in due_today_leads:
-        formatted_time = _format_lead_time_with_zone(l.next_followup_at, l)
+    for lead_item in due_today_leads:
+        formatted_time = _format_lead_time_with_zone(lead_item.next_followup_at, lead_item)
         rows_html.append(
             f"<tr>"
             f"<td><span class='badge badge-today'>Today</span></td>"
-            f"<td><a href='{site_url}/leads/{l.id}'><strong>{escape(l.name)}</strong></a></td>"
-            f"<td>{escape(l.phone)}</td>"
+            f"<td><a href='{site_url}/leads/{lead_item.id}'><strong>{escape(lead_item.name)}</strong></a></td>"
+            f"<td>{escape(lead_item.phone)}</td>"
             f"<td>{escape(formatted_time)}</td>"
-            f"<td>{escape(l.next_action or 'Follow-up')}</td>"
+            f"<td>{escape(lead_item.next_action or 'Follow-up')}</td>"
             f"</tr>"
         )
 
@@ -258,7 +256,7 @@ def send_daily_morning_digest(
     <p>Good morning <strong>{escape(user.first_name or user.username)}</strong>,</p>
     <p>Here is your daily follow-up digest. You have <strong>{len(due_today_leads)}</strong> follow-ups due today and <strong style="color: #dc2626;">{len(overdue_leads)}</strong> overdue follow-ups requiring prompt attention.</p>
     <p>Please review your pipeline and {prioritise_label} calls to keep customer enquiries {org_label}.</p>
-    
+
     <table class="table-leads">
       <thead>
         <tr>
@@ -281,22 +279,22 @@ def send_daily_morning_digest(
 
     plain_lines = [
         f"Good morning {user.first_name or user.username},",
-        f"",
+        "",
         f"Daily Follow-up Digest: {len(due_today_leads)} due today, {len(overdue_leads)} overdue.",
-        f"",
+        "",
     ]
     if overdue_leads:
         plain_lines.append("OVERDUE FOLLOW-UPS:")
-        for l in overdue_leads:
-            t = _format_lead_time_with_zone(l.next_followup_at, l)
-            plain_lines.append(f" - [OVERDUE] {l.name} | Phone: {l.phone} | Due: {t} | Link: {site_url}/leads/{l.id}")
+        for lead_item in overdue_leads:
+            t = _format_lead_time_with_zone(lead_item.next_followup_at, lead_item)
+            plain_lines.append(f" - [OVERDUE] {lead_item.name} | Phone: {lead_item.phone} | Due: {t} | Link: {site_url}/leads/{lead_item.id}")
         plain_lines.append("")
 
     if due_today_leads:
         plain_lines.append("TODAY'S FOLLOW-UPS:")
-        for l in due_today_leads:
-            t = _format_lead_time_with_zone(l.next_followup_at, l)
-            plain_lines.append(f" - [TODAY] {l.name} | Phone: {l.phone} | Due: {t} | Link: {site_url}/leads/{l.id}")
+        for lead_item in due_today_leads:
+            t = _format_lead_time_with_zone(lead_item.next_followup_at, lead_item)
+            plain_lines.append(f" - [TODAY] {lead_item.name} | Phone: {lead_item.phone} | Due: {t} | Link: {site_url}/leads/{lead_item.id}")
         plain_lines.append("")
 
     plain_lines.append(f"Open full queue: {site_url}/today")
@@ -348,7 +346,6 @@ def send_survey_reminder(
     formatted_time = _format_lead_time_with_zone(survey.scheduled_at, lead)
     is_au = (lead.region_id == 'AU')
 
-    loc_label = "suburb" if is_au else "city"
     lead_loc = lead.suburb if is_au and lead.suburb else (lead.city or "Local area")
 
     subject = f"Solar CRM: Site Survey Tomorrow for {lead.name} ({formatted_time})"
@@ -356,7 +353,7 @@ def send_survey_reminder(
     content_html = f"""
     <p>Hello <strong>{escape(recipient_user.first_name or recipient_user.username)}</strong>,</p>
     <p>This is a reminder that an on-site rooftop solar technical inspection is scheduled for tomorrow:</p>
-    
+
     <div style="background: #f8fafc; border-left: 4px solid #f59e0b; padding: 12px 16px; margin: 16px 0; border-radius: 4px;">
       <p style="margin: 0 0 6px;"><strong>Customer:</strong> {escape(lead.name)}</p>
       <p style="margin: 0 0 6px;"><strong>Phone:</strong> {escape(lead.phone)}</p>

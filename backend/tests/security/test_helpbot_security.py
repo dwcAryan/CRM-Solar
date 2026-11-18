@@ -3,9 +3,9 @@
 import pytest
 from rest_framework import status
 from rest_framework.test import APIClient
+
 from accounts.models import User
 from helpbot.models import HelpbotQueryLog
-from helpbot.nlp import Normalizer
 
 
 @pytest.fixture

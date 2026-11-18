@@ -23,8 +23,16 @@ export default defineConfig({
       testMatch: /.*\.setup\.ts/,
     },
     {
+      name: 'unauthenticated',
+      testMatch: /.*login_clean\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+    },
+    {
       name: 'smoke',
       testMatch: /.*\.spec\.ts/,
+      testIgnore: /.*login_clean\.spec\.ts/,
       dependencies: ['setup'],
       use: {
         ...devices['Desktop Chrome'],

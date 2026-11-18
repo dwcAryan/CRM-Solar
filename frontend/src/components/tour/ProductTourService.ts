@@ -24,11 +24,6 @@ export const stopTour = () => {
 };
 
 export const startTour = (tourId: string = 'complete', onFinish?: () => void) => {
-  // Prevent duplicate concurrent launches (e.g. React StrictMode or multiple triggers)
-  if (isTourActive()) {
-    return;
-  }
-
   stopTour();
   startingTour = true;
 

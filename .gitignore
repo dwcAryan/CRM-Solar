@@ -17,31 +17,47 @@ __pycache__/
 *.sqlite3
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
 *.log
+logs/
+backend/logs/
+staticfiles/
+backend/staticfiles/
 .requirements.hash
 .install.hash
 
+# Media and Uploads
+media/
+backend/media/
+
 # Node / Frontend
 frontend/node_modules/
+node_modules/
 frontend/dist/
+dist/
 frontend/dev-dist/
 dev-dist/
 frontend/dist-ssr/
 *.local
 
-# Test artifacts
+# Test artifacts and coverage
 test-results/
 frontend/test-results/
 playwright-report/
 frontend/playwright-report/
 frontend/playwright/.auth/
 playwright/.auth/
+.coverage
+coverage/
+htmlcov/
+backend/htmlcov/
 
-# Database backups
+# Database backups and dumps
 backups/
-backend/backups/*.dump
+backend/backups/
 *.dump
 *.sql
+*.bak
 
 # IDE & OS
 .vscode/

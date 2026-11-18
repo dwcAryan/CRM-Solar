@@ -1,4 +1,3 @@
-import json
 import zoneinfo
 from datetime import date, datetime, timedelta
 from unittest.mock import patch
@@ -10,22 +9,19 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from activities.models import Activity
 from leads.models import (
     AuditLog,
     Lead,
-    LeadStatusHistory,
 )
 from leads.phone_utils import normalize_phone_number
-from leads.privacy_service import anonymize_lead_data, correct_lead_data, generate_lead_dossier_dict
+from leads.privacy_service import anonymize_lead_data, correct_lead_data
 from leads.serializers import LeadSerializer
 from leads.services import process_log_activity
 from leads.timezone_utils import (
     check_calling_hours,
-    format_datetime_in_timezone,
     get_default_timezone_for_state,
 )
-from masters.models import Outcome, PolicySettings, PublicHoliday, Region, State
+from masters.models import Outcome, PublicHoliday, Region, State
 from quotes.models import Quote
 
 User = get_user_model()
@@ -188,9 +184,6 @@ class TestPhoneNormalizationAndE164:
 @pytest.mark.django_db
 class TestPostalCodeValidation:
     def test_postcode_validation_in_serializer(self, regions_and_states):
-        reg_in = regions_and_states["region_in"]
-        reg_au = regions_and_states["region_au"]
-
         # India valid 6 digits
         ser_in_ok = LeadSerializer(
             data={"name": "A", "phone": "9825012345", "region": "IN", "city": "Ahmedabad", "pincode": "380015"}

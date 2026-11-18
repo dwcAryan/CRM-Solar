@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 import pytest
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.utils import timezone
 from rest_framework import status

@@ -4,14 +4,13 @@ from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import permissions, status, viewsets
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 
 from accounts.models import User
-from accounts.permissions import QuotePermission, can
-from accounts.permissions import can_user_mark_lost
+from accounts.permissions import QuotePermission, can_user_mark_lost
 from activities.models import Activity
 from leads.models import Lead, LeadStatusHistory
 from masters.models import LostReason, Outcome
@@ -300,6 +299,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
         old_status = lead.status
 
         from django.db.models import Q
+
         from notifications.models import Notification
 
         if not can_user_mark_lost(request.user):

@@ -1,5 +1,6 @@
 import re
 from typing import Optional
+
 from django.db.models import Q
 
 from .models import Lead

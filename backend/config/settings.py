@@ -14,8 +14,26 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Load environment variables from backend/.env
 load_dotenv(BASE_DIR / '.env')
 
+APP_ENV = os.getenv('APP_ENV', 'development').lower().strip()
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-dev-key')
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
+
+if APP_ENV == 'production':
+    DEBUG = os.getenv('DEBUG', 'False').strip().lower() in ('true', '1')
+    if not SECRET_KEY or SECRET_KEY == 'django-insecure-default-dev-key' or len(SECRET_KEY) < 32:
+        from django.core.exceptions import ImproperlyConfigured
+        raise ImproperlyConfigured(
+            "Production mode (APP_ENV=production) requires a strong, unique SECRET_KEY (minimum 32 characters)."
+        )
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
+    SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'True').strip().lower() in ('true', '1')
+    CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'True').strip().lower() in ('true', '1')
+    SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '31536000'))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+else:
+    DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver').split(',') if host.strip()]
 
@@ -50,6 +68,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -118,6 +137,68 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+FRONTEND_DIST = BASE_DIR.parent / 'frontend' / 'dist'
+if FRONTEND_DIST.exists():
+    STATICFILES_DIRS = [FRONTEND_DIST]
+    WHITENOISE_ROOT = str(FRONTEND_DIST)
+else:
+    STATICFILES_DIRS = []
+    WHITENOISE_ROOT = None
+
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+WHITENOISE_INDEX_FILE = True
+
+# Logging Configuration with Structured Log Rotation & Sensitive Data Scrubbing
+LOGS_DIR = BASE_DIR / 'logs'
+LOGS_DIR.mkdir(exist_ok=True)
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {
+        'sensitive_data_filter': {
+            '()': 'config.logging_filters.SensitiveDataFilter',
+        },
+    },
+    'formatters': {
+        'standard': {
+            'format': '[{asctime}] {levelname} [{name}:{lineno}] {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'filters': ['sensitive_data_filter'],
+            'formatter': 'standard',
+        },
+        'file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': str(LOGS_DIR / 'solar_crm.log'),
+            'maxBytes': 5 * 1024 * 1024,  # 5 MB
+            'backupCount': 5,
+            'filters': ['sensitive_data_filter'],
+            'formatter': 'standard',
+            'encoding': 'utf-8',
+        },
+    },
+    'root': {
+        'handlers': ['console', 'file'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.server': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
 
 # Media files
 MEDIA_URL = '/media/'

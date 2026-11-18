@@ -145,7 +145,7 @@ class RulesProvider(AISuggestionProvider):
                 "suggested_outcome_to_log": "Customer compares with another vendor" if status == "Negotiation" else "Customer asks questions",
                 "talking_points": [
                     f"Review net investment of A${net_price:,.0f} inclusive of GST and point-of-sale STC incentive.",
-                    f"Highlight Tier-1 equipment advantages: 25-year performance warranty and reputable inverter support.",
+                    "Highlight Tier-1 equipment advantages: 25-year performance warranty and reputable inverter support.",
                     "Explain DNSP grid connection approval and compliance with Clean Energy Council guidelines.",
                 ],
                 "suggested_whatsapp_message": (

@@ -1,4 +1,5 @@
 import re
+
 from rest_framework import serializers
 
 from .models import AISuggestion, AuditLog, ImportBatch, Lead, LeadStatusHistory

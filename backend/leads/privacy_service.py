@@ -9,7 +9,7 @@ Implements:
 from __future__ import annotations
 
 import io
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -225,7 +225,7 @@ def generate_lead_dossier_pdf(lead: Lead) -> bytes:
     elements = []
 
     # Title & Header
-    elements.append(Paragraph(f"Privacy Data Dossier / DSAR Export", title_style))
+    elements.append(Paragraph("Privacy Data Dossier / DSAR Export", title_style))
     elements.append(Paragraph(
         f"<b>Subject:</b> {profile['name']} (Lead #{profile['id']}) | "
         f"<b>Region:</b> {profile['region']} | "

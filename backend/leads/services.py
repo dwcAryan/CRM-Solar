@@ -213,8 +213,8 @@ def process_log_activity(
             is_terminal = False
 
             # Notify managers of pending approval
-            from notifications.models import Notification
             from accounts.models import User as AppUser
+            from notifications.models import Notification
             mgr_qs = AppUser.objects.filter(role__in=[AppUser.Role.MANAGER, AppUser.Role.ADMIN], is_active=True)
             if lead.region_id:
                 mgr_qs = mgr_qs.filter(models.Q(allowed_regions__code=lead.region_id) | models.Q(is_superuser=True)).distinct()
