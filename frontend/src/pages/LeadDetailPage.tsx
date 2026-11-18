@@ -58,6 +58,7 @@ import { RejectQuoteModal } from '../components/modals/RejectQuoteModal';
 import { MergeLeadModal } from '../components/modals/MergeLeadModal';
 import { AddRemarkModal } from '../components/modals/AddRemarkModal';
 import { ConfirmActionModal } from '../components/modals/ConfirmActionModal';
+import { AISuggestionsCard } from '../components/ai/AISuggestionsCard';
 import type { Lead, Activity, Survey, Quote, LeadStatusHistory } from '../api/types';
 
 export const LeadDetailPage: React.FC = () => {
@@ -79,6 +80,7 @@ export const LeadDetailPage: React.FC = () => {
   const [mergeModalOpen, setMergeModalOpen] = useState(false);
   const [addRemarkOpen, setAddRemarkOpen] = useState(false);
   const [confirmAcceptQuote, setConfirmAcceptQuote] = useState<Quote | null>(null);
+  const [prefilledOutcome, setPrefilledOutcome] = useState<string | null>(null);
 
   // Queries
   const { data: lead, isLoading: leadLoading, isError, refetch: refetchLead } = useQuery<Lead>({
@@ -254,6 +256,15 @@ export const LeadDetailPage: React.FC = () => {
             </Text>
           </Alert>
         )}
+
+        {/* Phase 7: AI Copilot & Next Action Suggestions */}
+        <AISuggestionsCard
+          lead={lead}
+          onPreFillOutcome={(outcomeName) => {
+            setPrefilledOutcome(outcomeName);
+            setOutcomeModalOpen(true);
+          }}
+        />
 
         {/* Lead Summary Card */}
         <Card shadow="sm" padding="lg" radius="md" withBorder>
@@ -837,11 +848,17 @@ export const LeadDetailPage: React.FC = () => {
       {/* Modals */}
       <LogOutcomeModal
         opened={outcomeModalOpen}
-        onClose={() => setOutcomeModalOpen(false)}
+        onClose={() => {
+          setOutcomeModalOpen(false);
+          setPrefilledOutcome(null);
+        }}
         lead={lead}
+        initialOutcomeName={prefilledOutcome}
         onSuccess={() => {
           refetchLead();
+          setPrefilledOutcome(null);
           queryClient.invalidateQueries({ queryKey: ['activities', leadId] });
+          queryClient.invalidateQueries({ queryKey: ['ai-suggestion', leadId] });
         }}
       />
 

@@ -19,6 +19,7 @@ from accounts.models import User
 from accounts.permissions import LeadPermission
 from activities.models import Activity
 from activities.serializers import ActivitySerializer
+from ai_assist.service import get_or_generate_ai_suggestion
 from masters.models import LeadSource
 
 from .import_service import (
@@ -32,6 +33,7 @@ from .import_service import (
 from .models import ImportBatch, Lead, LeadStatusHistory
 from .serializers import (
     AddRemarkInputSerializer,
+    AISuggestionSerializer,
     BulkActionSerializer,
     ImportBatchSerializer,
     LeadSerializer,
@@ -211,6 +213,34 @@ class LeadViewSet(viewsets.ModelViewSet):
             {
                 "message": f"Lead #{duplicate_lead.id} merged into #{target_lead.id} successfully.",
                 "target_lead": LeadSerializer(target_lead, context={'request': request}).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=['get', 'post'], url_path='ai-suggestions')
+    def ai_suggestions(self, request, pk=None):
+        """
+        Retrieves or generates AI sales coaching recommendations for a lead.
+        GET: Returns cached suggestion or generates one if none exists.
+        POST: Force regenerates if refresh=True or data has changed.
+        """
+        lead = self.get_object()
+        force_refresh = (
+            request.method == 'POST' and (
+                str(request.data.get('refresh', '')).lower() in ['true', '1'] or
+                str(request.query_params.get('refresh', '')).lower() in ['true', '1']
+            )
+        )
+        suggestion, is_new = get_or_generate_ai_suggestion(
+            lead=lead,
+            user=request.user,
+            force_refresh=force_refresh,
+        )
+        serializer = AISuggestionSerializer(suggestion)
+        return Response(
+            {
+                "suggestion": serializer.data,
+                "is_new": is_new,
             },
             status=status.HTTP_200_OK,
         )
@@ -597,6 +627,45 @@ class DashboardView(APIView):
         start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         won_this_month = qs.filter(status=Lead.Status.WON, won_at__gte=start_of_month).count()
 
+        # Needs attention list (rule-based, high risk leads, zero API calls)
+        needs_attention_qs = qs.exclude(status__in=Lead.TERMINAL_STATUSES).filter(
+            Q(attempt_count__gte=3) |
+            Q(status=Lead.Status.QUOTE_SENT, updated_at__lt=now - timedelta(days=3)) |
+            Q(status=Lead.Status.SURVEY_MISSED) |
+            Q(next_followup_at__lt=now - timedelta(days=2)) |
+            Q(next_followup_at__isnull=True)
+        ).select_related('assigned_to', 'source').order_by('-updated_at')[:10]
+
+        needs_attention = []
+        for lead_item in needs_attention_qs:
+            reason = "No next follow-up date set"
+            risk = "high"
+            if lead_item.attempt_count >= 3:
+                reason = f"{lead_item.attempt_count} consecutive failed call attempts"
+                risk = "high"
+            elif lead_item.status == Lead.Status.SURVEY_MISSED:
+                reason = "Site survey was missed by customer"
+                risk = "high"
+            elif lead_item.status == Lead.Status.QUOTE_SENT and lead_item.updated_at < now - timedelta(days=3):
+                reason = "Quotation sent > 3 days ago with no response"
+                risk = "medium"
+            elif lead_item.next_followup_at and lead_item.next_followup_at < now - timedelta(days=2):
+                days_overdue = (now - lead_item.next_followup_at).days
+                reason = f"Follow-up severely overdue by {days_overdue} days"
+                risk = "high"
+
+            needs_attention.append({
+                "id": lead_item.id,
+                "name": lead_item.name,
+                "phone": lead_item.phone,
+                "city": lead_item.city,
+                "status": lead_item.status,
+                "risk_level": risk,
+                "reason": reason,
+                "next_followup_at": lead_item.next_followup_at.isoformat() if lead_item.next_followup_at else None,
+                "assigned_to_name": lead_item.assigned_to.get_full_name() if lead_item.assigned_to else "Unassigned",
+            })
+
         return Response(
             {
                 "status_counts": status_counts,
@@ -605,6 +674,7 @@ class DashboardView(APIView):
                 "leads_per_source": leads_per_source,
                 "won_this_month": won_this_month,
                 "total_active_leads": total_active_leads,
+                "needs_attention": needs_attention,
             },
             status=status.HTTP_200_OK,
         )

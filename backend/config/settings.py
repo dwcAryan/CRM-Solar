@@ -17,7 +17,7 @@ load_dotenv(BASE_DIR / '.env')
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-dev-key')
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if host.strip()]
+ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver').split(',') if host.strip()]
 
 # Application definition
 INSTALLED_APPS = [
@@ -166,3 +166,10 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
 }
+
+# AI Assist Configuration
+AI_PROVIDER = os.getenv('AI_PROVIDER', 'rules').lower()
+ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', '').strip()
+AI_MODEL = os.getenv('AI_MODEL', 'claude-sonnet-5-5').strip()
+AI_TIMEOUT_SECONDS = int(os.getenv('AI_TIMEOUT_SECONDS', '15'))
+AI_MAX_CALLS_PER_USER_PER_DAY = int(os.getenv('AI_MAX_CALLS_PER_USER_PER_DAY', '50'))

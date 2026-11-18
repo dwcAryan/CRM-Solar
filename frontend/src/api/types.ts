@@ -194,6 +194,18 @@ export interface MessageLog {
   created_at: string;
 }
 
+export interface AttentionLead {
+  id: number;
+  name: string;
+  phone: string;
+  city: string;
+  status: string;
+  risk_level: 'low' | 'medium' | 'high';
+  reason: string;
+  next_followup_at?: string | null;
+  assigned_to_name?: string;
+}
+
 export interface DashboardData {
   status_counts: Record<string, number>;
   funnel: {
@@ -207,6 +219,7 @@ export interface DashboardData {
   leads_per_source: Array<{ source: string; count: number }>;
   won_this_month: number;
   total_active_leads: number;
+  needs_attention?: AttentionLead[];
 }
 
 export interface HealthResponse {
@@ -284,4 +297,37 @@ export interface HelpFaqItem {
   title: string;
   category: string;
   action?: { label: string; path: string };
+}
+
+// Phase 7 AI Suggestions Types
+export interface AIOnjectionReply {
+  objection: string;
+  reply: string;
+}
+
+export interface AISuggestionOutput {
+  situation_summary: string;
+  risk_level: 'low' | 'medium' | 'high';
+  risk_reason: string;
+  best_next_action: string;
+  suggested_follow_up_timing: string;
+  suggested_outcome_to_log: string;
+  talking_points: string[];
+  suggested_whatsapp_message: string;
+  objections_to_expect: AIOnjectionReply[];
+}
+
+export interface AISuggestion {
+  id: number;
+  lead: number;
+  generated_by?: number | null;
+  generated_by_name?: string;
+  generated_at: string;
+  provider: string;
+  model: string;
+  input_hash: string;
+  output_json: AISuggestionOutput;
+  tokens_used: number;
+  is_fallback: boolean;
+  error_message?: string;
 }

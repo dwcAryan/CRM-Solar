@@ -29,6 +29,7 @@ interface LogOutcomeModalProps {
   lead: Lead | null;
   onSuccess?: () => void;
   defaultStage?: 'call' | 'survey' | 'quote';
+  initialOutcomeName?: string | null;
 }
 
 const TERMINAL_STATUSES = ['Won', 'Lost', 'Do not contact', 'Merged', 'Invalid contact'];
@@ -39,6 +40,7 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
   lead,
   onSuccess,
   defaultStage = 'call',
+  initialOutcomeName,
 }) => {
   const queryClient = useQueryClient();
   const [stage, setStage] = useState<'call' | 'survey' | 'quote'>(defaultStage);
@@ -117,6 +119,19 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
       setNextFollowupAt(targetDate.toISOString().slice(0, 16));
     }
   };
+
+  // If an initialOutcomeName is passed, attempt to auto-select matching outcome
+  useEffect(() => {
+    if (opened && initialOutcomeName && outcomes.length > 0 && !outcomeId) {
+      const targetLower = initialOutcomeName.toLowerCase();
+      const matched = outcomes.find(
+        (o) => o.name.toLowerCase() === targetLower || o.name.toLowerCase().includes(targetLower)
+      );
+      if (matched) {
+        handleOutcomeChange(String(matched.id));
+      }
+    }
+  }, [opened, initialOutcomeName, outcomes, outcomeId]);
 
   const isTerminal = TERMINAL_STATUSES.includes(statusVal);
   const showLostReason = statusVal === 'Lost' || outcomes.find((o) => String(o.id) === outcomeId)?.requires_lost_reason;

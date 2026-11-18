@@ -172,3 +172,42 @@ class LeadStatusHistory(models.Model):
 
     def __str__(self) -> str:
         return f"{self.lead.name}: {self.old_status} -> {self.new_status} at {self.changed_at}"
+
+
+class AISuggestion(models.Model):
+    class Provider(models.TextChoices):
+        ANTHROPIC = 'anthropic', 'Anthropic Claude'
+        RULES = 'rules', 'Rules Engine (Fallback)'
+
+    lead = models.ForeignKey(
+        Lead,
+        on_delete=models.CASCADE,
+        related_name='ai_suggestions',
+    )
+    generated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='generated_ai_suggestions',
+    )
+    generated_at = models.DateTimeField(auto_now=True)
+    provider = models.CharField(max_length=50, choices=Provider.choices, default=Provider.RULES)
+    model = models.CharField(max_length=100, default='rules')
+    input_hash = models.CharField(max_length=64, db_index=True)
+    output_json = models.JSONField(default=dict)
+    tokens_used = models.PositiveIntegerField(default=0)
+    is_fallback = models.BooleanField(default=False)
+    error_message = models.TextField(blank=True, default='')
+
+    class Meta:
+        ordering = ['-generated_at']
+        verbose_name = 'AI Suggestion'
+        verbose_name_plural = 'AI Suggestions'
+        indexes = [
+            models.Index(fields=['lead', 'input_hash']),
+            models.Index(fields=['generated_at']),
+        ]
+
+    def __str__(self) -> str:
+        return f"AISuggestion for Lead #{self.lead_id} ({self.provider}) at {self.generated_at}"

@@ -20,6 +20,7 @@ import type {
   CsvImportResponse,
   HelpQueryResponse,
   HelpFaqItem,
+  AISuggestion,
 } from './types';
 
 const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -425,4 +426,17 @@ export const queryHelpAssistant = async (query: string): Promise<HelpQueryRespon
 export const fetchHelpFaqs = async (): Promise<HelpFaqItem[]> => {
   const res = await apiClient.get<{ faqs: HelpFaqItem[] }>('/api/help/faqs/');
   return res.data.faqs || [];
+};
+
+// Phase 7 AI Suggestions
+export const fetchAISuggestion = async (leadId: number, refresh: boolean = false): Promise<AISuggestion> => {
+  const res = await apiClient.get<any>(`/api/leads/${leadId}/ai-suggestions/`, {
+    params: refresh ? { refresh: 'true' } : undefined,
+  });
+  return res.data.suggestion || res.data;
+};
+
+export const generateAISuggestion = async (leadId: number, refresh: boolean = true): Promise<AISuggestion> => {
+  const res = await apiClient.post<any>(`/api/leads/${leadId}/ai-suggestions/`, { refresh });
+  return res.data.suggestion || res.data;
 };

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import ImportBatch, Lead, LeadStatusHistory
+from .models import AISuggestion, ImportBatch, Lead, LeadStatusHistory
 from .utils import find_duplicate_lead
 
 
@@ -148,3 +148,25 @@ class ImportBatchSerializer(serializers.ModelSerializer):
             'failed_rows_json',
         ]
         read_only_fields = ['id', 'imported_at', 'reverted_at', 'reverted_by']
+
+
+class AISuggestionSerializer(serializers.ModelSerializer):
+    generated_by_name = serializers.CharField(source='generated_by.get_full_name', read_only=True)
+
+    class Meta:
+        model = AISuggestion
+        fields = [
+            'id',
+            'lead',
+            'generated_by',
+            'generated_by_name',
+            'generated_at',
+            'provider',
+            'model',
+            'input_hash',
+            'output_json',
+            'tokens_used',
+            'is_fallback',
+            'error_message',
+        ]
+        read_only_fields = fields

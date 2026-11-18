@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import ImportBatch, Lead, LeadStatusHistory
+from .models import AISuggestion, ImportBatch, Lead, LeadStatusHistory
 
 
 class LeadStatusHistoryInline(admin.TabularInline):
@@ -54,3 +54,11 @@ class ImportBatchAdmin(admin.ModelAdmin):
     list_filter = ('is_reverted', 'imported_at')
     search_fields = ('file_name', 'imported_by__username')
     readonly_fields = ('imported_at', 'reverted_at', 'reverted_by')
+
+
+@admin.register(AISuggestion)
+class AISuggestionAdmin(admin.ModelAdmin):
+    list_display = ('lead', 'provider', 'model', 'tokens_used', 'is_fallback', 'generated_at')
+    list_filter = ('provider', 'is_fallback', 'generated_at')
+    search_fields = ('lead__name', 'lead__city', 'model')
+    readonly_fields = ('generated_at', 'input_hash', 'output_json')
