@@ -21,6 +21,9 @@ frontend/dist/
 frontend/dist-ssr/
 *.local
 
+# Database backups
+backend/backups/*.dump
+
 # IDE & OS
 .vscode/
 .idea/
