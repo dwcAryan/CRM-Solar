@@ -4,6 +4,9 @@
 !.env.example
 *.local
 
+# Demo accounts and generated credentials
+docs/DEMO_ACCOUNTS.md
+
 # Python
 backend/venv/
 venv/
@@ -14,6 +17,8 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 *.log
+.requirements.hash
+.install.hash
 
 # Node / Frontend
 frontend/node_modules/
@@ -30,7 +35,10 @@ frontend/playwright/.auth/
 playwright/.auth/
 
 # Database backups
+backups/
 backend/backups/*.dump
+*.dump
+*.sql
 
 # IDE & OS
 .vscode/

@@ -1,7 +1,11 @@
 from decimal import Decimal
 import random
+import secrets
+import string
 from datetime import timedelta
+from pathlib import Path
 
+from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.utils import timezone
@@ -14,21 +18,52 @@ from quotes.models import Quote
 from surveys.models import Survey
 
 
+def generate_strong_password(length=14):
+    """Generate a random strong password with lowercase, uppercase, digits, and symbols."""
+    alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+    while True:
+        pwd = ''.join(secrets.choice(alphabet) for _ in range(length))
+        if (any(c.islower() for c in pwd)
+                and any(c.isupper() for c in pwd)
+                and any(c.isdigit() for c in pwd)
+                and any(c in "!@#$%^&*" for c in pwd)):
+            return pwd
+
+
 class Command(BaseCommand):
     help = "Seeds demo users (multi-country) and 30 realistic sample leads (15 India, 15 Australia) with activities, surveys, and quotes."
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--reset',
+            action='store_true',
+            help='Delete existing leads and re-seed all demo accounts and leads from scratch.',
+        )
+
     def handle(self, *args, **options):
+        if options.get('reset'):
+            self.stdout.write(self.style.WARNING("Reset requested: deleting existing leads, quotes, surveys and activities..."))
+            Quote.objects.all().delete()
+            Survey.objects.all().delete()
+            Activity.objects.all().delete()
+            LeadStatusHistory.objects.all().delete()
+            Lead.objects.all().delete()
+            self.stdout.write(self.style.SUCCESS("Existing data cleared."))
+
         self.stdout.write("Ensuring master data is seeded...")
         call_command('seed_masters')
 
-        self.stdout.write("\nCreating demo users for India and Australia...")
-        users = self.seed_users()
+        self.stdout.write("\nCreating/updating demo users with randomized strong passwords...")
+        users, credentials_info = self.seed_users()
+
+        self.stdout.write("\nWriting generated credentials to docs/DEMO_ACCOUNTS.md...")
+        self.write_demo_accounts_doc(credentials_info)
 
         self.stdout.write("\nCreating 15 Indian and 15 Australian sample leads...")
         self.seed_leads(users)
 
         self.stdout.write(self.style.SUCCESS("\nDemo data seeding completed successfully!"))
-        self.print_user_credentials()
+        self.print_user_credentials(credentials_info)
 
     def seed_users(self):
         in_region = Region.objects.get(code='IN')
@@ -38,91 +73,100 @@ class Command(BaseCommand):
             {
                 'username': 'demo_admin',
                 'email': 'admin@solarcrm.com',
-                'password': 'Admin@Demo2026!',
                 'first_name': 'Amit',
                 'last_name': 'Patel',
                 'role': User.Role.ADMIN,
+                'role_label': 'Admin',
                 'phone': '+919825011111',
                 'is_staff': True,
                 'is_superuser': True,
                 'default_region': in_region,
                 'default_timezone': 'Asia/Kolkata',
                 'allowed_regions': [in_region, au_region],
+                'description': 'Full access, RBAC governance, master data, user management, audit logs',
             },
             {
                 'username': 'demo_manager',
                 'email': 'manager@solarcrm.com',
-                'password': 'Manager@Demo2026!',
                 'first_name': 'Vikram',
                 'last_name': 'Shah',
                 'role': User.Role.MANAGER,
+                'role_label': 'Manager',
                 'phone': '+919825022222',
                 'is_staff': True,
                 'is_superuser': False,
                 'default_region': in_region,
                 'default_timezone': 'Asia/Kolkata',
                 'allowed_regions': [in_region, au_region],
+                'description': 'Regional oversight, Manager Attention Queue, lead distribution, lost deal approvals',
             },
             {
                 'username': 'demo_sales_in',
                 'email': 'sales_in@solarcrm.com',
-                'password': 'Sales@Demo2026!',
                 'first_name': 'Rahul',
                 'last_name': 'Desai',
                 'role': User.Role.SALESPERSON,
+                'role_label': 'Salesperson (IN)',
                 'phone': '+919825033333',
                 'is_staff': False,
                 'is_superuser': False,
                 'default_region': in_region,
                 'default_timezone': 'Asia/Kolkata',
                 'allowed_regions': [in_region],
+                'description': 'India sales pipeline, log outcomes, book surveys, create quotes',
             },
             {
                 'username': 'demo_sales_au',
                 'email': 'sales_au@solarcrm.com',
-                'password': 'Sales@Demo2026!',
                 'first_name': 'Liam',
                 'last_name': 'O\'Connor',
                 'role': User.Role.SALESPERSON,
+                'role_label': 'Salesperson (AU)',
                 'phone': '+61412333333',
                 'is_staff': False,
                 'is_superuser': False,
                 'default_region': au_region,
                 'default_timezone': 'Australia/Sydney',
                 'allowed_regions': [au_region],
+                'description': 'Australia sales pipeline, DNCR consent checks, quarterly bills, STC quotes',
             },
             {
                 'username': 'demo_surveyor_in',
                 'email': 'surveyor_in@solarcrm.com',
-                'password': 'Surveyor@Demo2026!',
                 'first_name': 'Sanjay',
                 'last_name': 'Joshi',
                 'role': User.Role.SURVEYOR,
+                'role_label': 'Surveyor (IN)',
                 'phone': '+919825055555',
                 'is_staff': False,
                 'is_superuser': False,
                 'default_region': in_region,
                 'default_timezone': 'Asia/Kolkata',
                 'allowed_regions': [in_region],
+                'description': 'India site surveyor portal, technical feasibility, site photo upload',
             },
             {
                 'username': 'demo_surveyor_au',
                 'email': 'surveyor_au@solarcrm.com',
-                'password': 'Surveyor@Demo2026!',
                 'first_name': 'Jack',
                 'last_name': 'Thompson',
                 'role': User.Role.SURVEYOR,
+                'role_label': 'Surveyor (AU)',
                 'phone': '+61412555555',
                 'is_staff': False,
                 'is_superuser': False,
                 'default_region': au_region,
                 'default_timezone': 'Australia/Sydney',
                 'allowed_regions': [au_region],
+                'description': 'Australia site surveyor portal, switchboard and solar feasibility, site photos',
             },
         ]
 
         created_users = {}
+        credentials_info = []
+
         for spec in user_specs:
+            password = generate_strong_password()
             u, created = User.objects.get_or_create(
                 username=spec['username'],
                 defaults={
@@ -137,14 +181,78 @@ class Command(BaseCommand):
                     'default_timezone': spec['default_timezone'],
                 }
             )
-            if created or not u.password:
-                u.set_password(spec['password'])
-                u.save()
+            u.set_password(password)
+            u.save()
             u.allowed_regions.set(spec['allowed_regions'])
             created_users[spec['username']] = u
-            self.stdout.write(f"  {'Created' if created else 'Verified'} user: {spec['username']} ({spec['role']})")
 
-        return created_users
+            regions_str = ", ".join([r.code for r in spec['allowed_regions']])
+            credentials_info.append({
+                'role_label': spec['role_label'],
+                'username': spec['username'],
+                'password': password,
+                'regions': regions_str,
+                'timezone': spec['default_timezone'],
+                'phone': spec['phone'],
+                'description': spec['description'],
+            })
+            self.stdout.write(f"  {'Created' if created else 'Updated'} user: {spec['username']} ({spec['role']})")
+
+        return created_users, credentials_info
+
+    def write_demo_accounts_doc(self, credentials_info):
+        project_root = Path(settings.BASE_DIR).parent
+        docs_dir = project_root / 'docs'
+        docs_dir.mkdir(parents=True, exist_ok=True)
+        doc_file = docs_dir / 'DEMO_ACCOUNTS.md'
+
+        table_rows = []
+        for cred in credentials_info:
+            row = (
+                f"| **{cred['role_label']}** "
+                f"| `{cred['username']}` "
+                f"| `{cred['password']}` "
+                f"| {cred['regions']} "
+                f"| `{cred['timezone']}` "
+                f"| `{cred['phone']}` "
+                f"| {cred['description']} |"
+            )
+            table_rows.append(row)
+
+        content = f"""# Solar CRM - Demo Accounts & Access Credentials
+
+> **CONFIDENTIAL - DEMO ENVIRONMENT ONLY**
+> This file is generated dynamically by `python manage.py seed_demo`.
+> It is excluded from version control (`.gitignore`). Passwords are randomly generated on each seed run.
+
+## Active Demo Credentials
+
+| Role | Username | Password | Regions | Timezone | Phone | Work Area & Responsibilities |
+|:---|:---|:---|:---|:---|:---|:---|
+{chr(10).join(table_rows)}
+
+## Regional Defaults
+- **India (IN)**: Currency INR (₹), Default Tax GST (5% solar equipment), DISCOM grid regulations.
+- **Australia (AU)**: Currency AUD ($), Default Tax GST (10% inclusive), Clean Energy Council (CEC) STCs and battery subsidies.
+
+## Quick Login Instructions
+1. Open the Solar CRM frontend at [http://localhost:5173](http://localhost:5173).
+2. Copy any username and password from the table above.
+3. Log in to explore the role-specific workspace and dashboard for that user.
+"""
+        doc_file.write_text(content, encoding='utf-8')
+        self.stdout.write(f"  Saved demo accounts file to {doc_file}")
+
+    def print_user_credentials(self, credentials_info):
+        self.stdout.write("\n" + "=" * 68)
+        self.stdout.write("DEMO USER CREDENTIALS GENERATED")
+        self.stdout.write("=" * 68)
+        self.stdout.write("Passwords have been securely generated and saved to:")
+        self.stdout.write("  --> docs/DEMO_ACCOUNTS.md (git-ignored)")
+        self.stdout.write("\nDemo users ready:")
+        for cred in credentials_info:
+            self.stdout.write(f"  - {cred['username']:<18} ({cred['role_label']})")
+        self.stdout.write("=" * 68 + "\n")
 
     def seed_leads(self, users):
         now = timezone.now()
@@ -417,19 +525,3 @@ class Command(BaseCommand):
                 )
 
         self.stdout.write("  Created/Verified 30 leads (15 IN, 15 AU) across diverse statuses.")
-
-    def print_user_credentials(self):
-        self.stdout.write("\n" + "=" * 65)
-        self.stdout.write("DEMO USER CREDENTIALS (Password: as indicated below)")
-        self.stdout.write("=" * 65)
-        credentials = [
-            ("Admin (IN & AU)", "demo_admin", "Admin@Demo2026!"),
-            ("Manager (IN & AU)", "demo_manager", "Manager@Demo2026!"),
-            ("Salesperson (India only)", "demo_sales_in", "Sales@Demo2026!"),
-            ("Salesperson (Australia only)", "demo_sales_au", "Sales@Demo2026!"),
-            ("Surveyor (India only)", "demo_surveyor_in", "Surveyor@Demo2026!"),
-            ("Surveyor (Australia only)", "demo_surveyor_au", "Surveyor@Demo2026!"),
-        ]
-        for role, user, pwd in credentials:
-            self.stdout.write(f"  {role:<30} User: {user:<18} Pwd: {pwd}")
-        self.stdout.write("=" * 65 + "\n")

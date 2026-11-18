@@ -11,18 +11,44 @@ if (!fs.existsSync(authDir)) {
 }
 
 const roles = [
-  { name: 'admin', username: 'demo_admin', password: 'Admin@Demo2026!' },
-  { name: 'manager', username: 'demo_manager', password: 'Manager@Demo2026!' },
-  { name: 'salesperson', username: 'demo_sales_in', password: 'Sales@Demo2026!' },
-  { name: 'surveyor', username: 'demo_surveyor_in', password: 'Surveyor@Demo2026!' },
+  { name: 'admin', username: 'demo_admin' },
+  { name: 'manager', username: 'demo_manager' },
+  { name: 'salesperson', username: 'demo_sales_in' },
+  { name: 'surveyor', username: 'demo_surveyor_in' },
 ];
+
+function getPasswordForUser(username: string): string {
+  const possiblePaths = [
+    path.resolve('docs/DEMO_ACCOUNTS.md'),
+    path.resolve('../docs/DEMO_ACCOUNTS.md'),
+    path.resolve('../../docs/DEMO_ACCOUNTS.md'),
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      const content = fs.readFileSync(p, 'utf8');
+      for (const line of content.split('\n')) {
+        if (line.includes(`\`${username}\``)) {
+          const parts = line.split('|').map(s => s.trim());
+          if (parts.length >= 4) {
+            const pwd = parts[3].replace(/`/g, '').trim();
+            if (pwd && !pwd.includes('Password') && !pwd.includes('---')) {
+              return pwd;
+            }
+          }
+        }
+      }
+    }
+  }
+  return 'Admin@Demo2026!';
+}
 
 for (const role of roles) {
   setup(`authenticate as ${role.name}`, async ({ request, page }) => {
+    const password = getPasswordForUser(role.username);
     const res = await request.post('http://127.0.0.1:8000/api/token/', {
       data: {
         username: role.username,
-        password: role.password,
+        password: password,
       },
     });
 
