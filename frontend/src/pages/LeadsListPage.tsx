@@ -46,11 +46,13 @@ import { NewLeadModal } from '../components/modals/NewLeadModal';
 import { LogOutcomeModal } from '../components/modals/LogOutcomeModal';
 import { AddRemarkModal } from '../components/modals/AddRemarkModal';
 import type { Lead, LeadSource, User } from '../api/types';
+import { useRegion } from '../context/RegionContext';
 
 export const LeadsListPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const { selectedRegion } = useRegion();
 
   // Search & Filter state
   const initialSearch = searchParams.get('search') || '';
@@ -104,9 +106,10 @@ export const LeadsListPage: React.FC = () => {
   if (statusFilter) queryParams.status = statusFilter;
   if (sourceFilter) queryParams.source = sourceFilter;
   if (assigneeFilter) queryParams.assigned_to = assigneeFilter;
+  if (selectedRegion) queryParams.region = selectedRegion;
 
   const { data: leadsData, isLoading, refetch } = useQuery<{ results: Lead[]; count: number }>({
-    queryKey: ['leads', queryParams],
+    queryKey: ['leads', queryParams, selectedRegion],
     queryFn: () => fetchLeads(queryParams),
   });
 
@@ -486,6 +489,9 @@ export const LeadsListPage: React.FC = () => {
                               <Badge size="xs" variant="outline" color="gray">
                                 #{lead.id}
                               </Badge>
+                              <Badge size="xs" variant="light" color={lead.region === 'AU' ? 'blue' : 'green'}>
+                                {lead.region === 'AU' ? '🇦🇺 AU' : '🇮🇳 IN'}
+                              </Badge>
                             </Group>
                             <Text size="10px" c="dimmed">
                               {lead.property_type || 'Residential'} • {lead.roof_type || 'RCC'}
@@ -499,11 +505,16 @@ export const LeadsListPage: React.FC = () => {
 
                           <Table.Td>
                             <Text size="xs" fw={500}>
-                              {lead.phone}
+                              {lead.phone_display || lead.phone_e164 || lead.phone}
                             </Text>
                             <Text size="10px" c="dimmed">
-                              {lead.city}
+                              {lead.city}{lead.suburb ? `, ${lead.suburb}` : ''} {lead.state ? `(${lead.state})` : ''}
                             </Text>
+                            {lead.is_within_calling_hours === false && (
+                              <Badge color="red" size="xs" variant="filled" mt={2} title={lead.calling_hours_reason}>
+                                Outside Call Hours
+                              </Badge>
+                            )}
                           </Table.Td>
 
                           <Table.Td>
@@ -551,20 +562,22 @@ export const LeadsListPage: React.FC = () => {
                             <Group gap={4} justify="flex-end" wrap="nowrap">
                               <ActionIcon
                                 component="a"
-                                href={`tel:${lead.phone}`}
+                                href={lead.tel_url || (lead.phone_e164 ? `tel:${lead.phone_e164}` : `tel:${lead.phone}`)}
                                 variant="subtle"
                                 color="blue"
-                                title="Call"
+                                title={lead.do_not_contact ? "Do Not Contact" : (lead.opt_out_calls ? "Opted Out of Calls" : "Call")}
+                                disabled={lead.do_not_contact || lead.opt_out_calls}
                               >
                                 <IconPhone size={14} />
                               </ActionIcon>
                               <ActionIcon
                                 component="a"
-                                href={`https://wa.me/91${cleanPhone(lead.phone)}?text=Namaste`}
+                                href={lead.whatsapp_url || (lead.phone_e164 ? `https://wa.me/${lead.phone_e164.replace(/\D/g, '')}` : `https://wa.me/${cleanPhone(lead.phone)}`)}
                                 target="_blank"
                                 variant="subtle"
                                 color="green"
-                                title="WhatsApp"
+                                title={lead.do_not_contact ? "Do Not Contact" : (lead.opt_out_whatsapp ? "Opted Out of WhatsApp" : "WhatsApp")}
+                                disabled={lead.do_not_contact || lead.opt_out_whatsapp}
                               >
                                 <IconBrandWhatsapp size={14} />
                               </ActionIcon>
@@ -624,17 +637,27 @@ export const LeadsListPage: React.FC = () => {
                             onChange={(e) => handleSelectOne(lead.id, e.currentTarget.checked)}
                           />
                           <div>
-                            <Text
-                              fw={600}
-                              size="sm"
-                              style={{ cursor: 'pointer' }}
-                              onClick={() => navigate(`/leads/${lead.id}`)}
-                            >
-                              {lead.name}
-                            </Text>
+                            <Group gap={4}>
+                              <Text
+                                fw={600}
+                                size="sm"
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => navigate(`/leads/${lead.id}`)}
+                              >
+                                {lead.name}
+                              </Text>
+                              <Badge size="xs" variant="light" color={lead.region === 'AU' ? 'blue' : 'green'}>
+                                {lead.region === 'AU' ? '🇦🇺 AU' : '🇮🇳 IN'}
+                              </Badge>
+                            </Group>
                             <Text size="xs" c="dimmed">
-                              {lead.phone} • {lead.city}
+                              {lead.phone_display || lead.phone_e164 || lead.phone} • {lead.city}{lead.suburb ? `, ${lead.suburb}` : ''}
                             </Text>
+                            {lead.is_within_calling_hours === false && (
+                              <Badge color="red" size="xs" variant="filled" mt={2} title={lead.calling_hours_reason}>
+                                Outside Call Hours
+                              </Badge>
+                            )}
                           </div>
                         </Group>
                         <Badge color={getStatusColor(lead.status)} variant="light" size="sm">
@@ -662,7 +685,7 @@ export const LeadsListPage: React.FC = () => {
                       {lead.next_followup_at && (
                         <Text size="xs" c="dimmed">
                           <strong>Follow-up:</strong>{' '}
-                          {new Date(lead.next_followup_at).toLocaleString([], {
+                          {lead.user_next_followup_display || lead.next_followup_display || new Date(lead.next_followup_at).toLocaleString([], {
                             dateStyle: 'short',
                             timeStyle: 'short',
                           })}
@@ -681,22 +704,24 @@ export const LeadsListPage: React.FC = () => {
                         <Group gap="xs">
                           <Button
                             component="a"
-                            href={`tel:${lead.phone}`}
+                            href={lead.tel_url || (lead.phone_e164 ? `tel:${lead.phone_e164}` : `tel:${lead.phone}`)}
                             size="compact-xs"
                             variant="light"
                             color="blue"
                             leftSection={<IconPhone size={12} />}
+                            disabled={lead.do_not_contact || lead.opt_out_calls}
                           >
                             Call
                           </Button>
                           <Button
                             component="a"
-                            href={`https://wa.me/91${cleanPhone(lead.phone)}?text=Namaste`}
+                            href={lead.whatsapp_url || (lead.phone_e164 ? `https://wa.me/${lead.phone_e164.replace(/\D/g, '')}` : `https://wa.me/${cleanPhone(lead.phone)}`)}
                             target="_blank"
                             size="compact-xs"
                             variant="light"
                             color="green"
                             leftSection={<IconBrandWhatsapp size={12} />}
+                            disabled={lead.do_not_contact || lead.opt_out_whatsapp}
                           >
                             WA
                           </Button>

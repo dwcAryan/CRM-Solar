@@ -52,6 +52,7 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
   const [nurtureReasonId, setNurtureReasonId] = useState<string | null>(null);
   const [notes, setNotes] = useState<string>('');
   const [remark, setRemark] = useState<string>('');
+  const [overrideReason, setOverrideReason] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingPayload, setPendingPayload] = useState<any>(null);
@@ -91,6 +92,7 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
       setNurtureReasonId(lead.nurture_reason ? String(lead.nurture_reason) : null);
       setNotes('');
       setRemark('');
+      setOverrideReason('');
       setErrorMsg(null);
     }
   }, [opened, lead, defaultStage]);
@@ -105,7 +107,14 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
     if (!outcome) return;
 
     setStatusVal(outcome.default_status);
-    setNextAction(outcome.default_next_action);
+
+    let defaultNext = outcome.default_next_action || '';
+    if (lead) {
+      const channel = lead.region_code === 'AU' || lead.region === 'AU' ? 'SMS' : 'WhatsApp';
+      const inc = lead.region_code === 'AU' || lead.region === 'AU' ? 'Government incentive (STCs and rebates)' : 'Subsidy';
+      defaultNext = defaultNext.replace(/\{channel\}/g, channel).replace(/\{incentive_label\}/g, inc);
+    }
+    setNextAction(defaultNext);
 
     if (outcome.is_terminal || TERMINAL_STATUSES.includes(outcome.default_status)) {
       setNextFollowupAt('');
@@ -183,11 +192,17 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
       return;
     }
 
+    if (stage === 'call' && lead?.is_within_calling_hours === false && !overrideReason.trim()) {
+      setErrorMsg('A valid override reason is mandatory to log a call conducted outside permitted calling hours.');
+      return;
+    }
+
     const payload: any = {
       type: stage,
       outcome_id: outcomeId ? Number(outcomeId) : null,
       notes,
       remark: remark.trim() || undefined,
+      calling_hours_override_reason: overrideReason.trim() || undefined,
       status: statusVal,
       next_action: nextAction,
       next_followup_at: isTerminal ? null : (nextFollowupAt ? new Date(nextFollowupAt).toISOString() : null),
@@ -246,6 +261,42 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
               ]}
             />
           </div>
+
+          {lead?.do_not_contact && (
+            <Alert icon={<IconAlertCircle size={16} />} title="Do Not Contact Active" color="red" variant="filled">
+              <Text size="xs">
+                This lead has opted out or been marked &quot;Do not contact&quot;. Further calls and direct messages are strictly blocked.
+              </Text>
+            </Alert>
+          )}
+
+          {stage === 'call' && lead?.opt_out_calls && (
+            <Alert icon={<IconAlertCircle size={16} />} title="Call Channel Opted Out" color="red" variant="light">
+              <Text size="xs">
+                Customer has specifically unsubscribed from voice calls. Consider written communication if permitted.
+              </Text>
+            </Alert>
+          )}
+
+          {stage === 'call' && lead && lead.is_within_calling_hours === false && (
+            <Alert icon={<IconAlertCircle size={16} />} title="Outside Permitted Calling Hours" color="orange" variant="light">
+              <Text size="xs">
+                {lead.calling_hours_reason || 'Outside standard calling hours for lead local timezone.'}
+                <br />
+                Under telemarketing regulations, logging calls outside standard hours requires an explicit justification (e.g. customer pre-agreed time). This reason will be recorded immutably in the compliance Audit Log.
+              </Text>
+            </Alert>
+          )}
+
+          {stage === 'call' && lead && lead.is_within_calling_hours === false && (
+            <TextInput
+              label="Calling Hours Override Reason (Required)"
+              placeholder="e.g. Customer emailed requesting a call at this time"
+              value={overrideReason}
+              onChange={(e) => setOverrideReason(e.currentTarget.value)}
+              required
+            />
+          )}
 
           <Select
             label="Pick Outcome"

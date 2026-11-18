@@ -20,6 +20,7 @@ import {
   Alert,
   Divider,
   Box,
+  ThemeIcon,
 } from '@mantine/core';
 import {
   IconPhone,
@@ -38,6 +39,8 @@ import {
   IconSend,
   IconRefresh,
   IconNotes,
+  IconDownload,
+  IconShieldCheck,
 } from '@tabler/icons-react';
 import {
   fetchLead,
@@ -47,7 +50,9 @@ import {
   markSurveyMissed,
   markQuoteSent,
   acceptQuote,
+  checkLeadDncr,
 } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import { LogOutcomeModal } from '../components/modals/LogOutcomeModal';
 import { BookSurveyModal } from '../components/modals/BookSurveyModal';
 import { RescheduleSurveyModal } from '../components/modals/RescheduleSurveyModal';
@@ -58,6 +63,7 @@ import { RejectQuoteModal } from '../components/modals/RejectQuoteModal';
 import { MergeLeadModal } from '../components/modals/MergeLeadModal';
 import { AddRemarkModal } from '../components/modals/AddRemarkModal';
 import { ConfirmActionModal } from '../components/modals/ConfirmActionModal';
+import { AnonymizeLeadModal, PrivacyCorrectModal } from '../components/modals/PrivacyModals';
 import { AISuggestionsCard } from '../components/ai/AISuggestionsCard';
 import type { Lead, Activity, Survey, Quote, LeadStatusHistory } from '../api/types';
 
@@ -81,6 +87,12 @@ export const LeadDetailPage: React.FC = () => {
   const [addRemarkOpen, setAddRemarkOpen] = useState(false);
   const [confirmAcceptQuote, setConfirmAcceptQuote] = useState<Quote | null>(null);
   const [prefilledOutcome, setPrefilledOutcome] = useState<string | null>(null);
+
+  // Multi-country & Privacy states
+  const { isAdminOrManager } = useAuth();
+  const [anonymizeModalOpen, setAnonymizeModalOpen] = useState(false);
+  const [correctModalOpen, setCorrectModalOpen] = useState(false);
+  const [dncrLoading, setDncrLoading] = useState(false);
 
   // Queries
   const { data: lead, isLoading: leadLoading, isError, refetch: refetchLead } = useQuery<Lead>({
@@ -132,6 +144,26 @@ export const LeadDetailPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
+
+  const handleToggleDncr = async () => {
+    if (!lead) return;
+    setDncrLoading(true);
+    try {
+      const nextStatus = lead.dncr_status === 'on_register' ? 'not_on_register' : 'on_register';
+      await checkLeadDncr(lead.id, nextStatus, 'Screened via CRM single-click action');
+      queryClient.invalidateQueries({ queryKey: ['lead', leadId] });
+      refetchLead();
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setDncrLoading(false);
+    }
+  };
+
+  const handleExportDossier = (fmt: 'pdf' | 'json' = 'pdf') => {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    window.open(`${baseUrl}/api/leads/${leadId}/privacy-export/?format=${fmt}`, '_blank');
+  };
 
   if (leadLoading) {
     return (
@@ -239,8 +271,57 @@ export const LeadDetailPage: React.FC = () => {
             >
               Log Outcome
             </Button>
+
+            {isAdminOrManager && (
+              <>
+                <Button
+                  variant="light"
+                  color="indigo"
+                  size="xs"
+                  leftSection={<IconDownload size={14} />}
+                  onClick={() => handleExportDossier('pdf')}
+                  title="Download complete compliance and privacy data subject dossier"
+                >
+                  DSAR Dossier (PDF)
+                </Button>
+                <Button
+                  variant="light"
+                  color="blue"
+                  size="xs"
+                  leftSection={<IconShieldCheck size={14} />}
+                  onClick={() => setCorrectModalOpen(true)}
+                  title="Rectify customer personal records with mandatory audit justification"
+                >
+                  Correct Data
+                </Button>
+                <Button
+                  variant="light"
+                  color="red"
+                  size="xs"
+                  onClick={() => setAnonymizeModalOpen(true)}
+                  title="Irreversibly anonymize customer identifiers"
+                >
+                  Anonymize
+                </Button>
+              </>
+            )}
           </Group>
         </Group>
+
+        {/* Outside Permitted Calling Hours Alert */}
+        {lead.is_within_calling_hours === false && (
+          <Alert
+            icon={<IconAlertTriangle size={18} />}
+            color="red"
+            variant="filled"
+            title={`Out of Permitted Calling Hours (${lead.region || 'Region'})`}
+            styles={{ title: { fontWeight: 700 } }}
+          >
+            <Text size="xs">
+              {lead.calling_hours_reason || 'Outbound voice calls to this customer are currently restricted by local telemarketing regulations.'}
+            </Text>
+          </Alert>
+        )}
 
         {/* Missing Next Follow-up Warning Badge/Banner for active non-terminal leads */}
         {hasNoFollowup && (
@@ -276,6 +357,9 @@ export const LeadDetailPage: React.FC = () => {
                   <Badge size="md" color="gray">
                     Lead #{lead.id}
                   </Badge>
+                  <Badge size="md" variant="light" color={lead.region === 'AU' ? 'blue' : 'green'}>
+                    {lead.region === 'AU' ? '🇦🇺 Australia (AU)' : '🇮🇳 India (IN)'}
+                  </Badge>
                   {lead.do_not_contact && (
                     <Badge color="red" variant="filled">
                       DO NOT CONTACT
@@ -301,36 +385,36 @@ export const LeadDetailPage: React.FC = () => {
                   Contact Phone
                 </Text>
                 <Text fw={600} size="sm">
-                  {lead.phone}
+                  {lead.phone_display || lead.phone_e164 || lead.phone}
                 </Text>
                 {lead.alt_phone && (
                   <Text size="xs" c="dimmed">
-                    Alt: {lead.alt_phone}
+                    Alt: {lead.alt_phone_display || lead.alt_phone_e164 || lead.alt_phone}
                   </Text>
                 )}
                 <Group gap="xs" mt={4}>
                   <Button
                     component="a"
-                    href={`tel:${lead.phone}`}
+                    href={lead.tel_url || (lead.phone_e164 ? `tel:${lead.phone_e164}` : `tel:${lead.phone}`)}
                     size="compact-xs"
                     variant="light"
                     color="blue"
                     leftSection={<IconPhone size={12} />}
-                    disabled={lead.do_not_contact}
+                    disabled={lead.do_not_contact || lead.opt_out_calls}
+                    title={lead.opt_out_calls ? "Opted Out of Voice Calls" : undefined}
                   >
                     Call
                   </Button>
                   <Button
                     component="a"
-                    href={`https://wa.me/91${cleanPhone}?text=${encodeURIComponent(
-                      `Namaste ${lead.name}! Calling regarding your solar proposal.`
-                    )}`}
+                    href={lead.whatsapp_url || (lead.phone_e164 ? `https://wa.me/${lead.phone_e164.replace(/\D/g, '')}` : `https://wa.me/${cleanPhone}`)}
                     target="_blank"
                     size="compact-xs"
                     variant="light"
                     color="green"
                     leftSection={<IconBrandWhatsapp size={12} />}
-                    disabled={lead.do_not_contact}
+                    disabled={lead.do_not_contact || lead.opt_out_whatsapp}
+                    title={lead.opt_out_whatsapp ? "Opted Out of WhatsApp" : undefined}
                   >
                     WhatsApp
                   </Button>
@@ -339,10 +423,13 @@ export const LeadDetailPage: React.FC = () => {
 
               <Box>
                 <Text size="xs" c="dimmed">
-                  Location & Address
+                  Location & Timezone
                 </Text>
                 <Text fw={500} size="sm">
-                  {lead.city} {lead.pincode ? `(${lead.pincode})` : ''}
+                  {lead.suburb ? `${lead.suburb}, ` : ''}{lead.city} {lead.postcode || lead.pincode ? `(${lead.postcode || lead.pincode})` : ''}
+                </Text>
+                <Text size="xs" c="dimmed">
+                  State: {lead.state || 'N/A'} • TZ: {lead.timezone || 'Asia/Kolkata'}
                 </Text>
                 <Text size="xs" c="dimmed" lineClamp={2}>
                   {lead.address || 'Address not recorded'}
@@ -357,8 +444,16 @@ export const LeadDetailPage: React.FC = () => {
                   {lead.property_type || 'Residential'} • {lead.roof_type || 'RCC'}
                 </Text>
                 <Text size="xs" c="dimmed">
-                  Monthly Bill: ₹{lead.monthly_bill?.toLocaleString('en-IN') || '—'}
+                  Provider: {lead.electricity_provider || 'Not recorded'}
                 </Text>
+                <Text size="xs" c="dimmed">
+                  Bill: {lead.bill_amount ? `${lead.currency_symbol || '$'}${Number(lead.bill_amount).toLocaleString()} (${lead.bill_period || 'monthly'})` : (lead.monthly_bill ? `${lead.currency_symbol || '₹'}${lead.monthly_bill.toLocaleString()}` : '—')}
+                </Text>
+                {lead.normalized_monthly_bill && (
+                  <Text size="10px" c="teal" fw={600}>
+                    Normalized: {lead.currency_symbol || '$'}{Number(lead.normalized_monthly_bill).toFixed(0)}/mo
+                  </Text>
+                )}
                 <Text size="10px" c="dimmed">
                   Occupancy: {lead.owner_or_tenant || 'Owner'}
                 </Text>
@@ -374,12 +469,12 @@ export const LeadDetailPage: React.FC = () => {
                 <Group gap={4} mt={2}>
                   <IconClock size={14} color={hasNoFollowup ? '#fa5252' : '#fab005'} />
                   <Text size="xs" fw={500} c={hasNoFollowup ? 'red' : undefined}>
-                    {lead.next_followup_at
+                    {lead.user_next_followup_display || lead.next_followup_display || (lead.next_followup_at
                       ? new Date(lead.next_followup_at).toLocaleString([], {
                           dateStyle: 'short',
                           timeStyle: 'short',
                         })
-                      : 'No follow-up set'}
+                      : 'No follow-up set')}
                   </Text>
                 </Group>
                 {hasNoFollowup && (
@@ -414,6 +509,55 @@ export const LeadDetailPage: React.FC = () => {
               </Alert>
             )}
           </Stack>
+        </Card>
+
+        {/* Compliance, Consent & DNCR Overview */}
+        <Card shadow="xs" padding="md" radius="md" withBorder bg="gray.0">
+          <Group justify="space-between" align="center" wrap="wrap">
+            <Group gap="md">
+              <ThemeIcon size="md" color="blue" variant="light">
+                <IconShieldCheck size={20} />
+              </ThemeIcon>
+              <div>
+                <Group gap="xs">
+                  <Text size="sm" fw={700}>Compliance & Consent Record</Text>
+                  <Badge size="xs" color={lead.consent_status === 'consented' ? 'green' : 'gray'}>
+                    Consent: {lead.consent_status || 'Unknown'}
+                  </Badge>
+                  {lead.consent_source && (
+                    <Badge size="xs" variant="outline" color="gray">
+                      Source: {lead.consent_source}
+                    </Badge>
+                  )}
+                </Group>
+                <Text size="xs" c="dimmed">
+                  Channel Authorizations: Calls: {lead.opt_out_calls ? '❌ Opted Out' : '✅ Allowed'} | SMS: {lead.opt_out_sms ? '❌ Opted Out' : '✅ Allowed'} | WhatsApp: {lead.opt_out_whatsapp ? '❌ Opted Out' : '✅ Allowed'}
+                </Text>
+              </div>
+            </Group>
+
+            <Group gap="xs">
+              {lead.region === 'AU' && (
+                <Group gap="xs">
+                  <Badge
+                    size="md"
+                    color={lead.dncr_status === 'on_register' ? 'red' : 'teal'}
+                    variant="light"
+                  >
+                    DNCR: {lead.dncr_status === 'on_register' ? 'On Register (Do Not Call)' : 'Not On Register'}
+                  </Badge>
+                  <Button
+                    size="xs"
+                    variant="default"
+                    loading={dncrLoading}
+                    onClick={handleToggleDncr}
+                  >
+                    Toggle DNCR Status
+                  </Button>
+                </Group>
+              )}
+            </Group>
+          </Group>
         </Card>
 
         {/* Detail Tabs */}
@@ -729,7 +873,13 @@ export const LeadDetailPage: React.FC = () => {
                   </Table.Thead>
                   <Table.Tbody>
                     {quotes.map((quote) => {
-                      const net = quote.price - (quote.subsidy_amount || 0);
+                      const currSym = quote.currency_symbol || (quote.currency === 'AUD' ? 'A$' : '₹');
+                      const incLabel = quote.incentive_label || (quote.region === 'AU' ? 'Incentive (STCs)' : 'Subsidy');
+                      const incAmount = quote.incentive_amount !== undefined && quote.incentive_amount !== null
+                        ? quote.incentive_amount
+                        : (quote.subsidy_amount || 0);
+                      const net = quote.price - incAmount;
+
                       return (
                         <Table.Tr key={quote.id}>
                           <Table.Td>
@@ -741,6 +891,11 @@ export const LeadDetailPage: React.FC = () => {
                             <Text size="xs" fw={600}>
                               {quote.system_size_kw} kW
                             </Text>
+                            {quote.battery_kwh && (
+                              <Badge size="xs" color="indigo" variant="light" mt={2}>
+                                Battery: {quote.battery_kwh} kWh
+                              </Badge>
+                            )}
                           </Table.Td>
                           <Table.Td>
                             <Text size="xs">{quote.brand}</Text>
@@ -757,14 +912,18 @@ export const LeadDetailPage: React.FC = () => {
                           </Table.Td>
                           <Table.Td>
                             <Text size="xs" fw={600}>
-                              ₹{quote.price.toLocaleString('en-IN')}
+                              {currSym}{Number(quote.price).toLocaleString()}
                             </Text>
-                            {quote.subsidy_amount ? (
+                            {incAmount > 0 && (
                               <Text size="10px" c="green">
-                                Subsidy: -₹{quote.subsidy_amount.toLocaleString('en-IN')} (Net: ₹
-                                {net.toLocaleString('en-IN')})
+                                {incLabel}: -{currSym}{Number(incAmount).toLocaleString()} (Net: {currSym}{Number(net).toLocaleString()})
                               </Text>
-                            ) : null}
+                            )}
+                            {quote.tax_amount && (
+                              <Text size="10px" c="dimmed">
+                                Tax (GST): {currSym}{Number(quote.tax_amount).toLocaleString()}
+                              </Text>
+                            )}
                           </Table.Td>
                           <Table.Td>
                             <Badge
@@ -967,6 +1126,26 @@ export const LeadDetailPage: React.FC = () => {
         confirmLabel="Confirm Proposal Won"
         confirmColor="green"
         loading={acceptQuoteMutation.isPending}
+      />
+
+      <AnonymizeLeadModal
+        opened={anonymizeModalOpen}
+        onClose={() => setAnonymizeModalOpen(false)}
+        lead={lead}
+        onSuccess={() => {
+          refetchLead();
+          queryClient.invalidateQueries({ queryKey: ['leads'] });
+        }}
+      />
+
+      <PrivacyCorrectModal
+        opened={correctModalOpen}
+        onClose={() => setCorrectModalOpen(false)}
+        lead={lead}
+        onSuccess={() => {
+          refetchLead();
+          queryClient.invalidateQueries({ queryKey: ['leads'] });
+        }}
       />
     </Container>
   );

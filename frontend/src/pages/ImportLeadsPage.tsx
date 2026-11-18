@@ -19,6 +19,7 @@ import {
   Card,
   ThemeIcon,
   Loader,
+  SegmentedControl,
 } from '@mantine/core';
 import {
   IconFileSpreadsheet,
@@ -38,15 +39,18 @@ import {
   downloadFailedRowsCsv,
   fetchUsers,
 } from '../api/client';
+import { useRegion } from '../context/RegionContext';
 import { ConfirmActionModal } from '../components/modals/ConfirmActionModal';
 import type { User, ImportBatch, CsvPreviewResponse, CsvImportResponse } from '../api/types';
 
 export const ImportLeadsPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { selectedRegion } = useRegion();
 
   // Step state: 1 = upload, 2 = mapping & options, 3 = results
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
+  const [importRegion, setImportRegion] = useState<string>(selectedRegion || 'IN');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<CsvPreviewResponse | null>(null);
   const [importResult, setImportResult] = useState<CsvImportResponse | null>(null);
@@ -102,6 +106,7 @@ export const ImportLeadsPage: React.FC = () => {
       if (!selectedFile) throw new Error('No file selected');
       const formData = new FormData();
       formData.append('file', selectedFile);
+      formData.append('region', importRegion);
       formData.append('mapping', JSON.stringify(mapping));
       formData.append('duplicate_action', duplicateAction);
       formData.append('assignment_mode', assignmentMode);
@@ -163,14 +168,22 @@ export const ImportLeadsPage: React.FC = () => {
     { key: 'phone', label: 'Phone Number *', required: true },
     { key: 'alt_phone', label: 'Alt Phone', required: false },
     { key: 'email', label: 'Email Address', required: false },
+    { key: 'region', label: 'Region (IN / AU)', required: false },
+    { key: 'state', label: 'State / Territory', required: false },
     { key: 'city', label: 'City', required: false },
-    { key: 'address', label: 'Address / Society', required: false },
-    { key: 'pincode', label: 'Pincode', required: false },
+    { key: 'suburb', label: 'Suburb (AU)', required: false },
+    { key: 'postcode', label: 'Postcode (AU - 4 digits)', required: false },
+    { key: 'pincode', label: 'Pincode (IN - 6 digits)', required: false },
+    { key: 'address', label: 'Street Address', required: false },
     { key: 'source', label: 'Lead Source', required: false },
-    { key: 'monthly_bill', label: 'Monthly Electricity Bill (₹)', required: false },
+    { key: 'monthly_bill', label: 'Bill Amount', required: false },
+    { key: 'bill_period', label: 'Bill Period (monthly, quarterly)', required: false },
+    { key: 'electricity_provider', label: 'Electricity Provider / Retailer / DISCOM', required: false },
     { key: 'roof_type', label: 'Roof Type', required: false },
     { key: 'property_type', label: 'Property Type', required: false },
     { key: 'owner_or_tenant', label: 'Owner / Tenant', required: false },
+    { key: 'consent_source', label: 'Consent Source', required: false },
+    { key: 'consent_status', label: 'Consent Status', required: false },
     { key: 'remark', label: 'Initial Remark / Note', required: false },
   ];
 
@@ -191,14 +204,26 @@ export const ImportLeadsPage: React.FC = () => {
             </div>
           </Group>
 
-          <Button
-            variant="light"
-            color="yellow"
-            leftSection={<IconDownload size={16} />}
-            onClick={downloadSampleCsv}
-          >
-            Download Sample CSV Template
-          </Button>
+          <Group gap="sm">
+            <SegmentedControl
+              size="xs"
+              value={importRegion}
+              onChange={setImportRegion}
+              color={importRegion === 'AU' ? 'teal' : 'yellow'}
+              data={[
+                { label: '🇮🇳 India (IN)', value: 'IN' },
+                { label: '🇦🇺 Australia (AU)', value: 'AU' },
+              ]}
+            />
+            <Button
+              variant="light"
+              color={importRegion === 'AU' ? 'teal' : 'yellow'}
+              leftSection={<IconDownload size={16} />}
+              onClick={() => downloadSampleCsv(importRegion)}
+            >
+              Download Sample CSV ({importRegion})
+            </Button>
+          </Group>
         </Group>
 
         {errorMsg && (
@@ -212,10 +237,17 @@ export const ImportLeadsPage: React.FC = () => {
           <Paper p="xl" withBorder radius="md">
             <Stack gap="lg">
               <div>
-                <Title order={4}>Step 1: Select or Drop Lead File</Title>
-                <Text size="xs" c="dimmed">
-                  Supports .csv and .xlsx files up to 5 MB (max 5,000 rows). Indian phone numbers will be automatically cleaned and validated.
-                </Text>
+                <Group justify="space-between" align="center">
+                  <div>
+                    <Title order={4}>Step 1: Select or Drop Lead File</Title>
+                    <Text size="xs" c="dimmed">
+                      Target Country: <strong>{importRegion === 'AU' ? 'Australia (+61)' : 'India (+91)'}</strong>. Supports .csv and .xlsx files up to 5 MB (max 5,000 rows).
+                    </Text>
+                  </div>
+                  <Badge color={importRegion === 'AU' ? 'teal' : 'orange'} size="lg">
+                    Region: {importRegion}
+                  </Badge>
+                </Group>
               </div>
 
               <input

@@ -28,13 +28,15 @@ import {
 } from '@tabler/icons-react';
 import { fetchDashboard } from '../api/client';
 import type { DashboardData } from '../api/types';
+import { useRegion } from '../context/RegionContext';
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const { selectedRegion, formatMoney } = useRegion();
 
   const { data, isLoading, error, refetch } = useQuery<DashboardData>({
-    queryKey: ['dashboard'],
-    queryFn: fetchDashboard,
+    queryKey: ['dashboard', selectedRegion],
+    queryFn: () => fetchDashboard(selectedRegion ? { region: selectedRegion } : undefined),
     refetchInterval: 30000,
   });
 
@@ -169,6 +171,40 @@ export const DashboardPage: React.FC = () => {
             </Text>
           </Paper>
         </SimpleGrid>
+
+        {/* Multi-Currency Won Value Breakdown (Never combined or compared across currencies) */}
+        {data.won_value_by_currency && (
+          <Paper withBorder p="md" radius="md" bg="gray.0">
+            <Group justify="space-between" align="center" wrap="wrap">
+              <div>
+                <Text size="xs" c="dimmed" fw={700} tt="uppercase">
+                  Won Deals Total Contract Value (Segregated by Currency)
+                </Text>
+                <Text size="xs" c="dimmed">
+                  Statutory Rule: Financial totals are segregated per currency code (never aggregated)
+                </Text>
+              </div>
+              <Group gap="xl">
+                {(!selectedRegion || selectedRegion === 'IN') && (
+                  <div>
+                    <Text size="xs" c="dimmed" fw={600}>🇮🇳 India Portfolio</Text>
+                    <Title order={3} c="teal">
+                      {formatMoney(data.won_value_by_currency['INR'] || 0, 'INR')}
+                    </Title>
+                  </div>
+                )}
+                {(!selectedRegion || selectedRegion === 'AU') && (
+                  <div>
+                    <Text size="xs" c="dimmed" fw={600}>🇦🇺 Australia Portfolio</Text>
+                    <Title order={3} c="blue">
+                      {formatMoney(data.won_value_by_currency['AUD'] || 0, 'AUD')}
+                    </Title>
+                  </div>
+                )}
+              </Group>
+            </Group>
+          </Paper>
+        )}
 
         {/* Phase 7: Needs Attention High-Risk Leads (Rule-based, 0 API Calls) */}
         {data.needs_attention && data.needs_attention.length > 0 && (

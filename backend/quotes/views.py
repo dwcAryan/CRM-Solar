@@ -38,8 +38,14 @@ class QuoteViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
         if not user.is_authenticated:
             return qs.none()
+        if not user.is_superuser:
+            qs = qs.filter(lead__region__in=user.allowed_regions.all())
         if user.role == User.Role.SALESPERSON and not user.is_superuser:
-            return qs.filter(lead__assigned_to=user)
+            qs = qs.filter(lead__assigned_to=user)
+
+        region_param = self.request.query_params.get('region')
+        if region_param:
+            qs = qs.filter(region_id=region_param.upper().strip())
         return qs
 
     def create(self, request, *args, **kwargs):
@@ -52,6 +58,10 @@ class QuoteViewSet(viewsets.ModelViewSet):
         except Lead.DoesNotExist:
             return Response({"lead_id": "Lead does not exist."}, status=status.HTTP_404_NOT_FOUND)
 
+        # Check region permission
+        if lead.region and not request.user.is_superuser and not request.user.allowed_regions.filter(code=lead.region_id).exists():
+            raise PermissionDenied("You do not have permission to access leads in this region.")
+
         # Check salesperson ownership
         if request.user.role == User.Role.SALESPERSON and lead.assigned_to_id != request.user.id and not request.user.is_superuser:
             raise PermissionDenied("You do not have permission to create quotes for this lead.")
@@ -62,14 +72,21 @@ class QuoteViewSet(viewsets.ModelViewSet):
 
         notes = serializer.validated_data.get('notes', '')
         remark = serializer.validated_data.get('remark', '') or notes
+        subsidy = serializer.validated_data.get('subsidy_amount')
+        incentive = serializer.validated_data.get('incentive_amount')
+        if incentive is None and subsidy is not None:
+            incentive = subsidy
 
         quote = Quote.objects.create(
             lead=lead,
             version=next_version,
             system_size_kw=serializer.validated_data['system_size_kw'],
+            battery_kwh=serializer.validated_data.get('battery_kwh'),
             brand=serializer.validated_data['brand'],
             price=serializer.validated_data['price'],
-            subsidy_amount=serializer.validated_data.get('subsidy_amount'),
+            tax_included=serializer.validated_data.get('tax_included', True),
+            subsidy_amount=subsidy,
+            incentive_amount=incentive or 0,
             status=Quote.Status.DRAFT,
             notes=notes,
             remark=remark[:500],
@@ -148,13 +165,21 @@ class QuoteViewSet(viewsets.ModelViewSet):
         notes = serializer.validated_data.get('notes', '')
         remark = serializer.validated_data.get('remark', '') or notes
 
+        subsidy = serializer.validated_data.get('subsidy_amount')
+        incentive = serializer.validated_data.get('incentive_amount')
+        if incentive is None and subsidy is not None:
+            incentive = subsidy
+
         new_quote = Quote.objects.create(
             lead=lead,
             version=new_version,
             system_size_kw=serializer.validated_data['system_size_kw'],
+            battery_kwh=serializer.validated_data.get('battery_kwh'),
             brand=serializer.validated_data['brand'],
             price=serializer.validated_data['price'],
-            subsidy_amount=serializer.validated_data.get('subsidy_amount'),
+            tax_included=serializer.validated_data.get('tax_included', True),
+            subsidy_amount=subsidy,
+            incentive_amount=incentive or 0,
             status=Quote.Status.REVISED,
             notes=notes,
             remark=remark[:500],

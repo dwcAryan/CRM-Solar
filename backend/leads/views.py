@@ -12,8 +12,16 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.renderers import BaseRenderer, BrowsableAPIRenderer, JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+class PassthroughPdfRenderer(BaseRenderer):
+    media_type = 'application/pdf'
+    format = 'pdf'
+
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        return data
 
 from accounts.models import User
 from accounts.permissions import LeadPermission
@@ -30,27 +38,36 @@ from .import_service import (
     sanitize_csv_cell,
     undo_import_batch,
 )
-from .models import ImportBatch, Lead, LeadStatusHistory
+from .models import AuditLog, ImportBatch, Lead, LeadStatusHistory
+from .privacy_service import (
+    anonymize_lead_data,
+    correct_lead_data,
+    generate_lead_dossier_dict,
+    generate_lead_dossier_pdf,
+)
 from .serializers import (
     AddRemarkInputSerializer,
     AISuggestionSerializer,
+    AnonymizeLeadInputSerializer,
+    AuditLogSerializer,
     BulkActionSerializer,
     ImportBatchSerializer,
     LeadSerializer,
     LeadStatusHistorySerializer,
     LogActivityInputSerializer,
     MergeLeadInputSerializer,
+    PrivacyCorrectInputSerializer,
 )
 from .services import process_log_activity
 
 
 class LeadViewSet(viewsets.ModelViewSet):
-    queryset = Lead.objects.all().select_related('source', 'assigned_to', 'lost_reason', 'nurture_reason')
+    queryset = Lead.objects.all().select_related('source', 'assigned_to', 'lost_reason', 'nurture_reason', 'region')
     serializer_class = LeadSerializer
     permission_classes = [LeadPermission]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['status', 'assigned_to', 'source', 'city', 'do_not_contact', 'property_type']
-    search_fields = ['name', 'phone', 'alt_phone', 'email', 'city', 'pincode']
+    filterset_fields = ['status', 'assigned_to', 'source', 'city', 'state', 'region', 'consent_status', 'dncr_status', 'do_not_contact', 'property_type']
+    search_fields = ['name', 'phone', 'alt_phone', 'phone_e164', 'alt_phone_e164', 'email', 'city', 'suburb', 'postcode', 'pincode']
     ordering_fields = ['created_at', 'updated_at', 'next_followup_at', 'name', 'status']
 
     def get_queryset(self):
@@ -58,6 +75,17 @@ class LeadViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
         if not user.is_authenticated:
             return qs.none()
+
+        # Multi-country region scoping: sales & surveyors restricted to allowed regions
+        if not user.is_superuser:
+            allowed = user.allowed_regions.all()
+            if allowed.exists():
+                qs = qs.filter(region__in=allowed)
+
+        # Region query filter (?region=IN or ?region=AU)
+        region_param = self.request.query_params.get('region')
+        if region_param:
+            qs = qs.filter(region_id=region_param.upper().strip())
 
         # Role scoping: salesperson sees only own assigned leads
         if user.role == User.Role.SALESPERSON and not user.is_superuser:
@@ -90,11 +118,20 @@ class LeadViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
+        user = self.request.user
+        extra = {}
+        # Multi-country default region assignment
+        if not serializer.validated_data.get('region'):
+            if user.default_region:
+                extra['region'] = user.default_region
+            elif user.allowed_regions.exists():
+                extra['region'] = user.allowed_regions.first()
+
         # Auto-assign to creating salesperson if not explicitly assigned
-        if self.request.user.role == User.Role.SALESPERSON and not serializer.validated_data.get('assigned_to'):
-            serializer.save(assigned_to=self.request.user)
-        else:
-            serializer.save()
+        if user.role == User.Role.SALESPERSON and not serializer.validated_data.get('assigned_to'):
+            extra['assigned_to'] = user
+
+        serializer.save(**extra)
 
     @action(detail=True, methods=['post'], url_path='log-activity')
     def log_activity(self, request, pk=None):
@@ -106,6 +143,7 @@ class LeadViewSet(viewsets.ModelViewSet):
             lead=lead,
             user=request.user,
             data=serializer.validated_data,
+            ip_address=request.META.get('REMOTE_ADDR'),
         )
 
         return Response(
@@ -252,9 +290,7 @@ class LeadViewSet(viewsets.ModelViewSet):
         start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
         end_of_today = start_of_today + timedelta(days=1)
 
-        qs = Lead.objects.exclude(status__in=Lead.TERMINAL_STATUSES)
-        if user.role == User.Role.SALESPERSON and not user.is_superuser:
-            qs = qs.filter(assigned_to=user)
+        qs = self.get_queryset().exclude(status__in=Lead.TERMINAL_STATUSES)
 
         due_today_or_overdue = qs.filter(
             Q(next_followup_at__lt=end_of_today) & Q(next_followup_at__isnull=False)
@@ -337,6 +373,7 @@ class LeadViewSet(viewsets.ModelViewSet):
                 round_robin_user_ids = [int(x) for x in rr_raw]
 
         try:
+            default_reg = request.data.get('region') or (request.user.default_region.code if request.user.default_region else 'IN')
             batch, results = execute_csv_import(
                 uploaded_file=file_obj,
                 mapping=mapping,
@@ -345,6 +382,7 @@ class LeadViewSet(viewsets.ModelViewSet):
                 single_user_id=single_user_id,
                 round_robin_user_ids=round_robin_user_ids,
                 user=request.user,
+                default_region=default_reg,
             )
         except DjangoValidationError as e:
             return Response({"error": e.message}, status=400)
@@ -357,54 +395,189 @@ class LeadViewSet(viewsets.ModelViewSet):
     def import_sample_csv(self, request):
         """
         Generates and serves a clean, formula-injection-safe sample CSV template.
+        Supports ?region=AU or ?region=IN.
         """
+        raw_reg = (request.query_params.get('region') or '').upper().strip()
         response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
-        response['Content-Disposition'] = 'attachment; filename="solar_leads_sample_template.csv"'
 
         writer = csv.writer(response)
-        headers = [
-            'Name',
-            'Phone',
-            'Email',
-            'City',
-            'Address',
-            'Source',
-            'Monthly Bill',
-            'Roof Type',
-            'Property Type',
-            'Owner or Tenant',
-            'Remark',
-        ]
-        writer.writerow(headers)
 
-        sample_rows = [
-            [
-                'Ramesh Patel',
-                '9825012345',
-                'ramesh.patel@example.com',
-                'Ahmedabad',
-                '12 Shantivan Bungalows, Bodakdev',
-                'Cold Call',
-                '4500',
-                'RCC flat',
-                'residential',
-                'owner',
-                'Interested in 3 kW rooftop solar with PM Surya Ghar subsidy',
-            ],
-            [
-                'Sunita Sharma',
-                '9825098765',
-                'sunita.sharma@example.com',
-                'Surat',
-                '402 Royal Palms, Vesu',
-                'Website Form',
-                '7800',
-                'tin shade',
-                'commercial',
-                'owner',
-                'Looking for 5 kW system for textile office',
-            ],
-        ]
+        if raw_reg == 'AU':
+            response['Content-Disposition'] = 'attachment; filename="solar_leads_sample_au.csv"'
+            headers = [
+                'Name',
+                'Phone',
+                'Email',
+                'Region',
+                'State',
+                'City',
+                'Suburb',
+                'Postcode',
+                'Address',
+                'Source',
+                'Monthly Bill',
+                'Bill Period',
+                'Electricity Provider',
+                'Roof Type',
+                'Property Type',
+                'Owner or Tenant',
+                'Consent Source',
+                'Remark',
+            ]
+            writer.writerow(headers)
+            sample_rows = [
+                [
+                    'Liam O\'Connor',
+                    '0412345678',
+                    'liam.oconnor@example.com.au',
+                    'AU',
+                    'NSW',
+                    'Sydney',
+                    'Parramatta',
+                    '2150',
+                    '45 Church St',
+                    'Website Form',
+                    '850',
+                    'quarterly',
+                    'Origin Energy',
+                    'Colorbond',
+                    'residential',
+                    'owner',
+                    'Website Form',
+                    'Interested in 6.6 kW system with STC incentive',
+                ],
+                [
+                    'Sarah Miller',
+                    '0423456789',
+                    'sarah.miller@example.com.au',
+                    'AU',
+                    'VIC',
+                    'Melbourne',
+                    'Richmond',
+                    '3121',
+                    '12 Bridge Rd',
+                    'Referral',
+                    '720',
+                    'quarterly',
+                    'AGL',
+                    'Tile',
+                    'residential',
+                    'owner',
+                    'Referral',
+                    'Wants battery storage quote along with 10 kW panels',
+                ],
+            ]
+        elif raw_reg == 'IN':
+            response['Content-Disposition'] = 'attachment; filename="solar_leads_sample_in.csv"'
+            headers = [
+                'Name',
+                'Phone',
+                'Email',
+                'Region',
+                'State',
+                'City',
+                'Pincode',
+                'Address',
+                'Source',
+                'Monthly Bill',
+                'Bill Period',
+                'Electricity Provider',
+                'Roof Type',
+                'Property Type',
+                'Owner or Tenant',
+                'Consent Source',
+                'Remark',
+            ]
+            writer.writerow(headers)
+            sample_rows = [
+                [
+                    'Ramesh Patel',
+                    '9825012345',
+                    'ramesh.patel@example.com',
+                    'IN',
+                    'Gujarat',
+                    'Ahmedabad',
+                    '380054',
+                    '12 Shantivan Bungalows, Bodakdev',
+                    'Cold Call',
+                    '4500',
+                    'monthly',
+                    'UGVCL',
+                    'RCC flat',
+                    'residential',
+                    'owner',
+                    'Web Form',
+                    'Interested in 3 kW rooftop solar with PM Surya Ghar subsidy',
+                ],
+                [
+                    'Sunita Sharma',
+                    '9825098765',
+                    'sunita.sharma@example.com',
+                    'IN',
+                    'Gujarat',
+                    'Surat',
+                    '395007',
+                    '402 Royal Palms, Vesu',
+                    'Website Form',
+                    '7800',
+                    'monthly',
+                    'DGVCL',
+                    'tin shade',
+                    'commercial',
+                    'owner',
+                    'Solar Expo',
+                    'Looking for 5 kW system for textile office',
+                ],
+            ]
+        else:
+            response['Content-Disposition'] = 'attachment; filename="solar_leads_sample_template.csv"'
+            headers = [
+                'Name',
+                'Phone',
+                'Email',
+                'City',
+                'Address',
+                'Source',
+                'Monthly Bill',
+                'Roof Type',
+                'Property Type',
+                'Owner or Tenant',
+                'Remark',
+            ]
+            writer.writerow(headers)
+            sample_rows = [
+                [
+                    'Ramesh Patel',
+                    '9825012345',
+                    'ramesh.patel@example.com',
+                    'Ahmedabad',
+                    '12 Shantivan Bungalows, Bodakdev',
+                    'Cold Call',
+                    '4500',
+                    'RCC flat',
+                    'residential',
+                    'owner',
+                    'Interested in 3 kW rooftop solar with PM Surya Ghar subsidy',
+                ],
+                [
+                    'Sunita Sharma',
+                    '9825098765',
+                    'sunita.sharma@example.com',
+                    'Surat',
+                    '402 Royal Palms, Vesu',
+                    'Website Form',
+                    '7800',
+                    'tin shade',
+                    'commercial',
+                    'owner',
+                    'Looking for 5 kW system for textile office',
+                ],
+            ]
+
+        for row in sample_rows:
+            writer.writerow([sanitize_csv_cell(c) for c in row])
+
+        return response
         for row in sample_rows:
             writer.writerow([sanitize_csv_cell(c) for c in row])
 
@@ -468,16 +641,154 @@ class LeadViewSet(viewsets.ModelViewSet):
             "updated_count": updated_count,
         })
 
+    @action(
+        detail=True,
+        methods=['get'],
+        url_path='privacy-export',
+        renderer_classes=[JSONRenderer, BrowsableAPIRenderer, PassthroughPdfRenderer],
+    )
+    def privacy_export(self, request, pk=None):
+        """
+        Exports a complete Data Subject Access Request (DSAR) dossier for the lead.
+        Supports JSON (default) or PDF (?format=pdf). Restricted to Administrators.
+        """
+        if request.user.role != User.Role.ADMIN and not request.user.is_superuser:
+            return Response(
+                {"detail": "Access restricted: Only system administrators can export privacy dossiers."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        lead = self.get_object()
+        fmt = request.query_params.get('format', 'json').lower()
+        ip_addr = request.META.get('REMOTE_ADDR')
+
+        AuditLog.objects.create(
+            user=request.user,
+            action='privacy_export',
+            lead=lead,
+            reason=f"Privacy DSAR dossier exported in {fmt.upper()} format",
+            details={'format': fmt, 'region': lead.region_id},
+            ip_address=ip_addr,
+        )
+
+        if fmt == 'pdf':
+            pdf_bytes = generate_lead_dossier_pdf(lead)
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="privacy_dossier_lead_{lead.id}.pdf"'
+            return response
+
+        dossier = generate_lead_dossier_dict(lead)
+        return Response(dossier, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='anonymize')
+    def anonymize(self, request, pk=None):
+        """
+        Permanently and irreversibly anonymizes personal data of the lead for 'Right to be Forgotten'.
+        Restricted to Administrators with a mandatory justification reason.
+        """
+        if request.user.role != User.Role.ADMIN and not request.user.is_superuser:
+            return Response(
+                {"detail": "Access restricted: Only system administrators can anonymize lead records."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        lead = self.get_object()
+        serializer = AnonymizeLeadInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        reason = serializer.validated_data['reason']
+        ip_addr = request.META.get('REMOTE_ADDR')
+
+        try:
+            updated_lead = anonymize_lead_data(lead, reason=reason, user=request.user, ip_address=ip_addr)
+        except DjangoValidationError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                "message": f"Lead #{lead.id} personal information has been irreversibly anonymized.",
+                "lead": LeadSerializer(updated_lead, context={'request': request}).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=['post'], url_path='privacy-correct')
+    def privacy_correct(self, request, pk=None):
+        """
+        Rectifies inaccurate personal information with an explicit justification reason and audit trail.
+        Restricted to Administrators.
+        """
+        if request.user.role != User.Role.ADMIN and not request.user.is_superuser:
+            return Response(
+                {"detail": "Access restricted: Only system administrators can perform privacy corrections."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        lead = self.get_object()
+        serializer = PrivacyCorrectInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        reason = serializer.validated_data['reason']
+        updates = serializer.validated_data['updates']
+        ip_addr = request.META.get('REMOTE_ADDR')
+
+        try:
+            updated_lead = correct_lead_data(lead, updates=updates, reason=reason, user=request.user, ip_address=ip_addr)
+        except DjangoValidationError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                "message": f"Lead #{lead.id} personal records corrected successfully.",
+                "lead": LeadSerializer(updated_lead, context={'request': request}).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=['post'], url_path='check-dncr')
+    def check_dncr(self, request, pk=None):
+        """
+        Updates the Australian Do Not Call Register (DNCR) status check for the lead.
+        """
+        lead = self.get_object()
+        dncr_status = request.data.get('dncr_status')
+        if dncr_status not in ['on_register', 'not_on_register', 'exempt']:
+            dncr_status = 'on_register' if lead.dncr_status != 'on_register' else 'not_on_register'
+
+        notes = (request.data.get('notes') or '').strip()
+        ip_addr = request.META.get('REMOTE_ADDR')
+
+        lead.dncr_status = dncr_status
+        lead.dncr_checked_at = timezone.now()
+        lead.dncr_checked_by = request.user
+        lead.save(update_fields=['dncr_status', 'dncr_checked_at', 'dncr_checked_by'])
+
+        AuditLog.objects.create(
+            user=request.user,
+            action='dncr_check',
+            lead=lead,
+            reason=notes or f"DNCR status set to {dncr_status}",
+            details={'dncr_status': dncr_status, 'phone': lead.phone_e164 or lead.phone},
+            ip_address=ip_addr,
+        )
+
+        return Response(
+            {
+                "message": f"Lead #{lead.id} DNCR status updated to '{dncr_status}'.",
+                "lead": LeadSerializer(lead, context={'request': request}).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
     @action(detail=False, methods=['get'], url_path='export-csv')
     def export_csv(self, request):
         """
         Exports leads to CSV with current filters applied,
         protected against formula injection, encoded as utf-8-sig.
+        Logs bulk export action into the compliance AuditLog.
         """
-        # Use filtered queryset from self.filter_queryset(self.get_queryset())
         queryset = self.filter_queryset(self.get_queryset())
 
-        # If specific lead_ids given in query params, respect them
         lead_ids_param = request.query_params.get('lead_ids')
         if lead_ids_param:
             try:
@@ -485,6 +796,18 @@ class LeadViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(id__in=ids)
             except ValueError:
                 pass
+
+        total_count = queryset.count()
+        AuditLog.objects.create(
+            user=request.user,
+            action='bulk_export',
+            reason=f"Exported {total_count} leads to CSV",
+            details={
+                'exported_count': total_count,
+                'query_params': dict(request.query_params),
+            },
+            ip_address=request.META.get('REMOTE_ADDR'),
+        )
 
         timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
         response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
@@ -494,17 +817,29 @@ class LeadViewSet(viewsets.ModelViewSet):
         headers = [
             'ID',
             'Name',
-            'Phone',
+            'Region',
+            'State',
+            'City',
+            'Suburb',
+            'Pincode / Postcode',
+            'Address',
+            'Phone (E.164)',
+            'Raw Phone Backup',
             'Alt Phone',
             'Email',
-            'City',
-            'Pincode',
-            'Address',
             'Source',
             'Status',
+            'Consent Status',
+            'Consent Source',
+            'Consent Date',
+            'DNCR Status',
+            'Do Not Contact',
             'Next Action',
             'Next Followup At',
-            'Monthly Bill',
+            'Bill Amount',
+            'Bill Period',
+            'Normalized Monthly Bill',
+            'Electricity Provider',
             'Roof Type',
             'Property Type',
             'Owner or Tenant',
@@ -520,17 +855,29 @@ class LeadViewSet(viewsets.ModelViewSet):
             writer.writerow([
                 sanitize_csv_cell(lead.id),
                 sanitize_csv_cell(lead.name),
-                sanitize_csv_cell(lead.phone),
-                sanitize_csv_cell(lead.alt_phone or ''),
-                sanitize_csv_cell(lead.email or ''),
+                sanitize_csv_cell(lead.region_id or ''),
+                sanitize_csv_cell(lead.state or ''),
                 sanitize_csv_cell(lead.city or ''),
-                sanitize_csv_cell(lead.pincode or ''),
+                sanitize_csv_cell(lead.suburb or ''),
+                sanitize_csv_cell(lead.postcode or lead.pincode or ''),
                 sanitize_csv_cell(lead.address or ''),
+                sanitize_csv_cell(lead.phone_e164 or lead.phone or ''),
+                sanitize_csv_cell(lead.phone_raw_backup or ''),
+                sanitize_csv_cell(lead.alt_phone_e164 or lead.alt_phone or ''),
+                sanitize_csv_cell(lead.email or ''),
                 sanitize_csv_cell(lead.source.name if lead.source else ''),
                 sanitize_csv_cell(lead.status),
+                sanitize_csv_cell(lead.consent_status or ''),
+                sanitize_csv_cell(lead.consent_source or ''),
+                sanitize_csv_cell(lead.consent_date.isoformat() if lead.consent_date else ''),
+                sanitize_csv_cell(lead.dncr_status or ''),
+                sanitize_csv_cell('Yes' if lead.do_not_contact else 'No'),
                 sanitize_csv_cell(lead.next_action or ''),
                 sanitize_csv_cell(lead.next_followup_at.strftime('%Y-%m-%d %H:%M') if lead.next_followup_at else ''),
-                sanitize_csv_cell(lead.monthly_bill if lead.monthly_bill is not None else ''),
+                sanitize_csv_cell(lead.bill_amount if lead.bill_amount is not None else ''),
+                sanitize_csv_cell(lead.bill_period or ''),
+                sanitize_csv_cell(lead.normalized_monthly_bill if lead.normalized_monthly_bill is not None else (lead.monthly_bill or '')),
+                sanitize_csv_cell(lead.electricity_provider or ''),
                 sanitize_csv_cell(lead.roof_type or ''),
                 sanitize_csv_cell(lead.property_type or ''),
                 sanitize_csv_cell(lead.owner_or_tenant or ''),
@@ -542,6 +889,27 @@ class LeadViewSet(viewsets.ModelViewSet):
             ])
 
         return response
+
+
+class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Read-only audit log endpoint for compliance and tamper-evident tracking.
+    """
+    queryset = AuditLog.objects.all().select_related('user', 'lead').order_by('-timestamp')
+    serializer_class = AuditLogSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['action', 'user', 'lead_id_recorded']
+    search_fields = ['reason', 'user_name']
+    ordering_fields = ['timestamp', 'action']
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return self.queryset.none()
+        if user.role not in [User.Role.ADMIN, User.Role.MANAGER] and not user.is_superuser:
+            return self.queryset.filter(lead__assigned_to=user)
+        return self.queryset
 
 
 class ImportBatchViewSet(viewsets.ReadOnlyModelViewSet):
@@ -586,6 +954,17 @@ class DashboardView(APIView):
         user = request.user
         qs = Lead.objects.all()
 
+        # Multi-country region scoping
+        if not user.is_superuser:
+            allowed = user.allowed_regions.all()
+            if allowed.exists():
+                qs = qs.filter(region__in=allowed)
+
+        # Region query filter (?region=IN or ?region=AU)
+        region_param = request.query_params.get('region')
+        if region_param:
+            qs = qs.filter(region_id=region_param.upper().strip())
+
         if user.role == User.Role.SALESPERSON and not user.is_superuser:
             qs = qs.filter(assigned_to=user)
 
@@ -627,6 +1006,15 @@ class DashboardView(APIView):
         start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         won_this_month = qs.filter(status=Lead.Status.WON, won_at__gte=start_of_month).count()
 
+        # Multi-currency won value tracking (never mix or sum different currencies!)
+        from quotes.models import Quote
+        won_leads_subquery = qs.filter(status=Lead.Status.WON)
+        accepted_quotes = Quote.objects.filter(lead__in=won_leads_subquery, status=Quote.Status.ACCEPTED)
+        won_value_by_currency = {'INR': 0.0, 'AUD': 0.0}
+        for q in accepted_quotes:
+            c = q.currency or ('INR' if q.region_id == 'IN' else 'AUD')
+            won_value_by_currency[c] = won_value_by_currency.get(c, 0.0) + float(q.price)
+
         # Needs attention list (rule-based, high risk leads, zero API calls)
         needs_attention_qs = qs.exclude(status__in=Lead.TERMINAL_STATUSES).filter(
             Q(attempt_count__gte=3) |
@@ -634,7 +1022,7 @@ class DashboardView(APIView):
             Q(status=Lead.Status.SURVEY_MISSED) |
             Q(next_followup_at__lt=now - timedelta(days=2)) |
             Q(next_followup_at__isnull=True)
-        ).select_related('assigned_to', 'source').order_by('-updated_at')[:10]
+        ).select_related('assigned_to', 'source', 'region').order_by('-updated_at')[:10]
 
         needs_attention = []
         for lead_item in needs_attention_qs:
@@ -657,8 +1045,9 @@ class DashboardView(APIView):
             needs_attention.append({
                 "id": lead_item.id,
                 "name": lead_item.name,
-                "phone": lead_item.phone,
+                "phone": lead_item.phone_e164 or lead_item.phone,
                 "city": lead_item.city,
+                "region": lead_item.region_id,
                 "status": lead_item.status,
                 "risk_level": risk,
                 "reason": reason,
@@ -673,6 +1062,7 @@ class DashboardView(APIView):
                 "overdue_followups": overdue_followups,
                 "leads_per_source": leads_per_source,
                 "won_this_month": won_this_month,
+                "won_value_by_currency": won_value_by_currency,
                 "total_active_leads": total_active_leads,
                 "needs_attention": needs_attention,
             },

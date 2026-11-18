@@ -31,7 +31,12 @@ export const ReviseQuoteModal: React.FC<ReviseQuoteModalProps> = ({
   onSuccess,
 }) => {
   const queryClient = useQueryClient();
+  const isAU = quote?.region === 'AU' || quote?.currency === 'AUD';
+  const currencySymbol = quote?.currency_symbol || (isAU ? 'A$' : '₹');
+  const incentiveLabel = quote?.incentive_label || (isAU ? 'Government Incentive (STCs & Rebates)' : 'Applicable Subsidy / Discount');
+
   const [systemSizeKw, setSystemSizeKw] = useState<number | string>(3.3);
+  const [batteryKwh, setBatteryKwh] = useState<number | string>('');
   const [brand, setBrand] = useState('');
   const [price, setPrice] = useState<number | string>(0);
   const [subsidyAmount, setSubsidyAmount] = useState<number | string>(0);
@@ -42,6 +47,7 @@ export const ReviseQuoteModal: React.FC<ReviseQuoteModalProps> = ({
   useEffect(() => {
     if (opened && quote) {
       setSystemSizeKw(quote.system_size_kw);
+      setBatteryKwh(quote.battery_kwh || '');
       setBrand(quote.brand);
       setPrice(quote.price);
       setSubsidyAmount(quote.subsidy_amount || 0);
@@ -58,6 +64,7 @@ export const ReviseQuoteModal: React.FC<ReviseQuoteModalProps> = ({
       if (!quote) throw new Error('No quote selected');
       return reviseQuote(quote.id, {
         system_size_kw: Number(systemSizeKw),
+        battery_kwh: batteryKwh ? Number(batteryKwh) : undefined,
         brand: brand.trim(),
         price: Number(price),
         subsidy_amount: subsidyAmount ? Number(subsidyAmount) : undefined,
@@ -106,6 +113,9 @@ export const ReviseQuoteModal: React.FC<ReviseQuoteModalProps> = ({
           <IconFileDiff size={18} />
           <Text fw={600}>Revise Quotation</Text>
           {quote && <Badge color="gray">v{quote.version} → v{quote.version + 1}</Badge>}
+          <Badge color={isAU ? 'teal' : 'orange'} variant="outline">
+            {currencySymbol}
+          </Badge>
         </Group>
       }
       size="lg"
@@ -131,51 +141,72 @@ export const ReviseQuoteModal: React.FC<ReviseQuoteModalProps> = ({
           <Group grow>
             <NumberInput
               label="System Size (kW)"
-              placeholder="e.g. 3.3, 5, 10"
+              placeholder="e.g. 3.3, 5, 6.6, 10"
               value={systemSizeKw}
               onChange={setSystemSizeKw}
               min={0.5}
               step={0.1}
               required
             />
-            <TextInput
-              label="Equipment Brand & Specification"
-              value={brand}
-              onChange={(e) => setBrand(e.currentTarget.value)}
-              required
+            <NumberInput
+              label="Battery Storage (kWh) [Optional]"
+              placeholder="e.g. 9.6, 13.5"
+              value={batteryKwh}
+              onChange={setBatteryKwh}
+              min={0}
+              step={0.5}
             />
           </Group>
 
+          <TextInput
+            label="Equipment Brand & Specification"
+            value={brand}
+            onChange={(e) => setBrand(e.currentTarget.value)}
+            required
+          />
+
           <Group grow>
             <NumberInput
-              label="Total Gross Price (₹)"
+              label={`Total Gross Price (${currencySymbol})`}
               value={price}
               onChange={setPrice}
               min={0}
               required
             />
             <NumberInput
-              label="Applicable Subsidy / Discount (₹)"
+              label={`${incentiveLabel} (${currencySymbol})`}
               value={subsidyAmount}
               onChange={setSubsidyAmount}
               min={0}
             />
           </Group>
 
-          <Paper p="xs" withBorder bg="var(--mantine-color-yellow-0)">
+          <Paper p="xs" withBorder bg={isAU ? 'var(--mantine-color-teal-0)' : 'var(--mantine-color-yellow-0)'}>
             <Group justify="space-between">
-              <Text size="xs" fw={500}>
-                New Customer Net Payable:
-              </Text>
-              <Text size="md" fw={700} c="yellow.9">
-                ₹{netPrice > 0 ? netPrice.toLocaleString('en-IN') : 0}
+              <div>
+                <Text size="xs" fw={500}>
+                  New Customer Net Out-of-Pocket:
+                </Text>
+                <Text size="11px" c="dimmed">
+                  {isAU
+                    ? 'Price inclusive of 10% GST and point-of-sale STC discount'
+                    : 'Price inclusive of 5% GST; subsidy claim processed per PM Surya Ghar guidelines'}
+                </Text>
+              </div>
+              <Text size="md" fw={700} c={isAU ? 'teal.9' : 'yellow.9'}>
+                {currencySymbol}
+                {netPrice > 0
+                  ? isAU
+                    ? netPrice.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : netPrice.toLocaleString('en-IN')
+                  : 0}
               </Text>
             </Group>
           </Paper>
 
           <Textarea
             label="Revision Notes / Reason for Change"
-            placeholder="e.g. Discount given, adjusted panel placement to fit 4kW"
+            placeholder="e.g. Discount given, adjusted panel placement to fit 6.6kW"
             rows={3}
             value={notes}
             onChange={(e) => setNotes(e.currentTarget.value)}
@@ -195,7 +226,7 @@ export const ReviseQuoteModal: React.FC<ReviseQuoteModalProps> = ({
             <Button variant="default" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" color="yellow" loading={reviseMutation.isPending}>
+            <Button type="submit" color={isAU ? 'teal' : 'yellow'} loading={reviseMutation.isPending}>
               Create Revision v{(quote?.version || 0) + 1}
             </Button>
           </Group>

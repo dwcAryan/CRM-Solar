@@ -39,10 +39,16 @@ class SurveyViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
         if not user.is_authenticated:
             return qs.none()
+        if not user.is_superuser:
+            qs = qs.filter(lead__region__in=user.allowed_regions.all())
         if user.role == User.Role.SURVEYOR and not user.is_superuser:
-            return qs.filter(surveyor=user)
+            qs = qs.filter(surveyor=user)
         if user.role == User.Role.SALESPERSON and not user.is_superuser:
-            return qs.filter(lead__assigned_to=user)
+            qs = qs.filter(lead__assigned_to=user)
+
+        region_param = self.request.query_params.get('region')
+        if region_param:
+            qs = qs.filter(lead__region_id=region_param.upper().strip())
         return qs
 
     @action(detail=False, methods=['post'], url_path='book')

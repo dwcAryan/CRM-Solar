@@ -21,6 +21,10 @@ import type {
   HelpQueryResponse,
   HelpFaqItem,
   AISuggestion,
+  Region,
+  State,
+  RoofType,
+  PropertyType,
 } from './types';
 
 const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -146,13 +150,14 @@ export const fetchMe = async (): Promise<User> => {
   return res.data;
 };
 
-export const fetchDashboard = async (): Promise<DashboardData> => {
-  const res = await apiClient.get<DashboardData>('/api/dashboard/');
+export const fetchDashboard = async (params?: Record<string, any>): Promise<DashboardData> => {
+  const res = await apiClient.get<DashboardData>('/api/dashboard/', { params });
   return res.data;
 };
 
-export const fetchTodayLeads = async (): Promise<Lead[]> => {
-  const res = await apiClient.get<Lead[] | { results: Lead[] }>('/api/leads/today/');
+export const fetchTodayLeads = async (region?: string): Promise<Lead[]> => {
+  const params = region ? { region } : undefined;
+  const res = await apiClient.get<Lead[] | { results: Lead[] }>('/api/leads/today/', { params });
   if (Array.isArray(res.data)) return res.data;
   return res.data.results || [];
 };
@@ -252,8 +257,9 @@ export const undoImportBatch = async (batchId: number): Promise<{ message: strin
   return res.data;
 };
 
-export const downloadSampleCsv = (): void => {
-  window.open(`${API_BASE_URL}/api/leads/import-sample-csv/`, '_blank');
+export const downloadSampleCsv = (region?: string): void => {
+  const queryStr = region ? `?region=${encodeURIComponent(region)}` : '';
+  window.open(`${API_BASE_URL}/api/leads/import-sample-csv/${queryStr}`, '_blank');
 };
 
 export const downloadFailedRowsCsv = (batchId: number): void => {
@@ -347,6 +353,7 @@ export const fetchQuotes = async (params?: Record<string, any>): Promise<Quote[]
 export const createQuote = async (data: {
   lead_id: number;
   system_size_kw: number;
+  battery_kwh?: number | null;
   brand: string;
   price: number;
   subsidy_amount?: number | null;
@@ -364,6 +371,7 @@ export const markQuoteSent = async (id: number, notes?: string, remark?: string)
 
 export const reviseQuote = async (id: number, data: {
   system_size_kw: number;
+  battery_kwh?: number | null;
   brand: string;
   price: number;
   subsidy_amount?: number | null;
@@ -439,4 +447,57 @@ export const fetchAISuggestion = async (leadId: number, refresh: boolean = false
 export const generateAISuggestion = async (leadId: number, refresh: boolean = true): Promise<AISuggestion> => {
   const res = await apiClient.post<any>(`/api/leads/${leadId}/ai-suggestions/`, { refresh });
   return res.data.suggestion || res.data;
+};
+
+// Multi-Country Masters
+export const fetchRegions = async (): Promise<Region[]> => {
+  const res = await apiClient.get<any>('/api/masters/regions/');
+  return Array.isArray(res.data) ? res.data : (res.data.results || []);
+};
+
+export const fetchStates = async (region?: string): Promise<State[]> => {
+  const res = await apiClient.get<any>('/api/masters/states/', { params: region ? { region } : undefined });
+  return Array.isArray(res.data) ? res.data : (res.data.results || []);
+};
+
+export const fetchRoofTypes = async (region?: string): Promise<RoofType[]> => {
+  const res = await apiClient.get<any>('/api/masters/roof-types/', { params: region ? { region } : undefined });
+  return Array.isArray(res.data) ? res.data : (res.data.results || []);
+};
+
+export const fetchPropertyTypes = async (region?: string): Promise<PropertyType[]> => {
+  const res = await apiClient.get<any>('/api/masters/property-types/', { params: region ? { region } : undefined });
+  return Array.isArray(res.data) ? res.data : (res.data.results || []);
+};
+
+export const fetchAuditLogs = async (params?: Record<string, any>): Promise<any> => {
+  const res = await apiClient.get<any>('/api/audit-logs/', { params });
+  return res.data;
+};
+
+// Privacy & Compliance
+export const fetchLeadPrivacyDossier = async (leadId: number, format: 'json' | 'pdf' = 'json'): Promise<any> => {
+  if (format === 'pdf') {
+    const res = await apiClient.get(`/api/leads/${leadId}/privacy-export/?format=pdf`, {
+      responseType: 'blob',
+    });
+    return res.data;
+  }
+  const res = await apiClient.get(`/api/leads/${leadId}/privacy-export/?format=json`);
+  return res.data;
+};
+
+export const anonymizeLead = async (leadId: number, reason: string): Promise<{ message: string; lead: Lead }> => {
+  const res = await apiClient.post(`/api/leads/${leadId}/anonymize/`, { reason });
+  return res.data;
+};
+
+export const correctLeadData = async (leadId: number, updates: Record<string, any>, reason: string): Promise<{ message: string; lead: Lead }> => {
+  const res = await apiClient.post(`/api/leads/${leadId}/privacy-correct/`, { updates, reason });
+  return res.data;
+};
+
+export const checkLeadDncr = async (leadId: number, dncr_status?: string, notes?: string): Promise<{ message: string; lead: Lead }> => {
+  const res = await apiClient.post(`/api/leads/${leadId}/check-dncr/`, { dncr_status, notes });
+  return res.data;
 };

@@ -33,11 +33,206 @@ class AISuggestionProvider(abc.ABC):
 class RulesProvider(AISuggestionProvider):
     """
     Deterministic, rule-based sales coach provider.
-    Provides intelligent recommendations tailored to Indian rooftop solar sales
-    without requiring external API calls or API keys.
+    Provides intelligent recommendations tailored to both Indian (IN) and Australian (AU)
+    rooftop solar sales environments without requiring external API calls or API keys.
     """
 
     def generate(self, context: dict[str, Any]) -> tuple[dict[str, Any], int]:
+        region = (context.get("region") or "IN").upper()
+        if region == "AU":
+            return self._generate_au(context)
+        return self._generate_in(context)
+
+    def _generate_au(self, context: dict[str, Any]) -> tuple[dict[str, Any], int]:
+        first_name = context.get("first_name", "Customer")
+        city = context.get("city") or context.get("suburb") or "your suburb"
+        state = context.get("state", "Australia")
+        status = context.get("status", "New")
+        attempt_count = context.get("attempt_count", 0)
+        recent_activities = context.get("recent_activities", [])
+        quotes = context.get("quotes", [])
+        monthly_bill = context.get("normalized_monthly_bill") or context.get("monthly_bill")
+        roof_type = context.get("roof_type", "Colorbond")
+        retailer = context.get("electricity_provider") or "your electricity retailer"
+
+        bill_str = f"A${monthly_bill:.0f}/month" if monthly_bill else "electricity bill"
+        latest_outcome = recent_activities[0]["outcome"] if recent_activities else ""
+
+        # Case 1: Price or budget concern
+        if latest_outcome == "Price or budget concern" or status == "Interested" and any("price" in str(a.get("notes", "")).lower() for a in recent_activities):
+            return {
+                "situation_summary": (
+                    f"{first_name} is evaluating solar but expressed hesitation on upfront investment. "
+                    "Demonstrating federal STC point-of-sale discounts and self-consumption savings will help progress this lead."
+                ),
+                "risk_level": "medium",
+                "risk_reason": "Price hesitation requires clear payback calculations against current retail electricity tariffs.",
+                "best_next_action": "Present an itemised proposal highlighting upfront STC incentives and estimated 3-4 year return on investment.",
+                "suggested_follow_up_timing": "Tomorrow afternoon around 2:00 PM",
+                "suggested_outcome_to_log": "Price or budget concern",
+                "talking_points": [
+                    "Clarify that federal STCs (Small-scale Technology Certificates) are applied as a point-of-sale discount off the gross price.",
+                    f"Self-consumption avoids retail power tariffs (approx 30-40c/kWh from {retailer}), delivering a rapid ~3.5 year payback.",
+                    "Highlight flexible green loan financing options where power bill savings typically exceed repayments.",
+                ],
+                "suggested_whatsapp_message": (
+                    f"Hi {first_name}! Good news on your {city} property: our quotes include the federal STC incentive applied upfront at point of sale. "
+                    f"Based on your {bill_str}, the system is projected to pay for itself in ~3.5 years. "
+                    "Would you like me to SMS through a 1-page financial payback summary? Reply STOP to opt out."
+                ),
+                "objections_to_expect": [
+                    {
+                        "objection": "Solar feed-in tariffs in Australia are too low now.",
+                        "reply": "You're spot on that feed-in tariffs are lower, which is why we size systems to maximize direct daytime self-consumption—saving you 30-40c/kWh on imported power."
+                    },
+                    {
+                        "objection": "How do I claim the STC government rebate?",
+                        "reply": "You don't need to do any paperwork. As a Clean Energy Council accredited installer, we apply the STC discount directly off your quote upfront."
+                    }
+                ],
+            }, 0
+
+        # Case 2: 3 or more failed call attempts
+        if attempt_count >= 3 or latest_outcome in ["No answer", "Busy or switched off"]:
+            return {
+                "situation_summary": (
+                    f"{first_name} has missed {attempt_count} phone attempts. "
+                    "In the Australian market, repeated daytime voice outreach risks customer annoyance or DNCR sensitivity."
+                ),
+                "risk_level": "high" if attempt_count >= 4 else "medium",
+                "risk_reason": f"{attempt_count} unanswered calls suggest timing mismatch. Australian consumers strongly prefer SMS follow-ups.",
+                "best_next_action": "Switch communication channel to SMS with a courteous update and an easy opt-out option.",
+                "suggested_follow_up_timing": "Tomorrow between 10:00 AM and 12:00 PM AEST (business hours)",
+                "suggested_outcome_to_log": "Busy or switched off" if attempt_count < 5 else "No answer",
+                "talking_points": [
+                    f"Acknowledge busy routine politely: 'Hi {first_name}, understand you are flat out during business hours.'",
+                    "Offer non-intrusive text communication: 'Would you prefer if I texted through a quick system breakdown?'",
+                    f"Mention solar offset against rising retail rates in {state}.",
+                ],
+                "suggested_whatsapp_message": (
+                    f"Hi {first_name}, Liam from Solar CRM following up on your solar enquiry for {city}. "
+                    "Understand you're likely busy—happy to SMS through a quick 6.6kW system estimate if that's easier? "
+                    "Let me know if you'd like details. Reply STOP to opt out."
+                ),
+                "objections_to_expect": [
+                    {
+                        "objection": "I don't take sales calls during work hours.",
+                        "reply": "Completely understand! We can share all system sizing, STC rebate figures, and pricing directly via SMS or email."
+                    },
+                    {
+                        "objection": "Is this an unsolicited marketing call?",
+                        "reply": "No, this is following up on your recent online solar enquiry for your property in Australia. If you're no longer interested, I can update our records immediately."
+                    }
+                ],
+            }, 0
+
+        # Case 3: Quotation sent / Negotiation
+        if status in ["Quote sent", "Negotiation", "Revising quote"] or quotes:
+            latest_quote = quotes[-1] if quotes else {}
+            kw = latest_quote.get("system_size_kw", 6.6)
+            brand = latest_quote.get("brand", "Tier-1 CEC Approved")
+            net_price = latest_quote.get("net_price", 0)
+
+            return {
+                "situation_summary": (
+                    f"Quotation v{latest_quote.get('version', 1)} for a {kw} kW system ({brand}) has been delivered to {first_name}. "
+                    "Customer is likely comparing against competing Australian solar installers."
+                ),
+                "risk_level": "medium" if status == "Quote sent" else "low",
+                "risk_reason": "Competitive quoting stage; timely consultative check-in is vital to prevent drop-off.",
+                "best_next_action": "Conduct a consultative proposal review focusing on Clean Energy Council accreditation and local warranty support.",
+                "suggested_follow_up_timing": "Tomorrow between 3:30 PM and 5:00 PM",
+                "suggested_outcome_to_log": "Customer compares with another vendor" if status == "Negotiation" else "Customer asks questions",
+                "talking_points": [
+                    f"Review net investment of A${net_price:,.0f} inclusive of GST and point-of-sale STC incentive.",
+                    f"Highlight Tier-1 equipment advantages: 25-year performance warranty and reputable inverter support.",
+                    "Explain DNSP grid connection approval and compliance with Clean Energy Council guidelines.",
+                ],
+                "suggested_whatsapp_message": (
+                    f"Hi {first_name}, just following up on the {kw} kW solar quotation we shared for your home in {city}. "
+                    "I'd be pleased to answer any questions about panel performance, inverter warranty, or grid connection. What time works best for a brief chat?"
+                ),
+                "objections_to_expect": [
+                    {
+                        "objection": "Another installer quoted a significantly lower price.",
+                        "reply": "Check whether their quote uses CEC-accredited installers, tier-1 panels, and inverters with Australian-based warranty offices. Low-cost systems often compromise on DC isolators and after-sales support."
+                    },
+                    {
+                        "objection": "Will my local network (DNSP) limit how much solar I can export?",
+                        "reply": "Most Australian distribution networks allow 5kW export on single-phase connections. We optimize inverter settings and smart metering to ensure full compliance without waste."
+                    }
+                ],
+            }, 0
+
+        # Case 4: Site Survey Phase
+        if status in ["Survey to schedule", "Survey scheduled", "Survey rescheduled", "Survey missed"]:
+            return {
+                "situation_summary": (
+                    f"{first_name}'s property is in the site inspection phase. "
+                    f"Confirming {roof_type} roof structural integrity, switchboard compliance, and smart meter compatibility."
+                ),
+                "risk_level": "medium" if status == "Survey missed" else "low",
+                "risk_reason": "On-site assessment confirms engineering viability and enables firm contract sign-off.",
+                "best_next_action": "Confirm inspector arrival window and ask homeowner to ensure clear switchboard and roof access.",
+                "suggested_follow_up_timing": "Today within 2 hours",
+                "suggested_outcome_to_log": "Survey booked" if status == "Survey to schedule" else "Customer not at site or not reachable on the day",
+                "talking_points": [
+                    f"Survey takes ~30 minutes: inspecting the switchboard, meter box, and {roof_type} roof condition.",
+                    "Assess whether switchboard upgrades or smart metering are required for solar grid connection.",
+                    "Determine optimal orientation (North/West) for maximum household self-consumption.",
+                ],
+                "suggested_whatsapp_message": (
+                    f"Hi {first_name}, our technical assessor is scheduled for your site inspection in {city}. "
+                    "The assessment takes roughly 25-30 minutes to check your switchboard and roof layout. "
+                    "Could you please confirm someone will be home to provide access?"
+                ),
+                "objections_to_expect": [
+                    {
+                        "objection": "Does this inspection cost anything?",
+                        "reply": "Not at all. The site assessment and shade analysis are complimentary with no obligation to purchase."
+                    },
+                    {
+                        "objection": "Will installing solar void my roof warranty?",
+                        "reply": "No. Our CEC-accredited installers use certified bracketry and flashing specifically engineered for Australian conditions and roof types."
+                    }
+                ],
+            }, 0
+
+        # Case 5: Default / New Lead Qualification in Australia
+        return {
+            "situation_summary": (
+                f"New Australian solar enquiry for {first_name} in {city}, {state}. "
+                f"Property recorded as {context.get('property_type', 'Residential')} with {roof_type} roofing."
+            ),
+            "risk_level": "low",
+            "risk_reason": "Fresh inbound enquiry; contacting within business hours yields optimum engagement.",
+            "best_next_action": "Call customer to verify quarterly power consumption, electricity retailer, and roof ownership.",
+            "suggested_follow_up_timing": "Today during permitted calling hours (9:00 AM - 8:00 PM)",
+            "suggested_outcome_to_log": "Interested, wants more information",
+            "talking_points": [
+                f"Greet courteously: 'Hi {first_name}, Liam calling from Solar CRM regarding your rooftop solar enquiry for {city}.'",
+                f"Confirm current billing: average quarterly bill with {retailer} and daytime energy habits.",
+                "Confirm property ownership and roof type (e.g. Colorbond, tile, or tin).",
+                "Propose a complimentary site feasibility assessment and customized solar proposal.",
+            ],
+            "suggested_whatsapp_message": (
+                f"Hi {first_name}, thanks for inquiring about solar with us in {city}! "
+                "With federal STC incentives and current power prices, a properly sized system can significantly cut your electricity bills. "
+                "I'd love to share a quick estimate—what time today suits best for a brief call? Reply STOP to opt out."
+            ),
+            "objections_to_expect": [
+                {
+                    "objection": "Just browsing prices, not ready yet.",
+                    "reply": "No problem at all! We can SMS you a quick sizing guide and estimate so you can review at your own pace."
+                },
+                {
+                    "objection": "Do I need council or grid approval?",
+                    "reply": "Standard residential solar does not require council DA. We handle the entire DNSP grid connection approval with your network provider."
+                }
+            ],
+        }, 0
+
+    def _generate_in(self, context: dict[str, Any]) -> tuple[dict[str, Any], int]:
         first_name = context.get("first_name", "Customer")
         city = context.get("city", "your city")
         status = context.get("status", "New")
@@ -49,41 +244,7 @@ class RulesProvider(AISuggestionProvider):
 
         latest_outcome = recent_activities[0]["outcome"] if recent_activities else ""
 
-        # Case 1: 3 or more failed call attempts
-        if attempt_count >= 3 or latest_outcome in ["No answer", "Busy or switched off"]:
-            return {
-                "situation_summary": (
-                    f"{first_name} has missed {attempt_count} consecutive call attempts with no direct phone response. "
-                    "Repeated calling at the same hour will likely be perceived as spam."
-                ),
-                "risk_level": "high" if attempt_count >= 4 else "medium",
-                "risk_reason": f"{attempt_count} unanswered outreach attempts indicate communication friction or bad call timing.",
-                "best_next_action": "Switch channel to WhatsApp with a brief polite note and schedule callback in the evening.",
-                "suggested_follow_up_timing": "Today between 6:30 PM and 8:00 PM (after work hours)",
-                "suggested_outcome_to_log": "Busy or switched off" if attempt_count < 5 else "No answer",
-                "talking_points": [
-                    f"Acknowledge busy schedule politely: 'Namaste {first_name}, understand you might be occupied.'",
-                    "Offer non-intrusive communication: 'Can I share a 1-page rooftop solar estimate here on WhatsApp?'",
-                    f"Mention electricity bill reduction potential in {city} (up to 80% savings under PM Surya Ghar).",
-                ],
-                "suggested_whatsapp_message": (
-                    f"Namaste {first_name} ji! I tried reaching you regarding your rooftop solar enquiry in {city}. "
-                    "I understand you may be busy right now. Could you please let me know a convenient time to connect, "
-                    "or should I share a quick savings breakdown here on WhatsApp?"
-                ),
-                "objections_to_expect": [
-                    {
-                        "objection": "I don't have time to talk on calls.",
-                        "reply": "No problem at all! I can share all details and savings estimates directly here on WhatsApp for you to review at your convenience."
-                    },
-                    {
-                        "objection": "Is this a promotional spam call?",
-                        "reply": "Not at all. You recently filled out our solar enquiry form, and I am following up to assist with your rooftop eligibility and government subsidy."
-                    }
-                ],
-            }, 0
-
-        # Case 2: Price or budget concern
+        # Case 1: Price or budget concern
         if latest_outcome == "Price or budget concern" or status == "Interested" and any("price" in str(a.get("notes", "")).lower() for a in recent_activities):
             return {
                 "situation_summary": (
@@ -113,6 +274,40 @@ class RulesProvider(AISuggestionProvider):
                     {
                         "objection": "How reliable is the government subsidy release?",
                         "reply": "The PM Surya Ghar subsidy is credited directly to your bank account via DBT within 30 days of net-meter commissioning. We handle all paperwork."
+                    }
+                ],
+            }, 0
+
+        # Case 2: 3 or more failed call attempts
+        if attempt_count >= 3 or latest_outcome in ["No answer", "Busy or switched off"]:
+            return {
+                "situation_summary": (
+                    f"{first_name} has missed {attempt_count} consecutive call attempts with no direct phone response. "
+                    "Repeated calling at the same hour will likely be perceived as spam."
+                ),
+                "risk_level": "high" if attempt_count >= 4 else "medium",
+                "risk_reason": f"{attempt_count} unanswered outreach attempts indicate communication friction or bad call timing.",
+                "best_next_action": "Switch channel to WhatsApp with a brief polite note and schedule callback in the evening.",
+                "suggested_follow_up_timing": "Today between 6:30 PM and 8:00 PM (after work hours)",
+                "suggested_outcome_to_log": "Busy or switched off" if attempt_count < 5 else "No answer",
+                "talking_points": [
+                    f"Acknowledge busy schedule politely: 'Namaste {first_name}, understand you might be occupied.'",
+                    "Offer non-intrusive communication: 'Can I share a 1-page rooftop solar estimate here on WhatsApp?'",
+                    f"Mention electricity bill reduction potential in {city} (up to 80% savings under PM Surya Ghar).",
+                ],
+                "suggested_whatsapp_message": (
+                    f"Namaste {first_name} ji! I tried reaching you regarding your rooftop solar enquiry in {city}. "
+                    "I understand you may be busy right now. Could you please let me know a convenient time to connect, "
+                    "or should I share a quick savings breakdown here on WhatsApp?"
+                ),
+                "objections_to_expect": [
+                    {
+                        "objection": "I don't have time to talk on calls.",
+                        "reply": "No problem at all! I can share all details and savings estimates directly here on WhatsApp for you to review at your convenience."
+                    },
+                    {
+                        "objection": "Is this a promotional spam call?",
+                        "reply": "Not at all. You recently filled out our solar enquiry form, and I am following up to assist with your rooftop eligibility and government subsidy."
                     }
                 ],
             }, 0

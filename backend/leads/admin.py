@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AISuggestion, ImportBatch, Lead, LeadStatusHistory
+from .models import AISuggestion, AuditLog, ImportBatch, Lead, LeadStatusHistory
 
 
 class LeadStatusHistoryInline(admin.TabularInline):
@@ -14,20 +14,40 @@ class LeadStatusHistoryInline(admin.TabularInline):
 class LeadAdmin(admin.ModelAdmin):
     list_display = (
         'name',
-        'phone',
+        'region',
+        'phone_e164',
         'city',
+        'state',
+        'timezone',
         'status',
         'next_action',
         'next_followup_at',
         'assigned_to',
-        'source',
+        'consent_status',
         'attempt_count',
         'created_at',
     )
-    list_filter = ('status', 'assigned_to', 'source', 'do_not_contact', 'created_at')
-    search_fields = ('name', 'phone', 'alt_phone', 'email', 'city', 'pincode')
+    list_filter = ('region', 'status', 'assigned_to', 'source', 'consent_status', 'dncr_status', 'do_not_contact', 'created_at')
+    search_fields = ('name', 'phone', 'phone_e164', 'alt_phone', 'email', 'city', 'pincode', 'postcode')
     inlines = [LeadStatusHistoryInline]
-    readonly_fields = ('created_at', 'updated_at', 'won_at')
+    readonly_fields = ('created_at', 'updated_at', 'won_at', 'phone_raw_backup', 'alt_phone_raw_backup')
+
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    list_display = ('timestamp', 'action', 'user_name', 'lead_id_recorded', 'ip_address')
+    list_filter = ('action', 'timestamp')
+    search_fields = ('user_name', 'action', 'reason')
+    readonly_fields = ('user', 'user_name', 'action', 'timestamp', 'lead', 'lead_id_recorded', 'reason', 'details', 'ip_address')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(LeadStatusHistory)

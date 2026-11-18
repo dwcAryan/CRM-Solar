@@ -7,6 +7,7 @@ import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css';
 
 import { AuthProvider } from './context/AuthContext';
+import { RegionProvider } from './context/RegionContext';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { AppLayout } from './components/layout/AppLayout';
 import { LoginPage } from './pages/LoginPage';
@@ -41,39 +42,41 @@ export const App: React.FC = () => {
         <Notifications position="top-right" />
         <BrowserRouter>
           <AuthProvider>
-            <Routes>
-              {/* Public route */}
-              <Route path="/login" element={<LoginPage />} />
+            <RegionProvider>
+              <Routes>
+                {/* Public route */}
+                <Route path="/login" element={<LoginPage />} />
 
-              {/* Protected routes wrapped in AppLayout */}
-              <Route
-                element={
-                  <ProtectedRoute>
-                    <AppLayout />
-                  </ProtectedRoute>
-                }
-              >
-                <Route path="/" element={<DashboardPage />} />
-                <Route path="/today" element={<TodayPage />} />
-                <Route path="/leads" element={<LeadsListPage />} />
-                <Route path="/leads/:id" element={<LeadDetailPage />} />
-                <Route path="/import-leads" element={<ImportLeadsPage />} />
-                <Route path="/surveys" element={<SurveysPage />} />
-                <Route path="/quotes" element={<QuotesPage />} />
+                {/* Protected routes wrapped in AppLayout */}
                 <Route
-                  path="/admin"
                   element={
-                    <ProtectedRoute allowedRoles={['admin', 'manager']}>
-                      <AdminPage />
+                    <ProtectedRoute>
+                      <AppLayout />
                     </ProtectedRoute>
                   }
-                />
-                <Route path="/health" element={<HealthPage />} />
-              </Route>
+                >
+                  <Route path="/" element={<DashboardPage />} />
+                  <Route path="/today" element={<TodayPage />} />
+                  <Route path="/leads" element={<LeadsListPage />} />
+                  <Route path="/leads/:id" element={<LeadDetailPage />} />
+                  <Route path="/import-leads" element={<ImportLeadsPage />} />
+                  <Route path="/surveys" element={<SurveysPage />} />
+                  <Route path="/quotes" element={<QuotesPage />} />
+                  <Route
+                    path="/admin"
+                    element={
+                      <ProtectedRoute allowedRoles={['admin', 'manager']}>
+                        <AdminPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="/health" element={<HealthPage />} />
+                </Route>
 
-              {/* Fallback */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+                {/* Fallback */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </RegionProvider>
           </AuthProvider>
         </BrowserRouter>
       </MantineProvider>

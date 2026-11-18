@@ -20,6 +20,25 @@ class User(AbstractUser):
         blank=True,
         help_text="Contact phone number.",
     )
+    allowed_regions = models.ManyToManyField(
+        'masters.Region',
+        related_name='users',
+        blank=True,
+        help_text="Countries/regions this user is permitted to access.",
+    )
+    default_region = models.ForeignKey(
+        'masters.Region',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+        help_text="Default country selected when creating leads.",
+    )
+    default_timezone = models.CharField(
+        max_length=50,
+        default='Asia/Kolkata',
+        help_text="User's primary operating timezone for reminders and digest notifications.",
+    )
 
     def __str__(self) -> str:
         full_name = self.get_full_name()

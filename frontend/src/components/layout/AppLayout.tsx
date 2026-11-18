@@ -22,6 +22,7 @@ import {
   ThemeIcon,
   TextInput,
   Kbd,
+  Select,
   useMantineColorScheme,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
@@ -40,8 +41,10 @@ import {
   IconHeartbeat,
   IconSearch,
   IconSparkles,
+  IconWorld,
 } from '@tabler/icons-react';
 import { useAuth } from '../../context/AuthContext';
+import { useRegion } from '../../context/RegionContext';
 import {
   fetchNotifications,
   fetchUnreadNotificationCount,
@@ -55,6 +58,7 @@ import type { Notification } from '../../api/types';
 export const AppLayout: React.FC = () => {
   const [opened, { toggle, close }] = useDisclosure();
   const { user, logout, isAdminOrManager } = useAuth();
+  const { selectedRegion, setSelectedRegion, activeRegion } = useRegion();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -192,6 +196,35 @@ export const AppLayout: React.FC = () => {
           </Box>
 
           <Group gap="xs">
+            {/* Multi-Country Region Filter / Badge */}
+            {isAdminOrManager ? (
+              <Select
+                size="xs"
+                radius="md"
+                w={145}
+                leftSection={<IconWorld size={14} />}
+                value={selectedRegion}
+                onChange={(val) => {
+                  setSelectedRegion(val || '');
+                  queryClient.invalidateQueries();
+                }}
+                data={[
+                  { value: '', label: '🌐 All Regions' },
+                  { value: 'IN', label: '🇮🇳 India (IN)' },
+                  { value: 'AU', label: '🇦🇺 Australia (AU)' },
+                ]}
+              />
+            ) : (
+              <Badge
+                size="md"
+                variant="light"
+                color={activeRegion === 'AU' ? 'blue' : 'green'}
+                leftSection={<IconWorld size={12} />}
+              >
+                {activeRegion === 'AU' ? '🇦🇺 Australia' : '🇮🇳 India'}
+              </Badge>
+            )}
+
             {/* Take a Tour Button */}
             <Button
               variant="light"

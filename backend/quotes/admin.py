@@ -7,16 +7,19 @@ from .models import Quote
 class QuoteAdmin(admin.ModelAdmin):
     list_display = (
         'lead',
+        'region',
         'version',
         'system_size_kw',
         'brand',
+        'currency',
         'price',
-        'subsidy_amount',
+        'tax_amount',
+        'incentive_amount',
         'status',
         'created_by',
         'created_at',
     )
-    list_filter = ('status', 'brand', 'created_at')
+    list_filter = ('region', 'currency', 'status', 'brand', 'created_at')
     search_fields = ('lead__name', 'lead__phone', 'brand', 'notes')
     readonly_fields = ('created_at',)
 

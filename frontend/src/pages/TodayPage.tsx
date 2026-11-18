@@ -17,11 +17,13 @@ import {
   Loader,
   Center,
   Paper,
+  Tooltip,
 } from '@mantine/core';
 import {
   IconCalendarEvent,
   IconPhone,
   IconBrandWhatsapp,
+  IconMessage,
   IconClipboardCheck,
   IconAlertTriangle,
   IconCheck,
@@ -30,19 +32,21 @@ import {
   IconNotes,
 } from '@tabler/icons-react';
 import { fetchTodayLeads } from '../api/client';
+import { useRegion } from '../context/RegionContext';
 import { LogOutcomeModal } from '../components/modals/LogOutcomeModal';
 import { AddRemarkModal } from '../components/modals/AddRemarkModal';
 import type { Lead } from '../api/types';
 
 export const TodayPage: React.FC = () => {
   const navigate = useNavigate();
+  const { selectedRegion } = useRegion();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [outcomeModalOpen, setOutcomeModalOpen] = useState(false);
   const [remarkModalOpen, setRemarkModalOpen] = useState(false);
 
   const { data: leads = [], isLoading, isError, refetch } = useQuery<Lead[]>({
-    queryKey: ['today-leads'],
-    queryFn: fetchTodayLeads,
+    queryKey: ['today-leads', selectedRegion],
+    queryFn: () => fetchTodayLeads(selectedRegion || undefined),
   });
 
   const now = new Date();
@@ -62,127 +66,220 @@ export const TodayPage: React.FC = () => {
     setOutcomeModalOpen(true);
   };
 
-  const getCleanPhone = (phone: string) => {
-    return phone.replace(/\D/g, '').slice(-10);
-  };
+  const renderLeadCard = (lead: Lead, isOverdue: boolean) => {
+    const isAU = lead.region_code === 'AU' || lead.region === 'AU';
+    const cleanPhone = lead.phone_e164 || lead.phone;
+    const canCall = !lead.do_not_contact && !lead.opt_out_calls;
+    const canWhatsApp = !lead.do_not_contact && !lead.opt_out_whatsapp;
+    const canSMS = !lead.do_not_contact && !lead.opt_out_sms;
 
-  const renderLeadCard = (lead: Lead, isOverdue: boolean) => (
-    <Card
-      key={lead.id}
-      shadow="sm"
-      padding="md"
-      radius="md"
-      withBorder
-      style={{
-        borderLeft: isOverdue ? '4px solid var(--mantine-color-red-6)' : '4px solid var(--mantine-color-yellow-6)',
-      }}
-    >
-      <Stack gap="xs">
-        <Group justify="space-between" align="flex-start" wrap="nowrap">
-          <div>
-            <Group gap="xs">
-              <Text
-                fw={600}
-                size="md"
-                style={{ cursor: 'pointer' }}
-                onClick={() => navigate(`/leads/${lead.id}`)}
-              >
-                {lead.name}
+    return (
+      <Card
+        key={lead.id}
+        shadow="sm"
+        padding="md"
+        radius="md"
+        withBorder
+        style={{
+          borderLeft: isOverdue ? '4px solid var(--mantine-color-red-6)' : '4px solid var(--mantine-color-yellow-6)',
+        }}
+      >
+        <Stack gap="xs">
+          <Group justify="space-between" align="flex-start" wrap="nowrap">
+            <div>
+              <Group gap="xs" wrap="wrap">
+                <Text
+                  fw={600}
+                  size="md"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => navigate(`/leads/${lead.id}`)}
+                >
+                  {lead.name}
+                </Text>
+                <Badge size="xs" color="gray">
+                  #{lead.id}
+                </Badge>
+                <Badge size="xs" color={isAU ? 'teal' : 'orange'} variant="outline">
+                  {lead.region_code || 'IN'}
+                </Badge>
+                {lead.is_within_calling_hours === false && (
+                  <Badge size="xs" color="red" variant="dot" title={lead.calling_hours_reason || 'Outside permitted hours'}>
+                    Outside Hours
+                  </Badge>
+                )}
+                {lead.do_not_contact && (
+                  <Badge size="xs" color="red" variant="filled">
+                    DNC
+                  </Badge>
+                )}
+              </Group>
+              <Text size="xs" c="dimmed" mt={2}>
+                {isAU
+                  ? `${lead.suburb || lead.city}, ${lead.state || ''} ${lead.postcode || ''}`
+                  : `${lead.city}, ${lead.state || ''} ${lead.pincode || ''}`}{' '}
+                • {lead.property_type || 'Residential'} • {lead.roof_type || 'Standard'}
               </Text>
-              <Badge size="xs" color="gray">
-                #{lead.id}
-              </Badge>
+              <Text size="xs" fw={500} c="dark.3">
+                📞 {lead.phone_display || lead.phone_e164 || lead.phone}
+              </Text>
+            </div>
+            <Badge color={isOverdue ? 'red' : 'yellow'} variant="light">
+              {lead.status}
+            </Badge>
+          </Group>
+
+          <Paper p="xs" bg={isOverdue ? 'var(--mantine-color-red-0)' : 'var(--mantine-color-yellow-0)'} radius="sm">
+            <Group gap="xs">
+              <IconClock size={16} color={isOverdue ? 'red' : '#fab005'} />
+              <Text size="xs" fw={600} c={isOverdue ? 'red.9' : 'yellow.9'}>
+                {isOverdue ? 'Overdue Follow-up' : 'Scheduled Follow-up'}:{' '}
+                {lead.user_next_followup_display ||
+                  (lead.next_followup_at
+                    ? new Date(lead.next_followup_at).toLocaleString([], {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      })
+                    : 'Not set')}
+              </Text>
             </Group>
-            <Text size="xs" c="dimmed">
-              {lead.city} • {lead.property_type || 'Residential'} • {lead.roof_type || 'RCC'}
-            </Text>
-          </div>
-          <Badge color={isOverdue ? 'red' : 'yellow'} variant="light">
-            {lead.status}
-          </Badge>
-        </Group>
+            {lead.next_action && (
+              <Text size="xs" mt={2} c="dimmed">
+                <strong>Next Action:</strong> {lead.next_action}
+              </Text>
+            )}
+          </Paper>
 
-        <Paper p="xs" bg={isOverdue ? 'var(--mantine-color-red-0)' : 'var(--mantine-color-yellow-0)'} radius="sm">
-          <Group gap="xs">
-            <IconClock size={16} color={isOverdue ? 'red' : '#fab005'} />
-            <Text size="xs" fw={600} c={isOverdue ? 'red.9' : 'yellow.9'}>
-              {isOverdue ? 'Overdue Follow-up' : 'Scheduled Follow-up'}:{' '}
-              {lead.next_followup_at
-                ? new Date(lead.next_followup_at).toLocaleString([], {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                  })
-                : 'Not set'}
-            </Text>
-          </Group>
-          {lead.next_action && (
-            <Text size="xs" mt={2} c="dimmed">
-              <strong>Next Action:</strong> {lead.next_action}
-            </Text>
-          )}
-        </Paper>
+          <Group justify="space-between" mt="xs" wrap="wrap">
+            <Group gap="xs">
+              {canCall ? (
+                <Button
+                  component="a"
+                  href={lead.tel_url || `tel:${cleanPhone}`}
+                  size="xs"
+                  variant="light"
+                  color="blue"
+                  leftSection={<IconPhone size={14} />}
+                >
+                  Call
+                </Button>
+              ) : (
+                <Tooltip label={lead.do_not_contact ? 'Do Not Contact active' : 'Call opted out'}>
+                  <span>
+                    <Button
+                      size="xs"
+                      variant="light"
+                      color="gray"
+                      disabled
+                      leftSection={<IconPhone size={14} />}
+                    >
+                      Call
+                    </Button>
+                  </span>
+                </Tooltip>
+              )}
 
-        <Group justify="space-between" mt="xs">
-          <Group gap="xs">
-            <Button
-              component="a"
-              href={`tel:${lead.phone}`}
-              size="xs"
-              variant="light"
-              color="blue"
-              leftSection={<IconPhone size={14} />}
-            >
-              Call
-            </Button>
-            <Button
-              component="a"
-              href={`https://wa.me/91${getCleanPhone(lead.phone)}?text=${encodeURIComponent(
-                `Namaste ${lead.name}! Calling regarding your rooftop solar inquiry.`
-              )}`}
-              target="_blank"
-              size="xs"
-              variant="light"
-              color="green"
-              leftSection={<IconBrandWhatsapp size={14} />}
-            >
-              WhatsApp
-            </Button>
-          </Group>
+              {/* Show WhatsApp for India or where permitted */}
+              {!isAU && (
+                canWhatsApp ? (
+                  <Button
+                    component="a"
+                    href={
+                      lead.whatsapp_url ||
+                      `https://wa.me/${cleanPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
+                        `Namaste ${lead.name}! Calling regarding your rooftop solar inquiry.`
+                      )}`
+                    }
+                    target="_blank"
+                    size="xs"
+                    variant="light"
+                    color="green"
+                    leftSection={<IconBrandWhatsapp size={14} />}
+                  >
+                    WhatsApp
+                  </Button>
+                ) : (
+                  <Tooltip label={lead.do_not_contact ? 'Do Not Contact active' : 'WhatsApp opted out'}>
+                    <span>
+                      <Button
+                        size="xs"
+                        variant="light"
+                        color="gray"
+                        disabled
+                        leftSection={<IconBrandWhatsapp size={14} />}
+                      >
+                        WhatsApp
+                      </Button>
+                    </span>
+                  </Tooltip>
+                )
+              )}
 
-          <Group gap="xs">
-            <Button
-              size="xs"
-              variant="light"
-              color="gray"
-              leftSection={<IconNotes size={14} />}
-              onClick={() => {
-                setSelectedLead(lead);
-                setRemarkModalOpen(true);
-              }}
-            >
-              Remark
-            </Button>
-            <Button
-              size="xs"
-              color="yellow"
-              leftSection={<IconClipboardCheck size={14} />}
-              onClick={() => handleOpenOutcome(lead)}
-            >
-              Log Outcome
-            </Button>
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              onClick={() => navigate(`/leads/${lead.id}`)}
-              title="View full lead"
-            >
-              <IconArrowRight size={16} />
-            </ActionIcon>
+              {/* Show SMS for Australia */}
+              {isAU && (
+                canSMS ? (
+                  <Button
+                    component="a"
+                    href={`sms:${cleanPhone}`}
+                    size="xs"
+                    variant="light"
+                    color="cyan"
+                    leftSection={<IconMessage size={14} />}
+                  >
+                    SMS
+                  </Button>
+                ) : (
+                  <Tooltip label={lead.do_not_contact ? 'Do Not Contact active' : 'SMS opted out'}>
+                    <span>
+                      <Button
+                        size="xs"
+                        variant="light"
+                        color="gray"
+                        disabled
+                        leftSection={<IconMessage size={14} />}
+                      >
+                        SMS
+                      </Button>
+                    </span>
+                  </Tooltip>
+                )
+              )}
+            </Group>
+
+            <Group gap="xs">
+              <Button
+                size="xs"
+                variant="light"
+                color="gray"
+                leftSection={<IconNotes size={14} />}
+                onClick={() => {
+                  setSelectedLead(lead);
+                  setRemarkModalOpen(true);
+                }}
+              >
+                Remark
+              </Button>
+              <Button
+                size="xs"
+                color="yellow"
+                leftSection={<IconClipboardCheck size={14} />}
+                onClick={() => handleOpenOutcome(lead)}
+              >
+                Log Outcome
+              </Button>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                onClick={() => navigate(`/leads/${lead.id}`)}
+                title="View full lead"
+              >
+                <IconArrowRight size={16} />
+              </ActionIcon>
+            </Group>
           </Group>
-        </Group>
-      </Stack>
-    </Card>
-  );
+        </Stack>
+      </Card>
+    );
+  };
 
   return (
     <Container size="xl" py="md">

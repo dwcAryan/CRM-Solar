@@ -1,3 +1,76 @@
+export interface Region {
+  code: string;
+  name: string;
+  currency: string;
+  currency_symbol: string;
+  default_timezone: string;
+  phone_country_code: string;
+  locale: string;
+  tax_label: string;
+  tax_rate: number;
+  incentive_label: string;
+  electricity_provider_label: string;
+  preferred_channels: string;
+  calling_hours_policy: 'warn' | 'block';
+  calling_hours_start: string;
+  calling_hours_end_weekday: string;
+  calling_hours_end_saturday: string;
+  sunday_calling_allowed: boolean;
+  dncr_validity_days: number;
+  opt_out_line_text: string;
+  privacy_notice_text: string;
+  region_notes: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface State {
+  id: number;
+  region: string;
+  code: string;
+  name: string;
+  default_timezone: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface RoofType {
+  id: number;
+  region: string;
+  name: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface PropertyType {
+  id: number;
+  region: string;
+  name: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface PublicHoliday {
+  id: number;
+  region: string;
+  name: string;
+  date: string;
+  notes?: string;
+}
+
+export interface AuditLog {
+  id: number;
+  user?: number | null;
+  user_name?: string;
+  action: string;
+  timestamp: string;
+  lead?: number | null;
+  lead_id_recorded?: number | null;
+  reason: string;
+  details: Record<string, any>;
+  ip_address?: string;
+}
+
 export interface User {
   id: number;
   username: string;
@@ -8,6 +81,9 @@ export interface User {
   phone: string;
   is_active: boolean;
   date_joined: string;
+  allowed_regions?: Region[] | string[];
+  default_region?: string | null;
+  default_timezone?: string;
 }
 
 export interface TokenResponse {
@@ -75,15 +151,32 @@ export interface Lead {
   id: number;
   name: string;
   phone: string;
+  phone_e164?: string;
+  phone_display?: string;
+  phone_raw_backup?: string;
   alt_phone?: string;
+  alt_phone_e164?: string;
+  alt_phone_display?: string;
   email?: string;
-  address?: string;
+  region?: string;
+  region_code?: string;
+  state?: string;
   city: string;
+  suburb?: string;
   pincode?: string;
+  postcode?: string;
+  address?: string;
+  timezone?: string;
+  currency?: string;
+  currency_symbol?: string;
   source?: number | null;
   source_name?: string;
   property_type?: string;
   monthly_bill?: number | null;
+  bill_amount?: number | null;
+  bill_period?: 'monthly' | 'two_monthly' | 'quarterly' | 'annual' | string;
+  normalized_monthly_bill?: number | null;
+  electricity_provider?: string;
   roof_type?: string;
   owner_or_tenant?: string;
   assigned_to?: number | null;
@@ -91,6 +184,8 @@ export interface Lead {
   status: string;
   next_action?: string;
   next_followup_at?: string | null;
+  next_followup_display?: string;
+  user_next_followup_display?: string;
   lost_reason?: number | null;
   lost_reason_name?: string;
   nurture_reason?: number | null;
@@ -98,6 +193,21 @@ export interface Lead {
   do_not_contact: boolean;
   attempt_count: number;
   won_at?: string | null;
+  consent_status?: 'consented' | 'unknown' | 'withdrawn' | string;
+  consent_source?: string;
+  consent_date?: string | null;
+  opt_out_calls?: boolean;
+  opt_out_sms?: boolean;
+  opt_out_whatsapp?: boolean;
+  opt_out_email?: boolean;
+  dncr_status?: 'not_on_register' | 'on_register' | 'exempt' | string;
+  dncr_checked_at?: string | null;
+  dncr_checked_by?: number | null;
+  dncr_checked_by_name?: string | null;
+  is_within_calling_hours?: boolean;
+  calling_hours_reason?: string;
+  whatsapp_url?: string;
+  tel_url?: string;
   import_batch?: number | null;
   remark?: string;
   status_history?: LeadStatusHistory[];
@@ -109,7 +219,7 @@ export interface Activity {
   id: number;
   lead: number;
   lead_name?: string;
-  type: 'call' | 'whatsapp' | 'visit' | 'note';
+  type: 'call' | 'whatsapp' | 'sms' | 'visit' | 'note';
   outcome?: number | null;
   outcome_name?: string;
   notes: string;
@@ -155,7 +265,18 @@ export interface Quote {
   system_size_kw: number;
   brand: string;
   price: number;
+  region?: string;
+  region_code?: string;
+  currency?: string;
+  currency_symbol?: string;
+  tax_included?: boolean;
+  tax_rate?: number | null;
+  tax_amount?: number | null;
+  incentive_label?: string;
+  incentive_amount?: number | null;
   subsidy_amount?: number | null;
+  battery_kwh?: number | null;
+  total_amount?: number;
   status: 'draft' | 'sent' | 'revised' | 'accepted' | 'rejected';
   notes?: string;
   remark?: string;
@@ -218,6 +339,7 @@ export interface DashboardData {
   overdue_followups: number;
   leads_per_source: Array<{ source: string; count: number }>;
   won_this_month: number;
+  won_value_by_currency?: Record<string, number>;
   total_active_leads: number;
   needs_attention?: AttentionLead[];
 }

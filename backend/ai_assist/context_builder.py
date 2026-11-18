@@ -82,17 +82,35 @@ def build_lead_summary_context(lead: Lead) -> tuple[dict[str, Any], str]:
         })
 
     # Compact Context Dictionary
+    region_code = lead.region_id or "IN"
+    region_obj = getattr(lead, 'region', None)
+
     context: dict[str, Any] = {
         "lead_id": lead.id,
         "first_name": safe_first_name,
-        "city": lead.city or "Unknown City",
+        "region": region_code,
+        "region_name": region_obj.name if region_obj else ("Australia" if region_code == "AU" else "India"),
+        "currency": region_obj.currency if region_obj else ("AUD" if region_code == "AU" else "INR"),
+        "currency_symbol": region_obj.currency_symbol if region_obj else ("A$" if region_code == "AU" else "₹"),
+        "incentive_label": region_obj.incentive_label if region_obj else ("Government incentive (STCs and rebates)" if region_code == "AU" else "Subsidy"),
+        "electricity_provider_label": region_obj.electricity_provider_label if region_obj else ("Electricity retailer" if region_code == "AU" else "DISCOM"),
+        "preferred_channels": region_obj.preferred_channels if region_obj else ("sms,whatsapp" if region_code == "AU" else "whatsapp,sms"),
+        "region_notes": region_obj.region_notes if region_obj else "",
+        "state": lead.state or "",
+        "city": lead.city or ("Sydney" if region_code == "AU" else "Ahmedabad"),
+        "suburb": lead.suburb or "",
+        "timezone": lead.timezone or (region_obj.default_timezone if region_obj else "Asia/Kolkata"),
         "status": lead.status,
         "next_action": lead.next_action or "Not set",
         "next_followup_at": lead.next_followup_at.isoformat() if lead.next_followup_at else None,
         "source": lead.source.name if lead.source else "Direct",
         "property_type": lead.property_type or "Residential",
         "monthly_bill": lead.monthly_bill,
-        "roof_type": lead.roof_type or "RCC",
+        "bill_amount": float(lead.bill_amount) if lead.bill_amount else None,
+        "bill_period": lead.bill_period or "monthly",
+        "normalized_monthly_bill": float(lead.normalized_monthly_bill) if lead.normalized_monthly_bill else (float(lead.monthly_bill) if lead.monthly_bill else None),
+        "electricity_provider": lead.electricity_provider or "",
+        "roof_type": lead.roof_type or ("Colorbond" if region_code == "AU" else "RCC"),
         "owner_or_tenant": lead.owner_or_tenant or "Owner",
         "days_since_created": days_since_created,
         "attempt_count": lead.attempt_count,

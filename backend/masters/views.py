@@ -7,14 +7,100 @@ from rest_framework.views import APIView
 from accounts.permissions import IsAdminOrManager
 
 from .help_service import get_faq_list, query_help_assistant
-from .models import LeadSource, LostReason, NurtureReason, Outcome, PolicySettings
+from .models import (
+    LeadSource,
+    LostReason,
+    NurtureReason,
+    Outcome,
+    PolicySettings,
+    PropertyType,
+    PublicHoliday,
+    Region,
+    RoofType,
+    State,
+)
 from .serializers import (
     LeadSourceSerializer,
     LostReasonSerializer,
     NurtureReasonSerializer,
     OutcomeSerializer,
     PolicySettingsSerializer,
+    PropertyTypeSerializer,
+    PublicHolidaySerializer,
+    RegionSerializer,
+    RoofTypeSerializer,
+    StateSerializer,
 )
+
+
+class RegionViewSet(viewsets.ModelViewSet):
+    queryset = Region.objects.all().order_by('sort_order', 'code')
+    serializer_class = RegionSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['is_active', 'calling_hours_policy', 'currency']
+    search_fields = ['code', 'name', 'currency', 'default_timezone']
+    ordering_fields = ['sort_order', 'code', 'name']
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminOrManager()]
+        return [permissions.IsAuthenticated()]
+
+
+class StateViewSet(viewsets.ModelViewSet):
+    queryset = State.objects.all().order_by('region', 'sort_order', 'name')
+    serializer_class = StateSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['region', 'is_active']
+    search_fields = ['code', 'name', 'default_timezone']
+    ordering_fields = ['sort_order', 'name', 'code']
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminOrManager()]
+        return [permissions.IsAuthenticated()]
+
+
+class PublicHolidayViewSet(viewsets.ModelViewSet):
+    queryset = PublicHoliday.objects.all().order_by('region', 'date')
+    serializer_class = PublicHolidaySerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['region', 'date']
+    search_fields = ['name']
+    ordering_fields = ['date', 'name']
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminOrManager()]
+        return [permissions.IsAuthenticated()]
+
+
+class RoofTypeViewSet(viewsets.ModelViewSet):
+    queryset = RoofType.objects.all().order_by('region', 'sort_order', 'name')
+    serializer_class = RoofTypeSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['region', 'is_active']
+    search_fields = ['name']
+    ordering_fields = ['sort_order', 'name']
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminOrManager()]
+        return [permissions.IsAuthenticated()]
+
+
+class PropertyTypeViewSet(viewsets.ModelViewSet):
+    queryset = PropertyType.objects.all().order_by('region', 'sort_order', 'name')
+    serializer_class = PropertyTypeSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['region', 'is_active']
+    search_fields = ['name']
+    ordering_fields = ['sort_order', 'name']
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminOrManager()]
+        return [permissions.IsAuthenticated()]
 
 
 class OutcomeViewSet(viewsets.ModelViewSet):

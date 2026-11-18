@@ -18,27 +18,78 @@ def process_log_activity(
     lead: Lead,
     user: User,
     data: Dict[str, Any],
+    ip_address: Optional[str] = None,
 ) -> Tuple[Activity, Lead]:
     """
     Executes core business logic for logging an activity on a lead:
-    1. Blocks 'call' or 'whatsapp' if do_not_contact is True.
-    2. Applies outcome defaults or custom overrides.
-    3. Enforces retry rules for 'No answer' (Attempting contact -> Unreachable -> Lost).
-    4. Validates required follow-up dates on non-terminal statuses.
-    5. Validates LostReason and NurtureReason requirements.
-    6. Checks WHO_CAN_MARK_LOST permissions.
-    7. Atomically creates Activity, records LeadStatusHistory, and updates the Lead.
+    1. Blocks 'call', 'whatsapp', or 'sms' if do_not_contact is True or specific channel opted out.
+    2. Evaluates calling hours for 'call' activities (warn with required override reason or block).
+    3. Replaces dynamic tokens like {channel} and {incentive_label} in next actions.
+    4. Enforces retry rules for 'No answer' (Attempting contact -> Unreachable -> Lost).
+    5. Validates required follow-up dates on non-terminal statuses.
+    6. Validates LostReason and NurtureReason requirements.
+    7. Checks WHO_CAN_MARK_LOST permissions.
+    8. Atomically creates Activity, records LeadStatusHistory, updates Lead, and writes AuditLog where necessary.
     """
     activity_type = data.get('type')
     outcome_id = data.get('outcome_id')
     notes = data.get('notes', '')
     remark = (data.get('remark') or notes or '').strip()[:500]
 
-    # 1. Do not contact validation
-    if lead.do_not_contact and activity_type in ['call', 'whatsapp']:
+    # 1. Do not contact validation & channel opt-outs
+    if lead.do_not_contact and activity_type in ['call', 'whatsapp', 'sms']:
         raise ValidationError(
-            {"detail": "This lead has requested 'Do not contact'. Calls and WhatsApp messages are blocked."}
+            {"detail": "This lead has requested 'Do not contact'. Calls, WhatsApp, and SMS messages are blocked."}
         )
+
+    if activity_type == 'call' and lead.opt_out_calls:
+        raise ValidationError(
+            {"detail": "This lead has explicitly opted out of telephone calls."}
+        )
+    if activity_type == 'whatsapp' and lead.opt_out_whatsapp:
+        raise ValidationError(
+            {"detail": "This lead has explicitly opted out of WhatsApp communications."}
+        )
+    if activity_type == 'sms' and lead.opt_out_sms:
+        raise ValidationError(
+            {"detail": "This lead has explicitly opted out of SMS text messages."}
+        )
+
+    # 2. Calling hours check for outbound calls
+    if activity_type == 'call':
+        from .timezone_utils import check_calling_hours
+        is_allowed, reason = check_calling_hours(lead)
+        if not is_allowed:
+            policy = 'warn'
+            if lead.region and hasattr(lead.region, 'calling_hours_policy'):
+                policy = lead.region.calling_hours_policy
+
+            if policy == 'block':
+                raise ValidationError({
+                    "detail": f"Outbound call blocked by region calling policy: {reason}"
+                })
+            else:  # 'warn'
+                override_reason = (data.get('calling_hours_override_reason') or '').strip()
+                if not override_reason:
+                    raise ValidationError({
+                        "outside_hours": True,
+                        "detail": f"Call attempted outside permitted calling hours: {reason} A typed override reason is required to proceed.",
+                    })
+                else:
+                    # Log override in AuditLog
+                    from .models import AuditLog
+                    AuditLog.objects.create(
+                        user=user,
+                        action='calling_hours_override',
+                        lead=lead,
+                        reason=override_reason,
+                        details={
+                            'restriction_reason': reason,
+                            'activity_type': activity_type,
+                            'lead_timezone': lead.timezone or (lead.region.default_timezone if lead.region else 'UTC'),
+                        },
+                        ip_address=ip_address,
+                    )
 
     outcome: Optional[Outcome] = None
     if outcome_id:
@@ -71,7 +122,23 @@ def process_log_activity(
 
     now = timezone.now()
 
-    # 2. Retry rule for "No answer"
+    # Determine region-specific channel and incentive labels for placeholders
+    preferred_channel = "WhatsApp"
+    incentive_label = "Subsidy"
+    if lead.region:
+        raw_pref = lead.region.preferred_channels
+        if isinstance(raw_pref, list):
+            pref = [str(c).strip().title() for c in raw_pref if str(c).strip()]
+        else:
+            pref = [c.strip().title() for c in str(raw_pref or '').split(',') if c.strip()]
+        if pref:
+            preferred_channel = pref[0]
+        elif lead.region_id == 'AU':
+            preferred_channel = "SMS"
+        if lead.region.incentive_label:
+            incentive_label = lead.region.incentive_label
+
+    # 3. Retry rule for "No answer"
     is_no_answer = outcome and outcome.name.strip().lower() == 'no answer'
     is_no_answer_on_unreachable = False
 
@@ -97,13 +164,13 @@ def process_log_activity(
             else:
                 target_status = Lead.Status.ATTEMPTING_CONTACT
                 if lead.attempt_count == 1:
-                    target_next_action = "Retry, then send a WhatsApp message"
+                    target_next_action = f"Retry, then send a {preferred_channel} message"
                     target_followup_at = now + timedelta(hours=4)
                 elif lead.attempt_count == 2:
                     target_next_action = "Retry at a different time"
                     target_followup_at = now + timedelta(days=1)
                 else:  # attempts 3 and 4
-                    target_next_action = "Retry on later day, one more WhatsApp message"
+                    target_next_action = f"Retry on later day, one more {preferred_channel} message"
                     target_followup_at = now + timedelta(days=2)
     else:
         # Reset attempt_count when a call is answered
@@ -117,7 +184,11 @@ def process_log_activity(
             else:
                 target_followup_at = now + timedelta(days=outcome.default_followup_days)
 
-    # 3. Terminal status handling
+    # Replace dynamic tokens in target_next_action
+    if target_next_action:
+        target_next_action = target_next_action.replace('{channel}', preferred_channel).replace('{incentive_label}', incentive_label)
+
+    # 4. Terminal status handling
     is_terminal = target_status in Lead.TERMINAL_STATUSES
     if is_terminal:
         target_followup_at = None
@@ -126,7 +197,7 @@ def process_log_activity(
             {"next_followup_at": "Next follow-up date and time is required for non-terminal statuses."}
         )
 
-    # 4. Reason validations
+    # 5. Reason validations
     if target_status == Lead.Status.LOST:
         if not lost_reason:
             raise ValidationError({"lost_reason_id": "A lost reason is required when marking a lead as Lost."})
@@ -141,17 +212,17 @@ def process_log_activity(
     if target_status == Lead.Status.NURTURE and not nurture_reason:
         raise ValidationError({"nurture_reason_id": "A nurture reason is required when placing a lead into Nurture."})
 
-    # 5. Do not contact flag
+    # 6. Do not contact flag
     if target_status == Lead.Status.DO_NOT_CONTACT:
         lead.do_not_contact = True
 
-    # 6. Won milestone
+    # 7. Won milestone
     if target_status == Lead.Status.WON:
         lead.won_at = now
 
     old_status = lead.status
 
-    # 7. Create Activity
+    # 8. Create Activity
     activity = Activity.objects.create(
         lead=lead,
         type=activity_type,
@@ -164,7 +235,7 @@ def process_log_activity(
         created_by=user,
     )
 
-    # 8. Record Status History if status changed
+    # 9. Record Status History if status changed
     if old_status != target_status:
         LeadStatusHistory.objects.create(
             lead=lead,
@@ -175,7 +246,7 @@ def process_log_activity(
             remark=remark,
         )
 
-    # 9. Update Lead
+    # 10. Update Lead
     lead.status = target_status
     lead.next_action = target_next_action
     lead.next_followup_at = target_followup_at

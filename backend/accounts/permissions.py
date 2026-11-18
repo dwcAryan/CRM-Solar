@@ -38,23 +38,36 @@ class IsAdminOrManager(permissions.BasePermission):
 
 class LeadPermission(permissions.BasePermission):
     """
-    Salespeople can only view/edit leads assigned to them.
-    Managers and Admins can view/edit all leads.
+    Salespeople and Surveyors can only view/edit leads in their allowed regions.
+    Salespeople can only edit leads assigned to them.
+    Managers and Admins can view/edit leads across allowed regions.
     """
     def has_permission(self, request, view):
         return bool(request.user and request.user.is_authenticated)
 
     def has_object_permission(self, request, view, obj):
-        if request.user.is_superuser or request.user.role in [User.Role.ADMIN, User.Role.MANAGER]:
+        user = request.user
+        if not user or not user.is_authenticated:
+            return False
+
+        # Region boundary check: non-superusers must have the lead's region in allowed_regions
+        if obj.region and not user.is_superuser:
+            if not user.allowed_regions.filter(code=obj.region_id).exists():
+                return False
+
+        if user.is_superuser or user.role in [User.Role.ADMIN, User.Role.MANAGER]:
             return True
-        if request.user.role == User.Role.SALESPERSON:
-            return obj.assigned_to_id == request.user.id
+        if user.role == User.Role.SALESPERSON:
+            return obj.assigned_to_id == user.id
+        if user.role == User.Role.SURVEYOR:
+            # Surveyors have read-only access to leads they have surveys for
+            return request.method in permissions.SAFE_METHODS
         return False
 
 
 class SurveyPermission(permissions.BasePermission):
     """
-    Surveyors can only view/edit surveys assigned to them.
+    Surveyors can only view/edit surveys assigned to them in allowed regions.
     Managers and Admins can view/edit all surveys.
     Salespeople can view surveys for leads assigned to them.
     """
@@ -62,10 +75,19 @@ class SurveyPermission(permissions.BasePermission):
         return bool(request.user and request.user.is_authenticated)
 
     def has_object_permission(self, request, view, obj):
-        if request.user.is_superuser or request.user.role in [User.Role.ADMIN, User.Role.MANAGER]:
+        user = request.user
+        if not user or not user.is_authenticated:
+            return False
+
+        lead = getattr(obj, 'lead', None)
+        if lead and lead.region and not user.is_superuser:
+            if not user.allowed_regions.filter(code=lead.region_id).exists():
+                return False
+
+        if user.is_superuser or user.role in [User.Role.ADMIN, User.Role.MANAGER]:
             return True
-        if request.user.role == User.Role.SURVEYOR:
-            return obj.surveyor_id == request.user.id
-        if request.user.role == User.Role.SALESPERSON:
-            return obj.lead.assigned_to_id == request.user.id
+        if user.role == User.Role.SURVEYOR:
+            return obj.surveyor_id == user.id
+        if user.role == User.Role.SALESPERSON:
+            return lead and lead.assigned_to_id == user.id
         return False

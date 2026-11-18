@@ -14,7 +14,9 @@ from django.utils import timezone
 from accounts.models import User
 from masters.models import LeadSource
 
-from .models import ImportBatch, Lead
+from .models import AuditLog, ImportBatch, Lead
+from .phone_utils import normalize_phone_number
+from .timezone_utils import get_default_timezone_for_state
 from .utils import find_duplicate_lead
 
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
@@ -59,11 +61,19 @@ COLUMN_SYNONYMS = {
     'phone': ['phone', 'mobile', 'contact', 'phone number', 'mobile number', 'cell', 'contact number'],
     'alt_phone': ['alt phone', 'alternate phone', 'alt mobile', 'secondary phone', 'other phone'],
     'email': ['email', 'email address', 'mail'],
+    'region': ['region', 'country', 'market'],
+    'state': ['state', 'province', 'territory'],
     'city': ['city', 'town', 'district', 'location'],
+    'suburb': ['suburb', 'area', 'neighborhood', 'neighbourhood', 'locality'],
     'address': ['address', 'street', 'residence', 'location address'],
-    'pincode': ['pincode', 'pin code', 'zip', 'zipcode', 'postal code'],
+    'pincode': ['pincode', 'pin code', 'zip', 'zipcode', 'postal code', 'postcode', 'post code'],
+    'postcode': ['postcode', 'postal code', 'post code', 'zip', 'pincode'],
     'source': ['source', 'lead source', 'channel', 'campaign'],
-    'monthly_bill': ['monthly bill', 'bill', 'electricity bill', 'power bill', 'avg bill', 'average bill'],
+    'consent_source': ['consent source', 'consent_source', 'opt-in source', 'opt in source', 'lead generator'],
+    'consent_status': ['consent status', 'consent_status', 'consent'],
+    'monthly_bill': ['monthly bill', 'bill', 'electricity bill', 'power bill', 'avg bill', 'average bill', 'bill amount'],
+    'bill_period': ['bill period', 'billing period', 'billing cycle', 'period'],
+    'electricity_provider': ['electricity provider', 'retailer', 'discom', 'power provider', 'utility', 'energy retailer'],
     'roof_type': ['roof type', 'roof', 'roofing'],
     'property_type': ['property type', 'property', 'building type'],
     'owner_or_tenant': ['owner or tenant', 'occupancy', 'owner/tenant', 'ownership'],
@@ -149,9 +159,12 @@ def execute_csv_import(
     single_user_id: Optional[int] = None,
     round_robin_user_ids: Optional[List[int]] = None,
     user: Optional[User] = None,
+    default_region: str = 'IN',
 ) -> Tuple[ImportBatch, Dict[str, Any]]:
     """
     Executes row-by-row validation and import inside an atomic transaction.
+    Supports multi-country region detection, E.164 phone normalization,
+    regional postcodes/pincodes, consent tracking, and localized billing.
     """
     headers, data_rows = parse_file_rows(uploaded_file)
     header_to_idx = {h: idx for idx, h in enumerate(headers)}
@@ -201,14 +214,25 @@ def execute_csv_import(
             raw_phone = get_val(row, 'phone')
             alt_phone = get_val(row, 'alt_phone')
             email = get_val(row, 'email')
-            city = get_val(row, 'city') or 'Ahmedabad'
+            region_str = (get_val(row, 'region') or default_region or 'IN').upper().strip()
+            row_region = region_str if region_str in ['IN', 'AU'] else (default_region or 'IN').upper()
+
+            state = get_val(row, 'state')
+            city = get_val(row, 'city') or ('Sydney' if row_region == 'AU' else 'Ahmedabad')
+            suburb = get_val(row, 'suburb')
             address = get_val(row, 'address')
-            pincode = get_val(row, 'pincode')
+            raw_postcode = get_val(row, 'postcode') or get_val(row, 'pincode')
             source_text = get_val(row, 'source')
             monthly_bill_str = get_val(row, 'monthly_bill')
-            roof_type = get_val(row, 'roof_type') or 'RCC flat'
+            bill_period = (get_val(row, 'bill_period') or 'monthly').lower()
+            electricity_provider = get_val(row, 'electricity_provider')
+            roof_type = get_val(row, 'roof_type') or ('Colorbond' if row_region == 'AU' else 'RCC flat')
             property_type = get_val(row, 'property_type') or 'residential'
             owner_or_tenant = get_val(row, 'owner_or_tenant') or 'owner'
+            consent_source = get_val(row, 'consent_source') or 'csv_import'
+            consent_status = (get_val(row, 'consent_status') or 'consented').lower()
+            if consent_status not in ['consented', 'unknown', 'withdrawn']:
+                consent_status = 'consented' if consent_source else 'unknown'
             remark = get_val(row, 'remark')
 
             # 1. Validation: name required
@@ -222,19 +246,59 @@ def execute_csv_import(
                 })
                 continue
 
-            # 2. Validation: phone required and normalized to 10 digits
-            norm_phone = normalize_indian_phone(raw_phone)
-            if not norm_phone:
+            # 2. Validation: phone required and normalized to E.164 per region
+            norm_phone_e164, display_phone, phone_err = normalize_phone_number(raw_phone, default_region=row_region)
+            if phone_err or not norm_phone_e164:
                 failed_count += 1
                 failed_rows.append({
                     'row': row_idx,
                     'name': name,
                     'phone': raw_phone,
-                    'error': f"Invalid Indian phone number '{raw_phone}'. Must normalize to 10 digits.",
+                    'error': phone_err or f"Invalid phone number for region {row_region}.",
                 })
                 continue
 
-            # 3. Validation: email if provided
+            # Alt phone normalization if present
+            alt_phone_e164 = ""
+            if alt_phone:
+                norm_alt, _, alt_err = normalize_phone_number(alt_phone, default_region=row_region)
+                if not alt_err and norm_alt:
+                    alt_phone_e164 = norm_alt
+
+            # 3. Validation: postal code per region
+            pincode_val = ""
+            postcode_val = ""
+            if raw_postcode:
+                clean_digits = re.sub(r'\D', '', str(raw_postcode))
+                if row_region == 'AU':
+                    if len(clean_digits) != 4:
+                        failed_count += 1
+                        failed_rows.append({
+                            'row': row_idx,
+                            'name': name,
+                            'phone': raw_phone,
+                            'error': f"Australian postcode '{raw_postcode}' must be exactly 4 digits.",
+                        })
+                        continue
+                    postcode_val = clean_digits
+                    pincode_val = clean_digits
+                elif row_region == 'IN':
+                    if len(clean_digits) != 6:
+                        failed_count += 1
+                        failed_rows.append({
+                            'row': row_idx,
+                            'name': name,
+                            'phone': raw_phone,
+                            'error': f"Indian pincode '{raw_postcode}' must be exactly 6 digits.",
+                        })
+                        continue
+                    pincode_val = clean_digits
+                    postcode_val = clean_digits
+            else:
+                pincode_val = ""
+                postcode_val = ""
+
+            # 4. Validation: email if provided
             if email:
                 try:
                     validate_email(email)
@@ -248,19 +312,34 @@ def execute_csv_import(
                     })
                     continue
 
-            # 4. Monthly bill parsing if provided
-            monthly_bill: Optional[Decimal] = None
+            # 5. Monthly bill parsing and normalization if provided
+            monthly_bill_val: Optional[int] = None
+            norm_bill_dec: Optional[Decimal] = None
+            raw_bill_dec: Optional[Decimal] = None
             if monthly_bill_str:
                 clean_bill = re.sub(r'[^\d\.]', '', monthly_bill_str)
                 if clean_bill:
                     try:
-                        monthly_bill = Decimal(clean_bill)
+                        raw_bill_dec = Decimal(clean_bill)
+                        if bill_period == 'two_monthly':
+                            norm_bill_dec = raw_bill_dec / Decimal(2)
+                        elif bill_period == 'quarterly':
+                            norm_bill_dec = raw_bill_dec / Decimal(3)
+                        elif bill_period == 'annual':
+                            norm_bill_dec = raw_bill_dec / Decimal(12)
+                        else:
+                            bill_period = 'monthly'
+                            norm_bill_dec = raw_bill_dec
+                        monthly_bill_val = int(norm_bill_dec)
                     except InvalidOperation:
                         pass
 
-            # 5. Duplicate Detection: inside file & database
-            is_dup_in_file = norm_phone in seen_phones_in_file
-            existing_lead = find_duplicate_lead(norm_phone)
+            # 6. Timezone derivation
+            derived_tz = get_default_timezone_for_state(row_region, state)
+
+            # 7. Duplicate Detection: inside file & database using E.164
+            is_dup_in_file = norm_phone_e164 in seen_phones_in_file
+            existing_lead = find_duplicate_lead(norm_phone_e164, region=row_region)
 
             if is_dup_in_file or existing_lead:
                 duplicate_count += 1
@@ -277,12 +356,24 @@ def execute_csv_import(
                         if not existing_lead.city and city:
                             existing_lead.city = city
                             updated_fields.append('city')
+                        if not existing_lead.suburb and suburb:
+                            existing_lead.suburb = suburb
+                            updated_fields.append('suburb')
                         if not existing_lead.address and address:
                             existing_lead.address = address
                             updated_fields.append('address')
-                        if not existing_lead.monthly_bill and monthly_bill:
-                            existing_lead.monthly_bill = monthly_bill
-                            updated_fields.append('monthly_bill')
+                        if not existing_lead.state and state:
+                            existing_lead.state = state
+                            updated_fields.append('state')
+                        if not existing_lead.monthly_bill and monthly_bill_val:
+                            existing_lead.monthly_bill = monthly_bill_val
+                            existing_lead.bill_amount = raw_bill_dec
+                            existing_lead.bill_period = bill_period
+                            existing_lead.normalized_monthly_bill = norm_bill_dec
+                            updated_fields.extend(['monthly_bill', 'bill_amount', 'bill_period', 'normalized_monthly_bill'])
+                        if not existing_lead.electricity_provider and electricity_provider:
+                            existing_lead.electricity_provider = electricity_provider
+                            updated_fields.append('electricity_provider')
                         if not existing_lead.roof_type and roof_type:
                             existing_lead.roof_type = roof_type
                             updated_fields.append('roof_type')
@@ -300,37 +391,67 @@ def execute_csv_import(
                     # Fall through to create duplicate lead
                     pass
 
-            # 6. Source mapping
+            # 8. Source mapping
             source_obj = other_source
             if source_text:
                 matched_source = sources_by_name.get(source_text.lower())
                 if matched_source:
                     source_obj = matched_source
                 else:
-                    # Create or map to Other
                     source_obj = other_source
 
-            # 7. Assignment
+            # 9. Assignment
             assigned_user: Optional[User] = None
             if assignment_mode == 'single' and single_user:
                 assigned_user = single_user
             elif assignment_mode == 'round_robin' and rr_cycle:
                 assigned_user = next(rr_cycle)
 
-            # 8. Follow-up rule: status New + follow-up today
+            # 10. Follow-up rule: status New + follow-up today
+            if row_region == 'IN' and norm_phone_e164.startswith('+91'):
+                lead_phone = norm_phone_e164[3:]
+            elif row_region == 'AU' and norm_phone_e164.startswith('+61'):
+                lead_phone = '0' + norm_phone_e164[3:]
+            else:
+                lead_phone = norm_phone_e164
+
+            lead_alt_phone = alt_phone[:20] if alt_phone else ''
+            if alt_phone_e164:
+                if row_region == 'IN' and alt_phone_e164.startswith('+91'):
+                    lead_alt_phone = alt_phone_e164[3:]
+                elif row_region == 'AU' and alt_phone_e164.startswith('+61'):
+                    lead_alt_phone = '0' + alt_phone_e164[3:]
+                else:
+                    lead_alt_phone = alt_phone_e164
+
             new_lead = Lead(
                 name=name[:150],
-                phone=norm_phone,
-                alt_phone=alt_phone[:20] if alt_phone else '',
+                phone=lead_phone,
+                phone_e164=norm_phone_e164,
+                phone_raw_backup=str(raw_phone)[:30],
+                alt_phone=lead_alt_phone,
+                alt_phone_e164=alt_phone_e164,
                 email=email,
-                address=address,
+                region_id=row_region,
+                state=state[:100],
                 city=city[:100],
-                pincode=pincode[:20],
+                suburb=suburb[:100],
+                address=address,
+                pincode=pincode_val[:20],
+                postcode=postcode_val[:10],
+                timezone=derived_tz,
                 source=source_obj,
                 property_type=property_type[:50],
-                monthly_bill=monthly_bill,
+                monthly_bill=monthly_bill_val,
+                bill_amount=raw_bill_dec,
+                bill_period=bill_period,
+                normalized_monthly_bill=norm_bill_dec,
+                electricity_provider=electricity_provider[:120],
                 roof_type=roof_type[:50],
                 owner_or_tenant=owner_or_tenant[:50],
+                consent_status=consent_status,
+                consent_source=consent_source[:100],
+                consent_date=timezone.now(),
                 assigned_to=assigned_user,
                 status=Lead.Status.NEW,
                 next_action='First call attempt',
@@ -339,7 +460,7 @@ def execute_csv_import(
                 remark=remark[:500] if remark else '',
             )
             leads_to_create.append(new_lead)
-            seen_phones_in_file[norm_phone] = row_idx
+            seen_phones_in_file[norm_phone_e164] = row_idx
             imported_count += 1
 
         if leads_to_create:
@@ -351,6 +472,22 @@ def execute_csv_import(
         batch.failed_count = failed_count
         batch.failed_rows_json = failed_rows
         batch.save()
+
+        # Audit Log Entry for CSV Import
+        AuditLog.objects.create(
+            user=user if user and user.is_authenticated else None,
+            action='csv_import',
+            reason=f"Imported CSV batch #{batch.id} ({imported_count} leads created, {duplicate_count} duplicates, {failed_count} failed)",
+            details={
+                'batch_id': batch.id,
+                'file_name': uploaded_file.name,
+                'total_rows': total_rows,
+                'imported_count': imported_count,
+                'duplicate_count': duplicate_count,
+                'skipped_count': skipped_count,
+                'failed_count': failed_count,
+            },
+        )
 
     results = {
         'batch_id': batch.id,

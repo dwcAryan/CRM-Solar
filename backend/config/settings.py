@@ -173,3 +173,12 @@ ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', '').strip()
 AI_MODEL = os.getenv('AI_MODEL', 'claude-sonnet-5-5').strip()
 AI_TIMEOUT_SECONDS = int(os.getenv('AI_TIMEOUT_SECONDS', '15'))
 AI_MAX_CALLS_PER_USER_PER_DAY = int(os.getenv('AI_MAX_CALLS_PER_USER_PER_DAY', '50'))
+
+# Messaging Configuration
+WHATSAPP_PROVIDER = os.getenv('WHATSAPP_PROVIDER', 'console').lower()
+SMS_PROVIDER = os.getenv('SMS_PROVIDER', 'console').lower()
+
+# Multi-Country Configuration (Phase 8)
+ENABLED_COUNTRIES = [
+    c.strip().upper() for c in os.getenv('ENABLED_COUNTRIES', 'IN,AU').split(',') if c.strip()
+]

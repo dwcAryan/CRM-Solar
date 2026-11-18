@@ -7,11 +7,12 @@ from django.core.management.base import BaseCommand
 from notifications.scheduler import (
     notify_salespersons_daily_followups,
     remind_surveys_scheduled_tomorrow,
+    run_hourly_scheduled_tasks,
 )
 
 
 class Command(BaseCommand):
-    help = "Starts APScheduler (BlockingScheduler, Asia/Kolkata) for Solar CRM reminders."
+    help = "Starts APScheduler (BlockingScheduler, UTC & multi-timezone) for Solar CRM reminders."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -27,25 +28,32 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        self.stdout.write(self.style.SUCCESS("Initializing Solar CRM APScheduler (Asia/Kolkata)..."))
+        self.stdout.write(self.style.SUCCESS("Initializing Solar CRM Multi-Timezone APScheduler..."))
 
-        scheduler = BlockingScheduler(timezone="Asia/Kolkata")
+        scheduler = BlockingScheduler(timezone="UTC")
 
-        # Job 1: Daily at 9:00 AM Asia/Kolkata
+        # Multi-timezone hourly tick job (runs every 15 minutes to match local 9:00 AM and 18:00 PM per user)
         scheduler.add_job(
-            notify_salespersons_daily_followups,
-            trigger=CronTrigger(hour=9, minute=0, timezone="Asia/Kolkata"),
-            id='daily_followup_reminder',
-            name='Daily Salesperson Follow-up Reminder',
+            run_hourly_scheduled_tasks,
+            trigger=CronTrigger(minute='0,15,30,45', timezone="UTC"),
+            id='multi_timezone_periodic_check',
+            name='Multi-Timezone User Reminder Check (every 15 min)',
             replace_existing=True,
         )
 
-        # Job 2: Daily at 18:00 (6:00 PM) Asia/Kolkata
+        # Legacy fixed jobs for backward-compatibility
+        scheduler.add_job(
+            notify_salespersons_daily_followups,
+            trigger=CronTrigger(hour=9, minute=0, timezone="Asia/Kolkata"),
+            id='daily_followup_reminder_in',
+            name='Daily Salesperson Follow-up Reminder (IN)',
+            replace_existing=True,
+        )
         scheduler.add_job(
             remind_surveys_scheduled_tomorrow,
             trigger=CronTrigger(hour=18, minute=0, timezone="Asia/Kolkata"),
-            id='daily_survey_reminder',
-            name='Daily Survey Tomorrow Reminder',
+            id='daily_survey_reminder_in',
+            name='Daily Survey Tomorrow Reminder (IN)',
             replace_existing=True,
         )
 

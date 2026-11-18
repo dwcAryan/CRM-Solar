@@ -1,6 +1,69 @@
 from django.contrib import admin
 
-from .models import LeadSource, LostReason, NurtureReason, Outcome, PolicySettings
+from .models import (
+    LeadSource,
+    LostReason,
+    NurtureReason,
+    Outcome,
+    PolicySettings,
+    PropertyType,
+    PublicHoliday,
+    Region,
+    RoofType,
+    State,
+)
+
+
+@admin.register(Region)
+class RegionAdmin(admin.ModelAdmin):
+    list_display = (
+        'code',
+        'name',
+        'currency',
+        'currency_symbol',
+        'default_timezone',
+        'phone_country_code',
+        'tax_label',
+        'tax_rate',
+        'calling_hours_policy',
+        'is_active',
+        'sort_order',
+    )
+    list_filter = ('is_active', 'calling_hours_policy', 'currency')
+    search_fields = ('code', 'name', 'currency', 'default_timezone')
+    ordering = ('sort_order', 'code')
+
+
+@admin.register(State)
+class StateAdmin(admin.ModelAdmin):
+    list_display = ('code', 'name', 'region', 'default_timezone', 'is_active', 'sort_order')
+    list_filter = ('region', 'is_active')
+    search_fields = ('code', 'name', 'default_timezone')
+    ordering = ('region', 'sort_order', 'name')
+
+
+@admin.register(PublicHoliday)
+class PublicHolidayAdmin(admin.ModelAdmin):
+    list_display = ('name', 'date', 'region')
+    list_filter = ('region', 'date')
+    search_fields = ('name',)
+    ordering = ('region', 'date')
+
+
+@admin.register(RoofType)
+class RoofTypeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'region', 'sort_order', 'is_active')
+    list_filter = ('region', 'is_active')
+    search_fields = ('name',)
+    ordering = ('region', 'sort_order', 'name')
+
+
+@admin.register(PropertyType)
+class PropertyTypeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'region', 'sort_order', 'is_active')
+    list_filter = ('region', 'is_active')
+    search_fields = ('name',)
+    ordering = ('region', 'sort_order', 'name')
 
 
 @admin.register(Outcome)
@@ -54,6 +117,7 @@ class PolicySettingsAdmin(admin.ModelAdmin):
         'unreachable_followup_days',
         'nurture_default_days',
         'who_can_mark_lost',
+        'data_retention_days',
     )
 
     def has_add_permission(self, request):

@@ -1,46 +1,52 @@
 import re
 from typing import Optional
+from django.db.models import Q
 
 from .models import Lead
+from .phone_utils import normalize_phone_number
 
 
-def normalize_phone(raw_phone: str) -> str:
+def normalize_phone(raw_phone: str, region: str = "IN") -> str:
     """
-    Normalizes Indian phone numbers:
-    - Strips whitespace, dashes, plus signs, brackets.
-    - Strips '+91' or '91' prefix for 12-digit formats.
-    - Strips leading '0' for 11-digit formats.
-    Returns cleaned phone number (typically 10 digits).
+    Standardizes a phone number to E.164 format (+91..., +61...).
+    Returns E.164 if valid, else strips whitespace.
     """
     if not raw_phone:
         return ""
-
-    cleaned = re.sub(r'[\s\+\-\(\)]', '', str(raw_phone))
-
-    if len(cleaned) == 12 and cleaned.startswith('91'):
-        cleaned = cleaned[2:]
-    elif len(cleaned) == 11 and cleaned.startswith('0'):
-        cleaned = cleaned[1:]
-
-    return cleaned
+    e164, _, _ = normalize_phone_number(raw_phone, region)
+    if e164:
+        return e164
+    return re.sub(r'[\s\-\(\)]', '', str(raw_phone))
 
 
-def find_duplicate_lead(phone: str, exclude_id: Optional[int] = None) -> Optional[Lead]:
+def find_duplicate_lead(phone: str, exclude_id: Optional[int] = None, region: str = "IN") -> Optional[Lead]:
     """
-    Finds existing lead matching the normalized phone number,
-    excluding merged leads and optionally a specific lead id.
+    Finds existing lead matching phone number across regions using E.164.
+    Excludes merged leads and optionally a specific lead id.
     """
-    normalized = normalize_phone(phone)
-    if not normalized or len(normalized) < 10:
+    if not phone:
         return None
 
-    # Query leads that end with the normalized phone or match exactly
+    e164, _, _ = normalize_phone_number(phone, region)
+    clean_digits = re.sub(r'\D', '', str(phone))
+
     qs = Lead.objects.exclude(status=Lead.Status.MERGED)
     if exclude_id:
         qs = qs.exclude(id=exclude_id)
 
-    # Search for leads with matching normalized phone
-    for lead in qs.iterator():
-        if normalize_phone(lead.phone) == normalized:
-            return lead
+    # 1. Direct indexed match on E.164 if available
+    if e164:
+        match = qs.filter(Q(phone_e164=e164) | Q(phone=e164)).first()
+        if match:
+            return match
+
+    # 2. Match raw backup or phone field directly
+    if clean_digits and len(clean_digits) >= 8:
+        match = qs.filter(
+            Q(phone__endswith=clean_digits[-9:]) |
+            Q(phone_raw_backup__endswith=clean_digits[-9:])
+        ).first()
+        if match:
+            return match
+
     return None
