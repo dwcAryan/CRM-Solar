@@ -39,6 +39,7 @@ import {
   IconLogout,
   IconHeartbeat,
   IconSearch,
+  IconSparkles,
 } from '@tabler/icons-react';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -47,6 +48,8 @@ import {
   markNotificationRead,
   markAllNotificationsRead,
 } from '../../api/client';
+import { SystemTour } from '../tour/SystemTour';
+import { HelpChatbot } from '../help/HelpChatbot';
 import type { Notification } from '../../api/types';
 
 export const AppLayout: React.FC = () => {
@@ -60,6 +63,20 @@ export const AppLayout: React.FC = () => {
   // Global search state
   const [searchTerm, setSearchTerm] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // System tour state
+  const [tourOpened, setTourOpened] = useState(false);
+
+  // Auto-launch tour for first-time visitors
+  useEffect(() => {
+    const hasSeen = localStorage.getItem('solar_crm_has_seen_tour');
+    if (!hasSeen) {
+      const timer = setTimeout(() => {
+        setTourOpened(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   // Keyboard shortcut: '/' focuses global search
   useEffect(() => {
@@ -175,6 +192,19 @@ export const AppLayout: React.FC = () => {
           </Box>
 
           <Group gap="xs">
+            {/* Take a Tour Button */}
+            <Button
+              variant="light"
+              color="yellow"
+              size="xs"
+              radius="md"
+              leftSection={<IconSparkles size={14} />}
+              onClick={() => setTourOpened(true)}
+              visibleFrom="sm"
+            >
+              Take a Tour
+            </Button>
+
             {/* Dark Mode Toggle */}
             <ActionIcon
               variant="light"
@@ -282,6 +312,9 @@ export const AppLayout: React.FC = () => {
 
               <Menu.Dropdown>
                 <Menu.Label>Signed in as {user?.username}</Menu.Label>
+                <Menu.Item leftSection={<IconSparkles size={14} />} onClick={() => setTourOpened(true)}>
+                  Take a Tour
+                </Menu.Item>
                 <Menu.Item leftSection={<IconHeartbeat size={14} />} onClick={() => navigate('/health')}>
                   System Health
                 </Menu.Item>
@@ -320,6 +353,12 @@ export const AppLayout: React.FC = () => {
       <AppShell.Main>
         <Outlet />
       </AppShell.Main>
+
+      {/* Interactive System Tour Modal */}
+      <SystemTour opened={tourOpened} onClose={() => setTourOpened(false)} />
+
+      {/* Floating In-App Help Chatbot */}
+      <HelpChatbot onStartTour={() => setTourOpened(true)} />
     </AppShell>
   );
 };

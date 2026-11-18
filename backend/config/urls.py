@@ -26,6 +26,8 @@ from leads.views import (
     LeadViewSet,
 )
 from masters.views import (
+    HelpFaqListView,
+    HelpQueryView,
     LeadSourceViewSet,
     LostReasonViewSet,
     NurtureReasonViewSet,
@@ -90,6 +92,10 @@ urlpatterns = [
     # Current user & dashboard
     path('api/me/', MeView.as_view(), name='me'),
     path('api/dashboard/', DashboardView.as_view(), name='dashboard'),
+
+    # Help Assistant & FAQs
+    path('api/help/query/', HelpQueryView.as_view(), name='help-query'),
+    path('api/help/faqs/', HelpFaqListView.as_view(), name='help-faqs'),
 
     # Router endpoints
     path('api/', include(router.urls)),

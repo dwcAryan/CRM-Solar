@@ -1,9 +1,12 @@
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import permissions, viewsets
+from rest_framework import permissions, status, viewsets
 from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrManager
 
+from .help_service import get_faq_list, query_help_assistant
 from .models import LeadSource, LostReason, NurtureReason, Outcome, PolicySettings
 from .serializers import (
     LeadSourceSerializer,
@@ -78,3 +81,32 @@ class PolicySettingsViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminOrManager()]
         return [permissions.IsAuthenticated()]
+
+
+class HelpQueryView(APIView):
+    """
+    Endpoint for querying the Solar CRM in-app assistant regarding
+    system policies, workflows, retry rules, and features.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        query = request.data.get('query', '').strip()
+        if not query:
+            return Response(
+                {"error": "Query string is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        result = query_help_assistant(query)
+        return Response(result, status=status.HTTP_200_OK)
+
+
+class HelpFaqListView(APIView):
+    """
+    Returns grouped list of available frequently asked questions and guides.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        faqs = get_faq_list()
+        return Response({"faqs": faqs}, status=status.HTTP_200_OK)
