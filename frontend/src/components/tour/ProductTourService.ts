@@ -5,24 +5,36 @@ import { TOUR_DEFINITIONS } from '../../tours/tourDefinitions';
 import { updateTourState } from '../../api/client';
 
 let activeDriver: Driver | null = null;
+let startingTour = false;
 
 export const isTourActive = (): boolean => {
-  return activeDriver !== null && activeDriver.isActive();
+  return (activeDriver !== null && activeDriver.isActive()) || startingTour;
 };
 
 export const stopTour = () => {
+  startingTour = false;
   if (activeDriver) {
-    activeDriver.destroy();
+    try {
+      activeDriver.destroy();
+    } catch {
+      // ignore
+    }
     activeDriver = null;
   }
 };
 
 export const startTour = (tourId: string = 'complete', onFinish?: () => void) => {
+  // Prevent duplicate concurrent launches (e.g. React StrictMode or multiple triggers)
+  if (isTourActive()) {
+    return;
+  }
+
   stopTour();
+  startingTour = true;
 
   const tourDef = TOUR_DEFINITIONS[tourId] || TOUR_DEFINITIONS.complete;
   if (!tourDef || !tourDef.steps.length) {
-    console.warn(`Tour definition not found for id: ${tourId}`);
+    startingTour = false;
     return;
   }
 
@@ -34,8 +46,19 @@ export const startTour = (tourId: string = 'complete', onFinish?: () => void) =>
   });
 
   if (!availableSteps.length) {
-    console.warn(`No target elements found in DOM for tour: ${tourId}`);
+    startingTour = false;
     return;
+  }
+
+  // Immediately persist seen status so reloads or races don't trigger the tour again
+  try {
+    localStorage.setItem('solar_crm_has_seen_tour', 'true');
+    updateTourState({
+      has_seen_tour: true,
+      completed_tours: [tourId],
+    }).catch(() => {});
+  } catch {
+    // ignore
   }
 
   const driverObj = driver({
@@ -49,13 +72,18 @@ export const startTour = (tourId: string = 'complete', onFinish?: () => void) =>
     doneBtnText: 'Finish',
     progressText: '{{current}} of {{total}}',
     onDestroyStarted: () => {
+      startingTour = false;
       activeDriver = null;
       driverObj.destroy();
-      // Record completed tour on server
-      updateTourState({
-        has_seen_tour: true,
-        completed_tours: [tourId],
-      }).catch(err => console.error('Failed to save tour state:', err));
+      try {
+        localStorage.setItem('solar_crm_has_seen_tour', 'true');
+        updateTourState({
+          has_seen_tour: true,
+          completed_tours: [tourId],
+        }).catch(err => console.error('Failed to save tour state:', err));
+      } catch {
+        // ignore
+      }
 
       if (onFinish) onFinish();
     },
@@ -64,4 +92,5 @@ export const startTour = (tourId: string = 'complete', onFinish?: () => void) =>
 
   activeDriver = driverObj;
   driverObj.drive();
+  startingTour = false;
 };

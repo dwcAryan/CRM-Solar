@@ -59,7 +59,7 @@ import { NotificationPermissionModal } from '../notifications/NotificationPermis
 import { NotificationSettingsModal } from '../notifications/NotificationSettingsModal';
 import { TourCenterDrawer } from '../tour/TourCenterDrawer';
 import { HelpbotFab } from '../helpbot/HelpbotFab';
-import { startTour } from '../tour/ProductTourService';
+import { startTour, isTourActive } from '../tour/ProductTourService';
 import type { Notification } from '../../api/types';
 
 export const AppLayout: React.FC = () => {
@@ -78,17 +78,31 @@ export const AppLayout: React.FC = () => {
   const [settingsOpened, setSettingsOpened] = useState(false);
   const [tourCenterOpened, setTourCenterOpened] = useState(false);
   const shownNotifIds = useRef<Set<number>>(new Set());
+  const tourTriggeredRef = useRef(false);
 
-  // One-time cleanup of legacy tour localStorage key (Phase 13a)
+  // Automatic product tour: only runs on very first visit to the application
   useEffect(() => {
-    localStorage.removeItem('solar_crm_has_seen_tour');
-    // Check if user has seen modern product tour (Phase 13)
+    // If user already saw or dismissed the tour, do not launch automatically
+    const localSeen = localStorage.getItem('solar_crm_has_seen_tour');
+    if (localSeen === 'true' || tourTriggeredRef.current || isTourActive()) {
+      return;
+    }
+
+    tourTriggeredRef.current = true;
+
     fetchTourState()
       .then((state) => {
-        if (!state.has_seen_tour && !state.dismissed_at) {
-          setTimeout(() => {
-            startTour('complete');
-          }, 800);
+        if (!state.has_seen_tour) {
+          if (localStorage.getItem('solar_crm_has_seen_tour') !== 'true' && !isTourActive()) {
+            setTimeout(() => {
+              if (!isTourActive() && localStorage.getItem('solar_crm_has_seen_tour') !== 'true') {
+                startTour('complete');
+              }
+            }, 800);
+          }
+        } else {
+          // Sync server state to localStorage so future reloads skip check immediately
+          localStorage.setItem('solar_crm_has_seen_tour', 'true');
         }
       })
       .catch(() => {});

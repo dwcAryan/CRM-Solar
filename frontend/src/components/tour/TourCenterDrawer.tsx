@@ -83,6 +83,11 @@ export const TourCenterDrawer: React.FC<TourCenterDrawerProps> = ({
     setLoading(true);
     try {
       await resetTourState();
+      try {
+        localStorage.removeItem('solar_crm_has_seen_tour');
+      } catch {
+        // ignore
+      }
       setCompletedTours([]);
     } catch (e) {
       console.error('Failed to reset tour state:', e);

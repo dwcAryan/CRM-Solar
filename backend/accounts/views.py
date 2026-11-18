@@ -175,36 +175,61 @@ class TourStateView(APIView):
             }
             for s in states
         }
+        has_seen_tour = any(
+            s.status in [UserTourState.Status.COMPLETED, UserTourState.Status.DISMISSED, UserTourState.Status.IN_PROGRESS]
+            for s in states
+            if s.tour_id in ['complete', 'main']
+        )
+        completed_tours = [s.tour_id for s in states if s.status == UserTourState.Status.COMPLETED]
         return Response({
             "tour_version": TOUR_VERSION,
+            "has_seen_tour": has_seen_tour,
+            "completed_tours": completed_tours,
             "tours": tours_dict,
         }, status=status.HTTP_200_OK)
 
     def patch(self, request):
-        tour_id = request.data.get('tour_id', 'main')
-        new_status = request.data.get('status')
-        last_step = request.data.get('last_step')
-        version = request.data.get('version', TOUR_VERSION)
+        has_seen = request.data.get('has_seen_tour')
+        completed_tours = request.data.get('completed_tours', [])
 
-        state, _ = UserTourState.objects.get_or_create(
-            user=request.user,
-            tour_id=tour_id,
-            defaults={"version": version, "status": UserTourState.Status.NOT_STARTED, "last_step": 0},
-        )
-        if new_status in UserTourState.Status.values:
-            state.status = new_status
-        if last_step is not None:
-            state.last_step = int(last_step)
-        state.version = version
-        state.save()
+        if has_seen:
+            state, _ = UserTourState.objects.get_or_create(
+                user=request.user,
+                tour_id='complete',
+                defaults={"version": TOUR_VERSION, "status": UserTourState.Status.COMPLETED, "last_step": 0},
+            )
+            state.status = UserTourState.Status.COMPLETED
+            state.save()
 
-        return Response({
-            "tour_id": state.tour_id,
-            "status": state.status,
-            "last_step": state.last_step,
-            "version": state.version,
-            "updated_at": state.updated_at.isoformat(),
-        }, status=status.HTTP_200_OK)
+        if isinstance(completed_tours, list):
+            for t_id in completed_tours:
+                st, _ = UserTourState.objects.get_or_create(
+                    user=request.user,
+                    tour_id=t_id,
+                    defaults={"version": TOUR_VERSION, "status": UserTourState.Status.COMPLETED, "last_step": 0},
+                )
+                st.status = UserTourState.Status.COMPLETED
+                st.save()
+
+        tour_id = request.data.get('tour_id')
+        if tour_id:
+            new_status = request.data.get('status')
+            last_step = request.data.get('last_step')
+            version = request.data.get('version', TOUR_VERSION)
+
+            state, _ = UserTourState.objects.get_or_create(
+                user=request.user,
+                tour_id=tour_id,
+                defaults={"version": version, "status": UserTourState.Status.NOT_STARTED, "last_step": 0},
+            )
+            if new_status in UserTourState.Status.values:
+                state.status = new_status
+            if last_step is not None:
+                state.last_step = int(last_step)
+            state.version = version
+            state.save()
+
+        return self.get(request)
 
     def post(self, request):
         """Admin or user reset of tour states."""
