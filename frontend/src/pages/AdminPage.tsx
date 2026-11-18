@@ -31,7 +31,9 @@ import {
   IconUpload,
   IconCheck,
   IconAlertTriangle,
+  IconMail,
 } from '@tabler/icons-react';
+import { EmailSettingsTab } from '../components/admin/EmailSettingsTab';
 import {
   fetchUsers,
   fetchOutcomes,
@@ -197,6 +199,9 @@ export const AdminPage: React.FC = () => {
             </Tabs.Tab>
             <Tabs.Tab value="messaging" leftSection={<IconBrandWhatsapp size={16} />}>
               WhatsApp Templates
+            </Tabs.Tab>
+            <Tabs.Tab value="email" leftSection={<IconMail size={16} />}>
+              Email Settings
             </Tabs.Tab>
           </Tabs.List>
 
@@ -555,6 +560,11 @@ export const AdminPage: React.FC = () => {
                 </SimpleGrid>
               </Stack>
             </Paper>
+          </Tabs.Panel>
+
+          {/* TAB 7: EMAIL (SMTP) SETTINGS */}
+          <Tabs.Panel value="email" pt="md">
+            <EmailSettingsTab />
           </Tabs.Panel>
         </Tabs>
       </Stack>

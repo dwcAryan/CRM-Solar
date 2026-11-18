@@ -5,8 +5,11 @@ from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 
-from .models import Notification, NotificationPreference, PushSubscription
+from accounts.permissions import can
+from .email_service import run_smtp_diagnostics, send_test_email
+from .models import EmailLog, Notification, NotificationPreference, PushSubscription
 from .serializers import (
+    EmailLogSerializer,
     NotificationPreferenceSerializer,
     NotificationSerializer,
     PushSubscriptionSerializer,
@@ -91,3 +94,58 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
         serializer = NotificationPreferenceSerializer(pref)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'], url_path='email-settings')
+    def email_settings(self, request):
+        """Admin-only endpoint returning active SMTP configuration, connection status, and last 50 email logs."""
+        if not request.user.is_superuser and getattr(request.user, 'role', '') != 'admin' and not can(request.user, 'policy.manage'):
+            return Response({"error": "Admin permission required to access email settings."}, status=status.HTTP_403_FORBIDDEN)
+
+        raw_pw = getattr(settings, 'EMAIL_HOST_PASSWORD', '')
+        masked_pw = ("*" * len(raw_pw)) if raw_pw else ""
+
+        config_data = {
+            "backend": getattr(settings, 'EMAIL_BACKEND', ''),
+            "host": getattr(settings, 'EMAIL_HOST', ''),
+            "port": getattr(settings, 'EMAIL_PORT', 587),
+            "use_tls": getattr(settings, 'EMAIL_USE_TLS', False),
+            "use_ssl": getattr(settings, 'EMAIL_USE_SSL', False),
+            "host_user": getattr(settings, 'EMAIL_HOST_USER', ''),
+            "host_password_masked": masked_pw,
+            "default_from_email": getattr(settings, 'DEFAULT_FROM_EMAIL', ''),
+            "timeout": getattr(settings, 'EMAIL_TIMEOUT', 15),
+        }
+
+        diagnostics = run_smtp_diagnostics()
+        recent_logs = EmailLog.objects.select_related('related_lead').all().order_by('-created_at')[:50]
+
+        return Response({
+            "settings": config_data,
+            "diagnostics": diagnostics,
+            "logs": EmailLogSerializer(recent_logs, many=True).data,
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], url_path='email-test')
+    def email_test(self, request):
+        """Admin-only endpoint to dispatch a live test email and report exact delivery outcome."""
+        if not request.user.is_superuser and getattr(request.user, 'role', '') != 'admin' and not can(request.user, 'policy.manage'):
+            return Response({"error": "Admin permission required to send test email."}, status=status.HTTP_403_FORBIDDEN)
+
+        to_email = request.data.get('to') or request.user.email
+        if not to_email:
+            return Response({"error": "Recipient email address ('to') is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        log = send_test_email(to_email=to_email, user=request.user)
+        if log.status == EmailLog.Status.SENT:
+            return Response({
+                "status": "sent",
+                "message": f"Test email successfully sent to {to_email}.",
+                "log": EmailLogSerializer(log).data,
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                "status": "failed",
+                "error": log.error or "Failed to deliver test email.",
+                "log": EmailLogSerializer(log).data,
+            }, status=status.HTTP_400_BAD_REQUEST)
+

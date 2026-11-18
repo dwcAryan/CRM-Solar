@@ -18,6 +18,7 @@ from rest_framework_simplejwt.views import (
 )
 
 from accounts.views import MeView, RolesMatrixView, UserViewSet
+from accounts.password_reset_views import PasswordResetRequestView, PasswordResetConfirmView
 from activities.views import ActivityViewSet
 from leads.views import (
     AuditLogViewSet,
@@ -122,4 +123,8 @@ urlpatterns = [
     # JWT Authentication
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+
+    # Password Reset Flow (Phase 12)
+    path('api/auth/password-reset/', PasswordResetRequestView.as_view(), name='password_reset_request'),
+    path('api/auth/password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
 ]

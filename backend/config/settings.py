@@ -193,3 +193,35 @@ VAPID_PRIVATE_KEY = os.getenv(
     '-----BEGIN PRIVATE KEY-----\nMIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg3vspuPhbkG/AeXAT\nT0jbcJVl3AyyJyTr3zX3H3Hj41qhRANCAAQWA11tu0be4Q+V0P78wI+3nwZUWgT/\nK3wF0KjtL5Su/7N3spEFghSV8xF9q38U4tdJAjkJiNSIr6rbVBDWVLZB\n-----END PRIVATE KEY-----',
 ).strip()
 VAPID_ADMIN_EMAIL = os.getenv('VAPID_ADMIN_EMAIL', 'admin@solarcrm.com').strip()
+
+# Email (SMTP) Configuration (Phase 12)
+_raw_backend = os.getenv('EMAIL_BACKEND', '').strip().lower()
+EMAIL_HOST = os.getenv('EMAIL_HOST', '').strip()
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'False').strip().lower() in ('true', '1', 'yes')
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').strip().lower() in ('true', '1', 'yes')
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '').strip()
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '').strip()
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Solar CRM <noreply@solarcrm.com>').strip()
+EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '15'))
+
+if EMAIL_USE_TLS and EMAIL_USE_SSL:
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured(
+        "Both EMAIL_USE_TLS and EMAIL_USE_SSL are enabled in settings. "
+        "Only one security protocol (STARTTLS or SSL) can be active at a time."
+    )
+
+if _raw_backend in ('smtp', 'django.core.mail.backends.smtp.emailbackend') and EMAIL_HOST:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+elif _raw_backend in ('console', 'django.core.mail.backends.console.emailbackend'):
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+elif _raw_backend in ('locmem', 'django.core.mail.backends.locmem.emailbackend'):
+    EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+else:
+    # Default to console in development so nothing breaks without SMTP settings
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# Password Reset Token Timeout (1 hour = 3600 seconds)
+PASSWORD_RESET_TIMEOUT = 3600
+

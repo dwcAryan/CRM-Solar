@@ -250,6 +250,54 @@ Solar CRM is built ground-up to support multi-country solar operations:
 
 ---
 
+## Setting up Email (SMTP)
+
+Solar CRM delivers automated 9:00 AM follow-up digests, 6:00 PM site inspection reminders, new lead assignment alerts, and secure 1-hour password reset links.
+
+### 1. How to Generate an App Password (Gmail / Google Workspace)
+If you use Gmail or Google Workspace:
+1. Go to your **Google Account** settings (`https://myaccount.google.com/`).
+2. Navigate to **Security** and confirm **2-Step Verification** is turned **ON**.
+3. Under *How you sign in to Google*, click on **App passwords** (or search "App passwords").
+4. Enter an app name (e.g. `Solar CRM`), click **Create**, and copy the 16-character passkey (e.g., `dgqbgjjlmxiilrfu`).
+
+### 2. Where to Paste the Settings
+Open `backend/.env` in your code editor and populate the email parameters:
+```env
+EMAIL_BACKEND=smtp
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_USE_SSL=False
+EMAIL_HOST_USER=your_email@gmail.com
+EMAIL_HOST_PASSWORD=your_16_char_app_password
+DEFAULT_FROM_EMAIL="Solar CRM <your_email@gmail.com>"
+EMAIL_TIMEOUT=15
+```
+*(Note: If `EMAIL_BACKEND=console` or left unset in development, emails are safely logged to your server console without transmission).*
+
+### 3. How to Run `check_email`
+To verify your SMTP handshake, TLS encryption, and login credentials without starting the frontend:
+```bash
+# Verify credentials and server connectivity (password is masked):
+python backend/manage.py check_email
+
+# Send a real live test email to any recipient:
+python backend/manage.py check_email --to name@example.com
+```
+
+### 4. SMTP Troubleshooting Table
+
+| Problem | Cause | Solution |
+|:---|:---|:---|
+| **535 Authentication Failed** | Incorrect login credentials or standard Google password used instead of an App Password. | Ensure 2-Step Verification is active on your Google account. Generate a fresh 16-character App Password and paste it into `EMAIL_HOST_PASSWORD` without spaces. |
+| **Connection Refused** | Outgoing SMTP host or port is incorrect, or local mail server is offline. | Double-check `EMAIL_HOST` (e.g. `smtp.gmail.com`) and `EMAIL_PORT` (`587` for STARTTLS, `465` for SSL). Never enable both TLS and SSL simultaneously. |
+| **Connection Timeout** | Port 587 or 465 is blocked by your local network, router firewall, or ISP. | Switch networks (e.g. test via mobile hotspot) or adjust firewall egress rules to allow outbound TCP connections on port 587. |
+| **Emails landing in Spam / Junk** | Sending from an unauthenticated IP address, or recipient mail filter has strict DMARC rules. | Add the sender address to your contacts. For business domains, configure SPF and DKIM DNS records as outlined below. |
+| **SPF & DKIM for Custom Domain** | Recipient mail providers (Gmail/Outlook) reject or quarantine custom domain emails lacking DNS authentication. | In your DNS provider (Cloudflare, GoDaddy, Namecheap):<br>1. **SPF:** Add a TXT record for `@` with value `v=spf1 include:_spf.google.com ~all` (or your provider's SPF).<br>2. **DKIM:** Generate a 2048-bit DKIM key in your Google Workspace/Zoho/Brevo admin panel and add the TXT record to your DNS.<br>3. **DMARC:** Add a TXT record `_dmarc.yourdomain.com` with `v=DMARC1; p=none; sp=none;`. |
+
+---
+
 ## Troubleshooting Guide
 
 | Problem | Cause | Solution |

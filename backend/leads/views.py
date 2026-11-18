@@ -460,6 +460,11 @@ class LeadViewSet(viewsets.ModelViewSet):
                 message=f"You have been assigned lead '{lead.name}' ({lead.phone_e164 or lead.phone}).",
                 link=f"/leads/{lead.id}",
             )
+            try:
+                from notifications.email_service import send_lead_assigned_notification
+                send_lead_assigned_notification(lead, target_user)
+            except Exception as e:
+                logger.warning(f"Failed to send lead assigned email for lead {lead.id}: {e}")
 
         return Response({
             "message": f"Lead '{lead.name}' successfully assigned to {target_user.username}.",
@@ -516,6 +521,12 @@ class LeadViewSet(viewsets.ModelViewSet):
                 message=f"You have been assigned {updated_count} leads via bulk assignment.",
                 link="/leads",
             )
+            try:
+                from notifications.email_service import send_lead_assigned_notification
+                for lead in qs[:5]:  # Send notification for primary batch leads
+                    send_lead_assigned_notification(lead, target_user)
+            except Exception as e:
+                logger.warning(f"Failed to send bulk lead assigned email: {e}")
 
         return Response({
             "message": f"Successfully assigned {updated_count} leads to {target_user.username}.",

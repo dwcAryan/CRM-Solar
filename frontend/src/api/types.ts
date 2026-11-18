@@ -457,3 +457,49 @@ export interface AISuggestion {
   is_fallback: boolean;
   error_message?: string;
 }
+
+// Phase 12 Email Settings & Logs
+export interface EmailLog {
+  id: number;
+  to: string;
+  subject: string;
+  template: string;
+  status: 'sent' | 'failed' | 'skipped';
+  error: string;
+  created_at: string;
+  related_lead?: number | null;
+  lead_name?: string;
+}
+
+export interface SmtpStepDiagnostic {
+  name: string;
+  status: 'pass' | 'fail';
+  message: string;
+}
+
+export interface EmailSettingsResponse {
+  settings: {
+    backend: string;
+    host: string;
+    port: number;
+    use_tls: boolean;
+    use_ssl: boolean;
+    host_user: string;
+    host_password_masked: string;
+    default_from_email: string;
+    timeout: number;
+  };
+  diagnostics: {
+    backend: string;
+    host: string;
+    port: number;
+    use_tls: boolean;
+    use_ssl: boolean;
+    username: string;
+    password_configured: boolean;
+    steps: SmtpStepDiagnostic[];
+    overall_status: 'pass' | 'fail';
+  };
+  logs: EmailLog[];
+}
+

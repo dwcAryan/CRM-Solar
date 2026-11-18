@@ -42,7 +42,7 @@ class NotificationPreference(models.Model):
     in_app_enabled = models.BooleanField(default=True)
     browser_enabled = models.BooleanField(default=True)
     push_enabled = models.BooleanField(default=True)
-    email_enabled = models.BooleanField(default=False)
+    email_enabled = models.BooleanField(default=True)
     quiet_hours_enabled = models.BooleanField(default=False)
     quiet_hours_start = models.TimeField(default="22:00")
     quiet_hours_end = models.TimeField(default="08:00")
@@ -103,3 +103,43 @@ class PushSubscription(models.Model):
 
     def __str__(self) -> str:
         return f"PushSub({self.user.username} - {self.endpoint[:30]}...)"
+
+
+class EmailLog(models.Model):
+    """
+    Audit log of outgoing system and transactional emails.
+    Stores status, template, timestamp, error traces sanitized of credentials,
+    and link to optional related customer lead.
+    """
+    class Status(models.TextChoices):
+        SENT = 'sent', 'Sent'
+        FAILED = 'failed', 'Failed'
+        SKIPPED = 'skipped', 'Skipped'
+
+    to = models.EmailField(max_length=255)
+    subject = models.CharField(max_length=255)
+    template = models.CharField(max_length=100)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.SENT)
+    error = models.TextField(blank=True, default='')
+    related_lead = models.ForeignKey(
+        'leads.Lead',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='email_logs',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['created_at']),
+            models.Index(fields=['status']),
+            models.Index(fields=['template']),
+        ]
+        verbose_name = 'Email Log'
+        verbose_name_plural = 'Email Logs'
+
+    def __str__(self) -> str:
+        return f"[{self.status.upper()}] {self.template} -> {self.to} ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
+

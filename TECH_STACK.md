@@ -30,6 +30,7 @@ This document provides a comprehensive inventory of all technologies, libraries,
 | **tzdata** | `>=2024.1` | IANA standard time zone database supporting Indian (`Asia/Kolkata`) and Australian zones. | Public Domain / Apache 2.0 |
 | **reportlab** | `>=4.2.0` | PDF document generation engine for downloading customer solar proposals. | BSD 3-Clause |
 | **pywebpush** | `>=2.5.0` | Encrypted Web Push notification delivery using the VAPID protocol. | MIT |
+| **aiosmtpd** | `>=1.4.6` | Asynchronous in-process local fake SMTP server for automated integration tests. | Apache 2.0 |
 
 ---
 

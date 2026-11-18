@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   Container,
   Paper,
@@ -13,6 +13,8 @@ import {
   ThemeIcon,
   Divider,
   SimpleGrid,
+  Anchor,
+  Group,
 } from '@mantine/core';
 import { IconSun, IconAlertCircle } from '@tabler/icons-react';
 import { useAuth } from '../context/AuthContext';
@@ -88,6 +90,11 @@ export const LoginPage: React.FC = () => {
               onChange={(e) => setPassword(e.currentTarget.value)}
               required
             />
+            <Group justify="flex-end" mt={-4}>
+              <Anchor component={Link} to="/reset-password" size="xs" c="dimmed">
+                Forgot password?
+              </Anchor>
+            </Group>
             <Button type="submit" color="yellow" fullWidth loading={loading} mt="sm">
               Sign In
             </Button>

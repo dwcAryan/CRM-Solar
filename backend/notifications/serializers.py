@@ -1,6 +1,25 @@
 from rest_framework import serializers
 
-from .models import Notification, NotificationPreference, PushSubscription
+from .models import EmailLog, Notification, NotificationPreference, PushSubscription
+
+
+class EmailLogSerializer(serializers.ModelSerializer):
+    lead_name = serializers.CharField(source='related_lead.name', read_only=True)
+
+    class Meta:
+        model = EmailLog
+        fields = [
+            'id',
+            'to',
+            'subject',
+            'template',
+            'status',
+            'error',
+            'created_at',
+            'related_lead',
+            'lead_name',
+        ]
+        read_only_fields = ['id', 'created_at']
 
 
 class NotificationSerializer(serializers.ModelSerializer):

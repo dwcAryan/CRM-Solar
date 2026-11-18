@@ -588,3 +588,29 @@ export const manualChangeStatus = async (
   const res = await apiClient.post(`/api/leads/${leadId}/manual-status/`, data);
   return res.data;
 };
+
+// Phase 12 Email Settings & Password Reset
+export const fetchEmailSettings = async (): Promise<import('./types').EmailSettingsResponse> => {
+  const res = await apiClient.get<import('./types').EmailSettingsResponse>('/api/notifications/email-settings/');
+  return res.data;
+};
+
+export const sendTestEmail = async (to?: string): Promise<{ status: string; message?: string; error?: string }> => {
+  const res = await apiClient.post('/api/notifications/email-test/', { to });
+  return res.data;
+};
+
+export const requestPasswordReset = async (email: string): Promise<{ message: string }> => {
+  const res = await apiClient.post<{ message: string }>('/api/auth/password-reset/', { email });
+  return res.data;
+};
+
+export const confirmPasswordReset = async (data: {
+  uid: string;
+  token: string;
+  new_password: string;
+}): Promise<{ message: string }> => {
+  const res = await apiClient.post<{ message: string }>('/api/auth/password-reset/confirm/', data);
+  return res.data;
+};
+

@@ -109,6 +109,15 @@ def notify_salespersons_daily_followups(
                 url="/leads/today",
             )
 
+            # Dispatch Daily Morning Digest Email (Phase 12)
+            try:
+                from notifications.email_service import send_daily_morning_digest
+                due_list = list(active_leads.filter(next_followup_at__gte=today_start, next_followup_at__lte=today_end))
+                overdue_list = list(active_leads.filter(next_followup_at__lt=today_start))
+                send_daily_morning_digest(sp, due_list, overdue_list, now=curr)
+            except Exception as e:
+                logger.warning(f"Failed to send morning digest email to {sp.username}: {e}")
+
     return created_notifications
 
 
@@ -179,6 +188,11 @@ def remind_surveys_scheduled_tomorrow(
                     lead_id=lead.id,
                     url=f"/surveys/{s.id}",
                 )
+                try:
+                    from notifications.email_service import send_survey_reminder
+                    send_survey_reminder(s, s.surveyor, role_label="surveyor")
+                except Exception as e:
+                    logger.warning(f"Failed to send survey reminder email to surveyor {s.surveyor.username}: {e}")
 
         # 2. Notify Salesperson
         if lead.assigned_to and (not s.surveyor or lead.assigned_to_id != s.surveyor_id):
@@ -196,6 +210,11 @@ def remind_surveys_scheduled_tomorrow(
                     lead_id=lead.id,
                     url=f"/surveys/{s.id}",
                 )
+                try:
+                    from notifications.email_service import send_survey_reminder
+                    send_survey_reminder(s, lead.assigned_to, role_label="salesperson")
+                except Exception as e:
+                    logger.warning(f"Failed to send survey reminder email to salesperson {lead.assigned_to.username}: {e}")
 
         # 3. Customer Outbound (Channel determined by region preferred channel)
         preferred_channel = 'whatsapp'

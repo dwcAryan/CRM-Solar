@@ -11,6 +11,7 @@ import { RegionProvider } from './context/RegionContext';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { AppLayout } from './components/layout/AppLayout';
 import { LoginPage } from './pages/LoginPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { TodayPage } from './pages/TodayPage';
 import { LeadsListPage } from './pages/LeadsListPage';
@@ -47,8 +48,10 @@ export const App: React.FC = () => {
           <AuthProvider>
             <RegionProvider>
               <Routes>
-                {/* Public route */}
+                {/* Public routes */}
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
+                <Route path="/forgot-password" element={<ResetPasswordPage />} />
 
                 {/* Protected routes wrapped in AppLayout */}
                 <Route
