@@ -43,6 +43,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
   const [roofType, setRoofType] = useState<string | null>('RCC flat');
   const [ownerOrTenant, setOwnerOrTenant] = useState<string | null>('owner');
   const [assignedToId, setAssignedToId] = useState<string | null>(null);
+  const [remark, setRemark] = useState('');
 
   const [duplicateLead, setDuplicateLead] = useState<any | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -73,6 +74,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
     setRoofType('RCC flat');
     setOwnerOrTenant('owner');
     setAssignedToId(null);
+    setRemark('');
     setDuplicateLead(null);
     setErrorMsg(null);
   };
@@ -92,6 +94,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
         monthly_bill: monthlyBill ? Number(monthlyBill) : undefined,
         roof_type: roofType || 'RCC flat',
         owner_or_tenant: ownerOrTenant || 'owner',
+        remark: remark.trim() || undefined,
       };
       if (assignedToId) {
         payload.assigned_to = Number(assignedToId);
@@ -328,6 +331,14 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
               clearable
             />
           )}
+
+          <TextInput
+            label="Initial Remark / Note (max 500 chars)"
+            placeholder="e.g. Lead generated at mall solar canopy display"
+            maxLength={500}
+            value={remark}
+            onChange={(e) => setRemark(e.currentTarget.value)}
+          />
 
           <Group justify="flex-end" mt="md">
             <Button variant="default" onClick={onClose}>

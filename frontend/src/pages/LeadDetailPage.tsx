@@ -34,8 +34,10 @@ import {
   IconCheck,
   IconX,
   IconAlertCircle,
+  IconAlertTriangle,
   IconSend,
   IconRefresh,
+  IconNotes,
 } from '@tabler/icons-react';
 import {
   fetchLead,
@@ -54,6 +56,8 @@ import { CreateQuoteModal } from '../components/modals/CreateQuoteModal';
 import { ReviseQuoteModal } from '../components/modals/ReviseQuoteModal';
 import { RejectQuoteModal } from '../components/modals/RejectQuoteModal';
 import { MergeLeadModal } from '../components/modals/MergeLeadModal';
+import { AddRemarkModal } from '../components/modals/AddRemarkModal';
+import { ConfirmActionModal } from '../components/modals/ConfirmActionModal';
 import type { Lead, Activity, Survey, Quote, LeadStatusHistory } from '../api/types';
 
 export const LeadDetailPage: React.FC = () => {
@@ -73,6 +77,8 @@ export const LeadDetailPage: React.FC = () => {
   const [rejectQuoteOpen, setRejectQuoteOpen] = useState(false);
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const [mergeModalOpen, setMergeModalOpen] = useState(false);
+  const [addRemarkOpen, setAddRemarkOpen] = useState(false);
+  const [confirmAcceptQuote, setConfirmAcceptQuote] = useState<Quote | null>(null);
 
   // Queries
   const { data: lead, isLoading: leadLoading, isError, refetch: refetchLead } = useQuery<Lead>({
@@ -169,6 +175,9 @@ export const LeadDetailPage: React.FC = () => {
     }
   };
 
+  const isTerminal = ['Won', 'Lost', 'Do not contact', 'Merged', 'Invalid contact'].includes(lead.status);
+  const hasNoFollowup = !isTerminal && !lead.next_followup_at;
+
   return (
     <Container size="xl" py="md">
       <Stack gap="lg">
@@ -184,6 +193,15 @@ export const LeadDetailPage: React.FC = () => {
           </Button>
 
           <Group gap="xs">
+            <Button
+              variant="outline"
+              color="gray"
+              size="xs"
+              leftSection={<IconNotes size={14} />}
+              onClick={() => setAddRemarkOpen(true)}
+            >
+              Add Remark
+            </Button>
             <Button
               variant="outline"
               color="orange"
@@ -221,6 +239,21 @@ export const LeadDetailPage: React.FC = () => {
             </Button>
           </Group>
         </Group>
+
+        {/* Missing Next Follow-up Warning Badge/Banner for active non-terminal leads */}
+        {hasNoFollowup && (
+          <Alert
+            icon={<IconAlertTriangle size={18} />}
+            color="red"
+            variant="filled"
+            title="Warning: No Next Follow-up Date Scheduled!"
+            styles={{ title: { fontWeight: 700 } }}
+          >
+            <Text size="xs">
+              This lead is active in status <strong>{lead.status}</strong>, but has no scheduled next follow-up date. The CRM workflow requires every active lead to have a pending follow-up. Please click <strong>Log Outcome</strong> to schedule a follow-up date and time.
+            </Text>
+          </Alert>
+        )}
 
         {/* Lead Summary Card */}
         <Card shadow="sm" padding="lg" radius="md" withBorder>
@@ -324,20 +357,25 @@ export const LeadDetailPage: React.FC = () => {
                 <Text size="xs" c="dimmed">
                   Next Step & Follow-up
                 </Text>
-                <Text fw={600} size="sm" c="yellow.9">
+                <Text fw={600} size="sm" c={hasNoFollowup ? 'red.9' : 'yellow.9'}>
                   {lead.next_action || 'No action pending'}
                 </Text>
                 <Group gap={4} mt={2}>
-                  <IconClock size={14} color="#fab005" />
-                  <Text size="xs" fw={500}>
+                  <IconClock size={14} color={hasNoFollowup ? '#fa5252' : '#fab005'} />
+                  <Text size="xs" fw={500} c={hasNoFollowup ? 'red' : undefined}>
                     {lead.next_followup_at
                       ? new Date(lead.next_followup_at).toLocaleString([], {
                           dateStyle: 'short',
                           timeStyle: 'short',
                         })
-                      : '—'}
+                      : 'No follow-up set'}
                   </Text>
                 </Group>
+                {hasNoFollowup && (
+                  <Badge color="red" size="xs" variant="filled" mt={4}>
+                    ⚠️ NO FOLLOW-UP DATE
+                  </Badge>
+                )}
                 <Text size="10px" c="dimmed" mt={2}>
                   Assigned: {lead.assigned_to_name || 'Unassigned'} • Call Attempts: {lead.attempt_count}
                 </Text>
@@ -390,15 +428,26 @@ export const LeadDetailPage: React.FC = () => {
                   <Text fw={600} size="sm">
                     Activity Timeline
                   </Text>
-                  <Button
-                    size="xs"
-                    color="yellow"
-                    variant="light"
-                    leftSection={<IconClipboardCheck size={14} />}
-                    onClick={() => setOutcomeModalOpen(true)}
-                  >
-                    Log Interaction
-                  </Button>
+                  <Group gap="xs">
+                    <Button
+                      size="xs"
+                      color="gray"
+                      variant="subtle"
+                      leftSection={<IconNotes size={14} />}
+                      onClick={() => setAddRemarkOpen(true)}
+                    >
+                      Add Remark
+                    </Button>
+                    <Button
+                      size="xs"
+                      color="yellow"
+                      variant="light"
+                      leftSection={<IconClipboardCheck size={14} />}
+                      onClick={() => setOutcomeModalOpen(true)}
+                    >
+                      Log Interaction
+                    </Button>
+                  </Group>
                 </Group>
 
                 {activities.length === 0 ? (
@@ -425,6 +474,13 @@ export const LeadDetailPage: React.FC = () => {
                           <Text size="xs" c="dimmed" mt={2}>
                             {act.notes}
                           </Text>
+                        )}
+                        {act.remark && (
+                          <Paper p="xs" mt={4} withBorder bg="var(--mantine-color-gray-0)" radius="sm">
+                            <Text size="xs" fw={500} c="dark">
+                              💬 Remark: {act.remark}
+                            </Text>
+                          </Paper>
                         )}
                         <Text size="10px" c="dimmed" mt={4}>
                           Next: {act.next_action} • By: {act.created_by_name || 'System'} •{' '}
@@ -463,6 +519,13 @@ export const LeadDetailPage: React.FC = () => {
                           <Text size="xs" c="dimmed">
                             {sh.note}
                           </Text>
+                        )}
+                        {sh.remark && (
+                          <Paper p="xs" mt={4} withBorder bg="var(--mantine-color-gray-0)" radius="sm">
+                            <Text size="xs" fw={500} c="dark">
+                              💬 Remark: {sh.remark}
+                            </Text>
+                          </Paper>
                         )}
                         <Text size="10px" c="dimmed" mt={2}>
                           Changed by: {sh.changed_by_name || 'System'} •{' '}
@@ -566,6 +629,11 @@ export const LeadDetailPage: React.FC = () => {
                           <Text size="xs" lineClamp={2}>
                             {survey.notes || '—'}
                           </Text>
+                          {survey.remark && (
+                            <Text size="10px" c="blue" mt={2}>
+                              💬 Remark: {survey.remark}
+                            </Text>
+                          )}
                         </Table.Td>
                         <Table.Td ta="right">
                           {survey.status === 'booked' || survey.status === 'rescheduled' ? (
@@ -670,6 +738,11 @@ export const LeadDetailPage: React.FC = () => {
                                 {quote.notes}
                               </Text>
                             )}
+                            {quote.remark && (
+                              <Text size="10px" c="blue" mt={2}>
+                                💬 Remark: {quote.remark}
+                              </Text>
+                            )}
                           </Table.Td>
                           <Table.Td>
                             <Text size="xs" fw={600}>
@@ -719,7 +792,7 @@ export const LeadDetailPage: React.FC = () => {
                                     size="xs"
                                     color="green"
                                     variant="filled"
-                                    onClick={() => acceptQuoteMutation.mutate(quote.id)}
+                                    onClick={() => setConfirmAcceptQuote(quote)}
                                   >
                                     Accept (Won)
                                   </Button>
@@ -851,6 +924,32 @@ export const LeadDetailPage: React.FC = () => {
         onSuccess={() => {
           refetchLead();
         }}
+      />
+
+      <AddRemarkModal
+        opened={addRemarkOpen}
+        onClose={() => setAddRemarkOpen(false)}
+        lead={lead}
+        onSuccess={() => {
+          refetchLead();
+          queryClient.invalidateQueries({ queryKey: ['activities', leadId] });
+        }}
+      />
+
+      <ConfirmActionModal
+        opened={!!confirmAcceptQuote}
+        onClose={() => setConfirmAcceptQuote(null)}
+        onConfirm={() => {
+          if (confirmAcceptQuote) {
+            acceptQuoteMutation.mutate(confirmAcceptQuote.id);
+            setConfirmAcceptQuote(null);
+          }
+        }}
+        title="Confirm Proposal Won"
+        message={`Are you sure you want to accept Proposal v${confirmAcceptQuote?.version}? This marks lead "${lead.name}" as Won and successfully completes the solar sales process.`}
+        confirmLabel="Confirm Proposal Won"
+        confirmColor="green"
+        loading={acceptQuoteMutation.isPending}
       />
     </Container>
   );

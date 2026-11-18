@@ -60,6 +60,9 @@ class QuoteViewSet(viewsets.ModelViewSet):
         latest_quote = Quote.objects.filter(lead=lead).order_by('-version').first()
         next_version = (latest_quote.version + 1) if latest_quote else 1
 
+        notes = serializer.validated_data.get('notes', '')
+        remark = serializer.validated_data.get('remark', '') or notes
+
         quote = Quote.objects.create(
             lead=lead,
             version=next_version,
@@ -68,7 +71,8 @@ class QuoteViewSet(viewsets.ModelViewSet):
             price=serializer.validated_data['price'],
             subsidy_amount=serializer.validated_data.get('subsidy_amount'),
             status=Quote.Status.DRAFT,
-            notes=serializer.validated_data.get('notes', ''),
+            notes=notes,
+            remark=remark[:500],
             created_by=request.user,
         )
 
@@ -79,10 +83,13 @@ class QuoteViewSet(viewsets.ModelViewSet):
     def mark_sent(self, request, pk=None):
         quote = self.get_object()
         notes = request.data.get('notes', '')
+        remark = request.data.get('remark', '') or notes
 
         quote.status = Quote.Status.SENT
         if notes:
             quote.notes = f"{quote.notes}\n[Sent]: {notes}".strip()
+        if remark:
+            quote.remark = remark[:500]
         quote.save()
 
         lead = quote.lead
@@ -94,6 +101,8 @@ class QuoteViewSet(viewsets.ModelViewSet):
         lead.status = target_status
         lead.next_action = next_action_text
         lead.next_followup_at = next_followup
+        if remark:
+            lead.remark = remark[:500]
         lead.save()
 
         LeadStatusHistory.objects.create(
@@ -102,6 +111,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
             new_status=target_status,
             changed_by=request.user,
             note=notes or f"Quote v{quote.version} sent ({quote.system_size_kw} kW - ₹{quote.price})",
+            remark=remark[:500],
         )
 
         outcome_obj = Outcome.objects.filter(stage=Outcome.Stage.QUOTE, name__icontains='Quote sent').first()
@@ -110,6 +120,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
             type=Activity.Type.NOTE,
             outcome=outcome_obj,
             notes=notes or f"Quote v{quote.version} marked sent",
+            remark=remark[:500],
             status_after=target_status,
             next_action=next_action_text,
             next_followup_at=next_followup,
@@ -134,6 +145,8 @@ class QuoteViewSet(viewsets.ModelViewSet):
         # Create new version (never overwrite old quote)
         latest_quote = Quote.objects.filter(lead=lead).order_by('-version').first()
         new_version = (latest_quote.version + 1) if latest_quote else (old_quote.version + 1)
+        notes = serializer.validated_data.get('notes', '')
+        remark = serializer.validated_data.get('remark', '') or notes
 
         new_quote = Quote.objects.create(
             lead=lead,
@@ -143,7 +156,8 @@ class QuoteViewSet(viewsets.ModelViewSet):
             price=serializer.validated_data['price'],
             subsidy_amount=serializer.validated_data.get('subsidy_amount'),
             status=Quote.Status.REVISED,
-            notes=serializer.validated_data.get('notes', ''),
+            notes=notes,
+            remark=remark[:500],
             created_by=request.user,
         )
 
@@ -155,6 +169,8 @@ class QuoteViewSet(viewsets.ModelViewSet):
         lead.status = target_status
         lead.next_action = next_action_text
         lead.next_followup_at = next_followup
+        if remark:
+            lead.remark = remark[:500]
         lead.save()
 
         LeadStatusHistory.objects.create(
@@ -162,7 +178,8 @@ class QuoteViewSet(viewsets.ModelViewSet):
             old_status=old_status,
             new_status=target_status,
             changed_by=request.user,
-            note=f"Revised Quote to v{new_quote.version}. {serializer.validated_data.get('notes', '')}",
+            note=f"Revised Quote to v{new_quote.version}. {notes}".strip(),
+            remark=remark[:500],
         )
 
         outcome_obj = Outcome.objects.filter(stage=Outcome.Stage.QUOTE, name__icontains='asks for changes').first()
@@ -171,6 +188,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
             type=Activity.Type.NOTE,
             outcome=outcome_obj,
             notes=f"Quote revised to v{new_quote.version}",
+            remark=remark[:500],
             status_after=target_status,
             next_action=next_action_text,
             next_followup_at=next_followup,
@@ -184,10 +202,13 @@ class QuoteViewSet(viewsets.ModelViewSet):
     def accept(self, request, pk=None):
         quote = self.get_object()
         notes = request.data.get('notes', '')
+        remark = request.data.get('remark', '') or notes
 
         quote.status = Quote.Status.ACCEPTED
         if notes:
             quote.notes = f"{quote.notes}\n[Accepted]: {notes}".strip()
+        if remark:
+            quote.remark = remark[:500]
         quote.save()
 
         lead = quote.lead
@@ -199,6 +220,8 @@ class QuoteViewSet(viewsets.ModelViewSet):
         lead.won_at = now
         lead.next_action = "Process ends here"
         lead.next_followup_at = None
+        if remark:
+            lead.remark = remark[:500]
         lead.save()
 
         LeadStatusHistory.objects.create(
@@ -207,6 +230,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
             new_status=target_status,
             changed_by=request.user,
             note=notes or f"Customer accepted Quote v{quote.version}. Deal Won!",
+            remark=remark[:500],
         )
 
         outcome_obj = Outcome.objects.filter(stage=Outcome.Stage.QUOTE, name__icontains='Customer agrees').first()
@@ -215,6 +239,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
             type=Activity.Type.NOTE,
             outcome=outcome_obj,
             notes=notes or f"Customer agreed to Quote v{quote.version} (₹{quote.price})",
+            remark=remark[:500],
             status_after=target_status,
             next_action="Process ends here",
             next_followup_at=None,
@@ -232,6 +257,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
 
         lost_reason_id = serializer.validated_data['lost_reason_id']
         notes = serializer.validated_data.get('notes', '')
+        remark = serializer.validated_data.get('remark', '') or notes
 
         if not can_user_mark_lost(request.user):
             raise PermissionDenied("You do not have permission to mark leads as Lost.")
@@ -243,6 +269,8 @@ class QuoteViewSet(viewsets.ModelViewSet):
         quote.status = Quote.Status.REJECTED
         if notes:
             quote.notes = f"{quote.notes}\n[Rejected]: {notes}".strip()
+        if remark:
+            quote.remark = remark[:500]
         quote.save()
 
         lead = quote.lead
@@ -253,6 +281,8 @@ class QuoteViewSet(viewsets.ModelViewSet):
         lead.lost_reason = lost_reason
         lead.next_action = f"Record lost reason: {lost_reason.name}"
         lead.next_followup_at = None
+        if remark:
+            lead.remark = remark[:500]
         lead.save()
 
         LeadStatusHistory.objects.create(
@@ -261,6 +291,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
             new_status=target_status,
             changed_by=request.user,
             note=notes or f"Customer rejected quote v{quote.version}. Reason: {lost_reason.name}",
+            remark=remark[:500],
         )
 
         outcome_obj = Outcome.objects.filter(stage=Outcome.Stage.QUOTE, name__icontains='Customer rejects').first()
@@ -269,6 +300,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
             type=Activity.Type.NOTE,
             outcome=outcome_obj,
             notes=notes or f"Quote v{quote.version} rejected. Lost reason: {lost_reason.name}",
+            remark=remark[:500],
             status_after=target_status,
             next_action=f"Record lost reason: {lost_reason.name}",
             next_followup_at=None,

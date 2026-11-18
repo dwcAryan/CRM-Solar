@@ -32,6 +32,7 @@ export const MarkDoneSurveyModal: React.FC<MarkDoneSurveyModalProps> = ({
   const [siteSuitable, setSiteSuitable] = useState<string>('yes');
   const [lostReasonId, setLostReasonId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  const [remark, setRemark] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const { data: lostReasons = [] } = useQuery<LostReason[]>({
@@ -48,6 +49,7 @@ export const MarkDoneSurveyModal: React.FC<MarkDoneSurveyModalProps> = ({
         site_suitable: suitable,
         lost_reason_id: !suitable && lostReasonId ? Number(lostReasonId) : undefined,
         notes: notes.trim(),
+        remark: remark.trim() || undefined,
       });
     },
     onSuccess: () => {
@@ -56,6 +58,7 @@ export const MarkDoneSurveyModal: React.FC<MarkDoneSurveyModalProps> = ({
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       setNotes('');
+      setRemark('');
       setLostReasonId(null);
       setErrorMsg(null);
       if (onSuccess) onSuccess();
@@ -136,6 +139,15 @@ export const MarkDoneSurveyModal: React.FC<MarkDoneSurveyModalProps> = ({
             rows={3}
             value={notes}
             onChange={(e) => setNotes(e.currentTarget.value)}
+          />
+
+          <Textarea
+            label="Optional Remark"
+            placeholder="Internal remark / notes (max 500 chars)"
+            rows={2}
+            maxLength={500}
+            value={remark}
+            onChange={(e) => setRemark(e.currentTarget.value)}
           />
 
           <Group justify="flex-end" mt="md">

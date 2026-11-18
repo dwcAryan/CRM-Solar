@@ -27,15 +27,18 @@ import {
   IconCheck,
   IconArrowRight,
   IconClock,
+  IconNotes,
 } from '@tabler/icons-react';
 import { fetchTodayLeads } from '../api/client';
 import { LogOutcomeModal } from '../components/modals/LogOutcomeModal';
+import { AddRemarkModal } from '../components/modals/AddRemarkModal';
 import type { Lead } from '../api/types';
 
 export const TodayPage: React.FC = () => {
   const navigate = useNavigate();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [outcomeModalOpen, setOutcomeModalOpen] = useState(false);
+  const [remarkModalOpen, setRemarkModalOpen] = useState(false);
 
   const { data: leads = [], isLoading, isError, refetch } = useQuery<Lead[]>({
     queryKey: ['today-leads'],
@@ -149,6 +152,18 @@ export const TodayPage: React.FC = () => {
           <Group gap="xs">
             <Button
               size="xs"
+              variant="light"
+              color="gray"
+              leftSection={<IconNotes size={14} />}
+              onClick={() => {
+                setSelectedLead(lead);
+                setRemarkModalOpen(true);
+              }}
+            >
+              Remark
+            </Button>
+            <Button
+              size="xs"
               color="yellow"
               leftSection={<IconClipboardCheck size={14} />}
               onClick={() => handleOpenOutcome(lead)}
@@ -254,6 +269,13 @@ export const TodayPage: React.FC = () => {
       <LogOutcomeModal
         opened={outcomeModalOpen}
         onClose={() => setOutcomeModalOpen(false)}
+        lead={selectedLead}
+        onSuccess={() => refetch()}
+      />
+
+      <AddRemarkModal
+        opened={remarkModalOpen}
+        onClose={() => setRemarkModalOpen(false)}
         lead={selectedLead}
         onSuccess={() => refetch()}
       />

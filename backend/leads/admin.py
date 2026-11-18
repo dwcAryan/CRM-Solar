@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Lead, LeadStatusHistory
+from .models import ImportBatch, Lead, LeadStatusHistory
 
 
 class LeadStatusHistoryInline(admin.TabularInline):
@@ -36,3 +36,21 @@ class LeadStatusHistoryAdmin(admin.ModelAdmin):
     list_filter = ('old_status', 'new_status', 'changed_at')
     search_fields = ('lead__name', 'lead__phone', 'note')
     readonly_fields = ('lead', 'old_status', 'new_status', 'changed_by', 'changed_at', 'note')
+
+
+@admin.register(ImportBatch)
+class ImportBatchAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'file_name',
+        'imported_by',
+        'imported_count',
+        'skipped_count',
+        'duplicate_count',
+        'failed_count',
+        'is_reverted',
+        'imported_at',
+    )
+    list_filter = ('is_reverted', 'imported_at')
+    search_fields = ('file_name', 'imported_by__username')
+    readonly_fields = ('imported_at', 'reverted_at', 'reverted_by')

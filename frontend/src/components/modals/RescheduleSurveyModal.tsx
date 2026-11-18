@@ -21,6 +21,7 @@ export const RescheduleSurveyModal: React.FC<RescheduleSurveyModalProps> = ({
   const queryClient = useQueryClient();
   const [scheduledAt, setScheduledAt] = useState('');
   const [notes, setNotes] = useState('');
+  const [remark, setRemark] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const rescheduleMutation = useMutation({
@@ -29,6 +30,7 @@ export const RescheduleSurveyModal: React.FC<RescheduleSurveyModalProps> = ({
       return rescheduleSurvey(survey.id, {
         scheduled_at: new Date(scheduledAt).toISOString(),
         notes: notes.trim(),
+        remark: remark.trim() || undefined,
       });
     },
     onSuccess: () => {
@@ -37,6 +39,7 @@ export const RescheduleSurveyModal: React.FC<RescheduleSurveyModalProps> = ({
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       setScheduledAt('');
       setNotes('');
+      setRemark('');
       setErrorMsg(null);
       if (onSuccess) onSuccess();
       onClose();
@@ -100,6 +103,15 @@ export const RescheduleSurveyModal: React.FC<RescheduleSurveyModalProps> = ({
             rows={3}
             value={notes}
             onChange={(e) => setNotes(e.currentTarget.value)}
+          />
+
+          <Textarea
+            label="Optional Remark"
+            placeholder="Additional internal remark (max 500 chars)"
+            rows={2}
+            maxLength={500}
+            value={remark}
+            onChange={(e) => setRemark(e.currentTarget.value)}
           />
 
           <Group justify="flex-end" mt="md">

@@ -41,6 +41,7 @@ class Quote(models.Model):
         default=Status.DRAFT,
     )
     notes = models.TextField(blank=True)
+    remark = models.CharField(max_length=500, blank=True, default='')
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

@@ -21,6 +21,7 @@ export const RejectQuoteModal: React.FC<RejectQuoteModalProps> = ({
   const queryClient = useQueryClient();
   const [lostReasonId, setLostReasonId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  const [remark, setRemark] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const { data: lostReasons = [] } = useQuery<LostReason[]>({
@@ -33,7 +34,7 @@ export const RejectQuoteModal: React.FC<RejectQuoteModalProps> = ({
     mutationFn: () => {
       if (!quote) throw new Error('No quote selected');
       if (!lostReasonId) throw new Error('Please select a lost reason');
-      return rejectQuote(quote.id, Number(lostReasonId), notes.trim());
+      return rejectQuote(quote.id, Number(lostReasonId), notes.trim(), remark.trim() || undefined);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
@@ -112,6 +113,15 @@ export const RejectQuoteModal: React.FC<RejectQuoteModalProps> = ({
             rows={3}
             value={notes}
             onChange={(e) => setNotes(e.currentTarget.value)}
+          />
+
+          <Textarea
+            label="Optional Remark"
+            placeholder="Additional internal remark (max 500 chars)"
+            rows={2}
+            maxLength={500}
+            value={remark}
+            onChange={(e) => setRemark(e.currentTarget.value)}
           />
 
           <Group justify="flex-end" mt="md">

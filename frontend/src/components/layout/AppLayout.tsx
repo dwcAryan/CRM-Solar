@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -20,19 +20,25 @@ import {
   Box,
   rem,
   ThemeIcon,
+  TextInput,
+  Kbd,
+  useMantineColorScheme,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {
   IconSun,
+  IconMoon,
   IconDashboard,
   IconCalendarEvent,
   IconUsers,
   IconClipboardCheck,
   IconFileText,
+  IconFileSpreadsheet,
   IconSettings,
   IconBell,
   IconLogout,
   IconHeartbeat,
+  IconSearch,
 } from '@tabler/icons-react';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -49,6 +55,32 @@ export const AppLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
+  const { colorScheme, toggleColorScheme } = useMantineColorScheme();
+
+  // Global search state
+  const [searchTerm, setSearchTerm] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Keyboard shortcut: '/' focuses global search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const isInput = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || (activeEl as HTMLElement).isContentEditable);
+      if (e.key === '/' && !isInput) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchTerm.trim()) {
+      navigate(`/leads?search=${encodeURIComponent(searchTerm.trim())}`);
+    }
+  };
 
   // Notifications queries
   const { data: unreadCount = 0 } = useQuery<number>({
@@ -88,11 +120,14 @@ export const AppLayout: React.FC = () => {
     { label: 'Dashboard', icon: IconDashboard, path: '/' },
     { label: "Today's Follow-ups", icon: IconCalendarEvent, path: '/today' },
     { label: 'All Leads', icon: IconUsers, path: '/leads' },
+    { label: 'Import Leads', icon: IconFileSpreadsheet, path: '/import-leads' },
     { label: 'Site Surveys', icon: IconClipboardCheck, path: '/surveys' },
     { label: 'Quotations', icon: IconFileText, path: '/quotes' },
     ...(isAdminOrManager ? [{ label: 'Admin Hub', icon: IconSettings, path: '/admin' }] : []),
     { label: 'System Health', icon: IconHeartbeat, path: '/health' },
   ];
+
+  const isDark = colorScheme === 'dark';
 
   return (
     <AppShell
@@ -123,7 +158,35 @@ export const AppLayout: React.FC = () => {
             </Group>
           </Group>
 
-          <Group gap="sm">
+          {/* Global Search Box (name, phone, city) */}
+          <Box style={{ flex: 1, maxWidth: 450 }} mx="md" visibleFrom="xs">
+            <form onSubmit={handleSearchSubmit}>
+              <TextInput
+                ref={searchInputRef}
+                placeholder="Search leads by name, phone, city... (Press '/' to focus)"
+                leftSection={<IconSearch size={16} />}
+                rightSection={<Kbd size="xs">/</Kbd>}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.currentTarget.value)}
+                size="sm"
+                radius="md"
+              />
+            </form>
+          </Box>
+
+          <Group gap="xs">
+            {/* Dark Mode Toggle */}
+            <ActionIcon
+              variant="light"
+              size="lg"
+              radius="md"
+              color={isDark ? 'yellow' : 'gray'}
+              onClick={() => toggleColorScheme()}
+              title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {isDark ? <IconSun size={20} /> : <IconMoon size={20} />}
+            </ActionIcon>
+
             {/* Notification Bell Menu */}
             <Menu position="bottom-end" shadow="md" width={320}>
               <Menu.Target>

@@ -20,6 +20,7 @@ class QuoteSerializer(serializers.ModelSerializer):
             'subsidy_amount',
             'status',
             'notes',
+            'remark',
             'created_by',
             'created_by_name',
             'created_at',
@@ -34,6 +35,7 @@ class CreateQuoteInputSerializer(serializers.Serializer):
     price = serializers.DecimalField(max_digits=12, decimal_places=2, required=True)
     subsidy_amount = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True)
     notes = serializers.CharField(required=False, allow_blank=True, default='')
+    remark = serializers.CharField(max_length=500, required=False, allow_blank=True, default='')
 
 
 class ReviseQuoteInputSerializer(serializers.Serializer):
@@ -42,8 +44,10 @@ class ReviseQuoteInputSerializer(serializers.Serializer):
     price = serializers.DecimalField(max_digits=12, decimal_places=2, required=True)
     subsidy_amount = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True)
     notes = serializers.CharField(required=False, allow_blank=True, default='')
+    remark = serializers.CharField(max_length=500, required=False, allow_blank=True, default='')
 
 
 class RejectQuoteInputSerializer(serializers.Serializer):
     lost_reason_id = serializers.IntegerField(required=True)
     notes = serializers.CharField(required=False, allow_blank=True, default='')
+    remark = serializers.CharField(max_length=500, required=False, allow_blank=True, default='')

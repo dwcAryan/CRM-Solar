@@ -68,6 +68,7 @@ export interface LeadStatusHistory {
   changed_by_name?: string;
   changed_at: string;
   note: string;
+  remark?: string;
 }
 
 export interface Lead {
@@ -97,6 +98,8 @@ export interface Lead {
   do_not_contact: boolean;
   attempt_count: number;
   won_at?: string | null;
+  import_batch?: number | null;
+  remark?: string;
   status_history?: LeadStatusHistory[];
   created_at: string;
   updated_at: string;
@@ -110,6 +113,7 @@ export interface Activity {
   outcome?: number | null;
   outcome_name?: string;
   notes: string;
+  remark?: string;
   status_after: string;
   next_action: string;
   next_followup_at?: string | null;
@@ -136,6 +140,7 @@ export interface Survey {
   status: 'booked' | 'rescheduled' | 'missed' | 'done' | 'cancelled';
   site_suitable?: boolean | null;
   notes?: string;
+  remark?: string;
   reschedule_count: number;
   photos?: SurveyPhoto[];
   created_at: string;
@@ -153,6 +158,7 @@ export interface Quote {
   subsidy_amount?: number | null;
   status: 'draft' | 'sent' | 'revised' | 'accepted' | 'rejected';
   notes?: string;
+  remark?: string;
   created_by?: number | null;
   created_by_name?: string;
   created_at: string;
@@ -215,4 +221,50 @@ export interface PaginatedResponse<T> {
   next: string | null;
   previous: string | null;
   results: T[];
+}
+
+// Phase 6 CSV Import & Batch Types
+export interface ImportBatch {
+  id: number;
+  file_name: string;
+  imported_by?: number | null;
+  imported_by_name?: string;
+  imported_at: string;
+  total_rows: number;
+  imported_count: number;
+  skipped_count: number;
+  duplicate_count: number;
+  failed_count: number;
+  is_reverted: boolean;
+  reverted_at?: string | null;
+  reverted_by?: number | null;
+  reverted_by_name?: string;
+  failed_rows_json?: Array<{
+    row: number;
+    name?: string;
+    phone?: string;
+    error: string;
+  }>;
+}
+
+export interface CsvPreviewResponse {
+  headers: string[];
+  suggested_mapping: Record<string, string>;
+  preview_rows: Array<Record<string, string>>;
+  total_rows: number;
+}
+
+export interface CsvImportResponse {
+  batch_id: number;
+  total_rows: number;
+  imported_count: number;
+  skipped_count: number;
+  duplicate_count: number;
+  failed_count: number;
+  errors: Array<{
+    row: number;
+    name?: string;
+    phone?: string;
+    error: string;
+  }>;
 }

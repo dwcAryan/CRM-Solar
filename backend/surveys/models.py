@@ -30,6 +30,7 @@ class Survey(models.Model):
     )
     site_suitable = models.BooleanField(null=True, blank=True)
     notes = models.TextField(blank=True)
+    remark = models.CharField(max_length=500, blank=True, default='')
     reschedule_count = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

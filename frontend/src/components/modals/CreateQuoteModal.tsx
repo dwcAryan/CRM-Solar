@@ -35,6 +35,7 @@ export const CreateQuoteModal: React.FC<CreateQuoteModalProps> = ({
   const [price, setPrice] = useState<number | string>(195000);
   const [subsidyAmount, setSubsidyAmount] = useState<number | string>(78000);
   const [notes, setNotes] = useState('');
+  const [remark, setRemark] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const netPrice = Number(price || 0) - Number(subsidyAmount || 0);
@@ -49,6 +50,7 @@ export const CreateQuoteModal: React.FC<CreateQuoteModalProps> = ({
         price: Number(price),
         subsidy_amount: subsidyAmount ? Number(subsidyAmount) : undefined,
         notes: notes.trim(),
+        remark: remark.trim() || undefined,
       });
     },
     onSuccess: () => {
@@ -157,9 +159,17 @@ export const CreateQuoteModal: React.FC<CreateQuoteModalProps> = ({
           <Textarea
             label="Proposal Notes / Terms"
             placeholder="e.g. Standard 5-year comprehensive warranty, hot-dip galvanized mounting structure included"
-            rows={3}
+            rows={2}
             value={notes}
             onChange={(e) => setNotes(e.currentTarget.value)}
+          />
+
+          <TextInput
+            label="Optional Remark (max 500 chars)"
+            placeholder="e.g. Quoted special rate for bulk society installation"
+            maxLength={500}
+            value={remark}
+            onChange={(e) => setRemark(e.currentTarget.value)}
           />
 
           <Group justify="flex-end" mt="md">

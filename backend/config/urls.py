@@ -19,7 +19,12 @@ from rest_framework_simplejwt.views import (
 
 from accounts.views import MeView, UserViewSet
 from activities.views import ActivityViewSet
-from leads.views import DashboardView, LeadStatusHistoryViewSet, LeadViewSet
+from leads.views import (
+    DashboardView,
+    ImportBatchViewSet,
+    LeadStatusHistoryViewSet,
+    LeadViewSet,
+)
 from masters.views import (
     LeadSourceViewSet,
     LostReasonViewSet,
@@ -68,6 +73,7 @@ router.register(r'masters/nurture-reasons', NurtureReasonViewSet, basename='nurt
 router.register(r'masters/lead-sources', LeadSourceViewSet, basename='lead-source')
 router.register(r'masters/policy-settings', PolicySettingsViewSet, basename='policy-settings')
 router.register(r'leads', LeadViewSet, basename='lead')
+router.register(r'import-batches', ImportBatchViewSet, basename='import-batch')
 router.register(r'lead-status-history', LeadStatusHistoryViewSet, basename='lead-status-history')
 router.register(r'activities', ActivityViewSet, basename='activity')
 router.register(r'surveys', SurveyViewSet, basename='survey')

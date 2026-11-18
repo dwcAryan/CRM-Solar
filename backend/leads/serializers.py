@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Lead, LeadStatusHistory
+from .models import ImportBatch, Lead, LeadStatusHistory
 from .utils import find_duplicate_lead
 
 
@@ -18,6 +18,7 @@ class LeadStatusHistorySerializer(serializers.ModelSerializer):
             'changed_by_name',
             'changed_at',
             'note',
+            'remark',
         ]
         read_only_fields = ['id', 'changed_at']
 
@@ -58,6 +59,8 @@ class LeadSerializer(serializers.ModelSerializer):
             'do_not_contact',
             'attempt_count',
             'won_at',
+            'import_batch',
+            'remark',
             'status_history',
             'created_at',
             'updated_at',
@@ -93,6 +96,7 @@ class LogActivityInputSerializer(serializers.Serializer):
     type = serializers.ChoiceField(choices=['call', 'whatsapp', 'visit', 'note'])
     outcome_id = serializers.IntegerField(required=False, allow_null=True)
     notes = serializers.CharField(required=False, allow_blank=True, default='')
+    remark = serializers.CharField(max_length=500, required=False, allow_blank=True, default='')
     status = serializers.CharField(required=False, allow_blank=True)
     next_action = serializers.CharField(required=False, allow_blank=True)
     next_followup_at = serializers.DateTimeField(required=False, allow_null=True)
@@ -103,3 +107,44 @@ class LogActivityInputSerializer(serializers.Serializer):
 class MergeLeadInputSerializer(serializers.Serializer):
     target_lead_id = serializers.IntegerField(required=True)
     note = serializers.CharField(required=False, allow_blank=True, default='')
+    remark = serializers.CharField(max_length=500, required=False, allow_blank=True, default='')
+
+
+class AddRemarkInputSerializer(serializers.Serializer):
+    remark = serializers.CharField(max_length=500, required=True, allow_blank=False)
+
+
+class BulkActionSerializer(serializers.Serializer):
+    lead_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        allow_empty=False,
+    )
+    action = serializers.ChoiceField(choices=['assign', 'change_source'])
+    value = serializers.IntegerField(required=True)
+    remark = serializers.CharField(max_length=500, required=False, allow_blank=True, default='')
+
+
+class ImportBatchSerializer(serializers.ModelSerializer):
+    imported_by_name = serializers.CharField(source='imported_by.get_full_name', read_only=True)
+    reverted_by_name = serializers.CharField(source='reverted_by.get_full_name', read_only=True)
+
+    class Meta:
+        model = ImportBatch
+        fields = [
+            'id',
+            'file_name',
+            'imported_by',
+            'imported_by_name',
+            'imported_at',
+            'total_rows',
+            'imported_count',
+            'skipped_count',
+            'duplicate_count',
+            'failed_count',
+            'is_reverted',
+            'reverted_at',
+            'reverted_by',
+            'reverted_by_name',
+            'failed_rows_json',
+        ]
+        read_only_fields = ['id', 'imported_at', 'reverted_at', 'reverted_by']

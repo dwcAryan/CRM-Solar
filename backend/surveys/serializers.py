@@ -27,6 +27,7 @@ class SurveySerializer(serializers.ModelSerializer):
             'status',
             'site_suitable',
             'notes',
+            'remark',
             'reschedule_count',
             'photos',
             'created_at',
@@ -40,14 +41,17 @@ class BookSurveyInputSerializer(serializers.Serializer):
     scheduled_at = serializers.DateTimeField(required=True)
     surveyor_id = serializers.IntegerField(required=False, allow_null=True)
     notes = serializers.CharField(required=False, allow_blank=True, default='')
+    remark = serializers.CharField(max_length=500, required=False, allow_blank=True, default='')
 
 
 class RescheduleSurveyInputSerializer(serializers.Serializer):
     scheduled_at = serializers.DateTimeField(required=True)
     notes = serializers.CharField(required=False, allow_blank=True, default='')
+    remark = serializers.CharField(max_length=500, required=False, allow_blank=True, default='')
 
 
 class MarkDoneSurveyInputSerializer(serializers.Serializer):
     site_suitable = serializers.BooleanField(required=True)
     notes = serializers.CharField(required=False, allow_blank=True, default='')
+    remark = serializers.CharField(max_length=500, required=False, allow_blank=True, default='')
     lost_reason_id = serializers.IntegerField(required=False, allow_null=True)

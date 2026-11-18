@@ -32,6 +32,7 @@ def process_log_activity(
     activity_type = data.get('type')
     outcome_id = data.get('outcome_id')
     notes = data.get('notes', '')
+    remark = (data.get('remark') or notes or '').strip()[:500]
 
     # 1. Do not contact validation
     if lead.do_not_contact and activity_type in ['call', 'whatsapp']:
@@ -156,6 +157,7 @@ def process_log_activity(
         type=activity_type,
         outcome=outcome,
         notes=notes,
+        remark=remark,
         status_after=target_status,
         next_action=target_next_action,
         next_followup_at=target_followup_at,
@@ -170,6 +172,7 @@ def process_log_activity(
             new_status=target_status,
             changed_by=user,
             note=notes or f"Status changed from {old_status} to {target_status} via {activity_type}",
+            remark=remark,
         )
 
     # 9. Update Lead
@@ -178,6 +181,8 @@ def process_log_activity(
     lead.next_followup_at = target_followup_at
     lead.lost_reason = lost_reason
     lead.nurture_reason = nurture_reason
+    if remark:
+        lead.remark = remark
     lead.save()
 
     return activity, lead

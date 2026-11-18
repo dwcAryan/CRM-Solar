@@ -18,6 +18,7 @@ class ActivitySerializer(serializers.ModelSerializer):
             'outcome',
             'outcome_name',
             'notes',
+            'remark',
             'status_after',
             'next_action',
             'next_followup_at',

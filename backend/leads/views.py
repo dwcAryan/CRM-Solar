@@ -1,7 +1,12 @@
 import csv
-import io
+import json
+from datetime import timedelta
+from typing import Dict
 
-from django.db.models import Count
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
+from django.db.models import Count, Q
+from django.http import HttpResponse
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, status, viewsets
@@ -12,17 +17,29 @@ from rest_framework.views import APIView
 
 from accounts.models import User
 from accounts.permissions import LeadPermission
+from activities.models import Activity
+from activities.serializers import ActivitySerializer
 from masters.models import LeadSource
 
-from .models import Lead, LeadStatusHistory
+from .import_service import (
+    auto_match_headers,
+    execute_csv_import,
+    generate_failed_rows_csv,
+    parse_file_rows,
+    sanitize_csv_cell,
+    undo_import_batch,
+)
+from .models import ImportBatch, Lead, LeadStatusHistory
 from .serializers import (
+    AddRemarkInputSerializer,
+    BulkActionSerializer,
+    ImportBatchSerializer,
     LeadSerializer,
     LeadStatusHistorySerializer,
     LogActivityInputSerializer,
     MergeLeadInputSerializer,
 )
 from .services import process_log_activity
-from .utils import find_duplicate_lead, normalize_phone
 
 
 class LeadViewSet(viewsets.ModelViewSet):
@@ -39,9 +56,35 @@ class LeadViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
         if not user.is_authenticated:
             return qs.none()
+
         # Role scoping: salesperson sees only own assigned leads
         if user.role == User.Role.SALESPERSON and not user.is_superuser:
-            return qs.filter(assigned_to=user)
+            qs = qs.filter(assigned_to=user)
+
+        # Tab filtering
+        tab = self.request.query_params.get('tab')
+        now = timezone.now()
+        today = now.date()
+
+        if tab == 'my':
+            qs = qs.filter(assigned_to=user)
+        elif tab == 'due_today':
+            qs = qs.filter(
+                next_followup_at__date=today,
+            ).exclude(status__in=Lead.TERMINAL_STATUSES)
+        elif tab == 'overdue':
+            qs = qs.filter(
+                next_followup_at__lt=now,
+            ).exclude(status__in=Lead.TERMINAL_STATUSES)
+        elif tab == 'no_followup':
+            qs = qs.filter(
+                next_followup_at__isnull=True,
+            ).exclude(status__in=Lead.TERMINAL_STATUSES)
+        elif tab == 'interested':
+            qs = qs.filter(status='Interested')
+        elif tab == 'quote_sent':
+            qs = qs.filter(status='Quote sent')
+
         return qs
 
     def perform_create(self, serializer):
@@ -72,6 +115,41 @@ class LeadViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
+    @action(detail=True, methods=['post'], url_path='add-remark')
+    def add_remark(self, request, pk=None):
+        """
+        Quick note / remark without changing lead status or next action.
+        Creates an Activity with type='note'.
+        """
+        lead = self.get_object()
+        serializer = AddRemarkInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        remark_text = serializer.validated_data['remark'].strip()
+
+        with transaction.atomic():
+            activity = Activity.objects.create(
+                lead=lead,
+                type=Activity.Type.NOTE,
+                notes=remark_text,
+                remark=remark_text,
+                status_after=lead.status,
+                next_action=lead.next_action,
+                next_followup_at=lead.next_followup_at,
+                created_by=request.user,
+            )
+            lead.remark = remark_text
+            lead.save()
+
+        return Response(
+            {
+                "message": "Remark added successfully.",
+                "activity": ActivitySerializer(activity).data,
+                "lead": LeadSerializer(lead, context={'request': request}).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
     @action(detail=True, methods=['post'], url_path='merge')
     def merge(self, request, pk=None):
         duplicate_lead = self.get_object()
@@ -80,6 +158,7 @@ class LeadViewSet(viewsets.ModelViewSet):
 
         target_lead_id = serializer.validated_data['target_lead_id']
         note = serializer.validated_data.get('note', '')
+        remark = serializer.validated_data.get('remark', '') or note
 
         if duplicate_lead.id == target_lead_id:
             return Response(
@@ -91,142 +170,374 @@ class LeadViewSet(viewsets.ModelViewSet):
             target_lead = Lead.objects.get(id=target_lead_id)
         except Lead.DoesNotExist:
             return Response(
-                {"target_lead_id": "Target lead does not exist."},
+                {"target_lead_id": "Target lead not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Mark duplicate lead as Merged (terminal status)
-        old_status = duplicate_lead.status
-        duplicate_lead.status = Lead.Status.MERGED
-        duplicate_lead.next_followup_at = None
-        duplicate_lead.next_action = f"Merged into Lead #{target_lead.id} ({target_lead.name})"
-        duplicate_lead.save()
+        with transaction.atomic():
+            duplicate_lead.activities.all().update(lead=target_lead)
+            duplicate_lead.surveys.all().update(lead=target_lead)
+            duplicate_lead.quotes.all().update(lead=target_lead)
 
-        # Write status history
-        LeadStatusHistory.objects.create(
-            lead=duplicate_lead,
-            old_status=old_status,
-            new_status=Lead.Status.MERGED,
-            changed_by=request.user,
-            note=note or f"Merged into primary Lead #{target_lead.id} ({target_lead.name})",
-        )
+            old_status = duplicate_lead.status
+            duplicate_lead.status = Lead.Status.MERGED
+            duplicate_lead.next_action = f"Merged into lead #{target_lead.id} ({target_lead.name})"
+            duplicate_lead.next_followup_at = None
+            if remark:
+                duplicate_lead.remark = remark[:500]
+            duplicate_lead.save()
 
-        # Link activities and surveys to target lead or record note on target lead
-        LeadStatusHistory.objects.create(
-            lead=target_lead,
-            old_status=target_lead.status,
-            new_status=target_lead.status,
-            changed_by=request.user,
-            note=f"Merged secondary lead #{duplicate_lead.id} ({duplicate_lead.name}, {duplicate_lead.phone}). Note: {note}",
-        )
+            LeadStatusHistory.objects.create(
+                lead=duplicate_lead,
+                old_status=old_status,
+                new_status=Lead.Status.MERGED,
+                changed_by=request.user,
+                note=f"Merged into lead #{target_lead.id}. {note}".strip(),
+                remark=remark[:500],
+            )
+
+            Activity.objects.create(
+                lead=target_lead,
+                type=Activity.Type.NOTE,
+                notes=f"Merged with duplicate lead #{duplicate_lead.id} ({duplicate_lead.name}, {duplicate_lead.phone}). {note}".strip(),
+                remark=remark[:500],
+                status_after=target_lead.status,
+                next_action=target_lead.next_action,
+                next_followup_at=target_lead.next_followup_at,
+                created_by=request.user,
+            )
 
         return Response(
             {
-                "message": f"Lead #{duplicate_lead.id} successfully merged into Lead #{target_lead.id}.",
-                "duplicate_lead": LeadSerializer(duplicate_lead, context={'request': request}).data,
+                "message": f"Lead #{duplicate_lead.id} merged into #{target_lead.id} successfully.",
                 "target_lead": LeadSerializer(target_lead, context={'request': request}).data,
             },
             status=status.HTTP_200_OK,
         )
 
     @action(detail=False, methods=['get'], url_path='today')
-    def today(self, request):
-        qs = self.get_queryset().exclude(status__in=Lead.TERMINAL_STATUSES)
+    def today_queue(self, request):
+        user = request.user
+        now = timezone.now()
+        start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_of_today = start_of_today + timedelta(days=1)
 
-        # Follow-ups due today or overdue
-        today_end = timezone.localtime().replace(hour=23, minute=59, second=59, microsecond=999999)
-        qs = qs.filter(next_followup_at__isnull=False, next_followup_at__lte=today_end)
-        qs = qs.order_by('next_followup_at')
+        qs = Lead.objects.exclude(status__in=Lead.TERMINAL_STATUSES)
+        if user.role == User.Role.SALESPERSON and not user.is_superuser:
+            qs = qs.filter(assigned_to=user)
 
-        page = self.paginate_queryset(qs)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+        due_today_or_overdue = qs.filter(
+            Q(next_followup_at__lt=end_of_today) & Q(next_followup_at__isnull=False)
+        ).order_by('next_followup_at')
 
-        serializer = self.get_serializer(qs, many=True)
+        serializer = LeadSerializer(due_today_or_overdue, many=True, context={'request': request})
         return Response(serializer.data)
+
+    @action(detail=False, methods=['post'], url_path='preview-csv')
+    def preview_csv(self, request):
+        """
+        Parses uploaded file and returns 5-10 row preview with auto-matched column mapping.
+        """
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return Response({"error": "No file uploaded. Please upload a file with key 'file'."}, status=400)
+
+        try:
+            headers, data_rows = parse_file_rows(file_obj)
+        except DjangoValidationError as e:
+            return Response({"error": e.message}, status=400)
+        except Exception as e:
+            return Response({"error": f"Failed to parse file: {str(e)}"}, status=400)
+
+        suggested_mapping = auto_match_headers(headers)
+        preview_rows = []
+        for row in data_rows[:10]:
+            row_dict = {}
+            for idx, h in enumerate(headers):
+                val = row[idx] if idx < len(row) else ""
+                row_dict[h] = val
+            preview_rows.append(row_dict)
+
+        return Response({
+            "headers": headers,
+            "suggested_mapping": suggested_mapping,
+            "preview_rows": preview_rows,
+            "total_rows": len(data_rows),
+        })
 
     @action(detail=False, methods=['post'], url_path='import-csv')
     def import_csv(self, request):
+        """
+        Performs full CSV / Excel import with column mapping, duplicate options, and assignment.
+        """
         file_obj = request.FILES.get('file')
         if not file_obj:
-            return Response({"error": "No file uploaded. Please upload a CSV file with key 'file'."}, status=400)
+            return Response({"error": "No file uploaded. Please upload a file with key 'file'."}, status=400)
+
+        mapping_raw = request.data.get('mapping')
+        mapping: Dict[str, str] = {}
+        if mapping_raw:
+            if isinstance(mapping_raw, str):
+                try:
+                    mapping = json.loads(mapping_raw)
+                except Exception:
+                    pass
+            elif isinstance(mapping_raw, dict):
+                mapping = mapping_raw
+
+        duplicate_action = request.data.get('duplicate_action', 'skip')
+        assignment_mode = request.data.get('assignment_mode', 'unassigned')
+
+        single_user_id = request.data.get('assigned_to_id')
+        if single_user_id:
+            try:
+                single_user_id = int(single_user_id)
+            except ValueError:
+                single_user_id = None
+
+        rr_raw = request.data.get('round_robin_user_ids')
+        round_robin_user_ids = []
+        if rr_raw:
+            if isinstance(rr_raw, str):
+                try:
+                    round_robin_user_ids = [int(x.strip()) for x in rr_raw.split(',') if x.strip()]
+                except ValueError:
+                    pass
+            elif isinstance(rr_raw, list):
+                round_robin_user_ids = [int(x) for x in rr_raw]
 
         try:
-            decoded_file = file_obj.read().decode('utf-8-sig')
-            reader = csv.DictReader(io.StringIO(decoded_file))
+            batch, results = execute_csv_import(
+                uploaded_file=file_obj,
+                mapping=mapping,
+                duplicate_action=duplicate_action,
+                assignment_mode=assignment_mode,
+                single_user_id=single_user_id,
+                round_robin_user_ids=round_robin_user_ids,
+                user=request.user,
+            )
+        except DjangoValidationError as e:
+            return Response({"error": e.message}, status=400)
         except Exception as e:
-            return Response({"error": f"Invalid CSV file format: {str(e)}"}, status=400)
+            return Response({"error": f"Import failed: {str(e)}"}, status=400)
 
-        created_count = 0
-        errors = []
+        return Response(results, status=status.HTTP_201_CREATED)
 
-        for row_idx, row in enumerate(reader, start=2):
+    @action(detail=False, methods=['get'], url_path='import-sample-csv')
+    def import_sample_csv(self, request):
+        """
+        Generates and serves a clean, formula-injection-safe sample CSV template.
+        """
+        response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+        response['Content-Disposition'] = 'attachment; filename="solar_leads_sample_template.csv"'
+
+        writer = csv.writer(response)
+        headers = [
+            'Name',
+            'Phone',
+            'Email',
+            'City',
+            'Address',
+            'Source',
+            'Monthly Bill',
+            'Roof Type',
+            'Property Type',
+            'Owner or Tenant',
+            'Remark',
+        ]
+        writer.writerow(headers)
+
+        sample_rows = [
+            [
+                'Ramesh Patel',
+                '9825012345',
+                'ramesh.patel@example.com',
+                'Ahmedabad',
+                '12 Shantivan Bungalows, Bodakdev',
+                'Cold Call',
+                '4500',
+                'RCC flat',
+                'residential',
+                'owner',
+                'Interested in 3 kW rooftop solar with PM Surya Ghar subsidy',
+            ],
+            [
+                'Sunita Sharma',
+                '9825098765',
+                'sunita.sharma@example.com',
+                'Surat',
+                '402 Royal Palms, Vesu',
+                'Website Form',
+                '7800',
+                'tin shade',
+                'commercial',
+                'owner',
+                'Looking for 5 kW system for textile office',
+            ],
+        ]
+        for row in sample_rows:
+            writer.writerow([sanitize_csv_cell(c) for c in row])
+
+        return response
+
+    @action(detail=False, methods=['post'], url_path='bulk-action')
+    def bulk_action(self, request):
+        """
+        Performs bulk assignment or source update across selected leads.
+        """
+        serializer = BulkActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        lead_ids = serializer.validated_data['lead_ids']
+        action_name = serializer.validated_data['action']
+        value = serializer.validated_data['value']
+        remark = serializer.validated_data.get('remark', '')
+
+        user = request.user
+        qs = Lead.objects.filter(id__in=lead_ids)
+        if user.role == User.Role.SALESPERSON and not user.is_superuser:
+            qs = qs.filter(assigned_to=user)
+
+        updated_count = 0
+
+        with transaction.atomic():
+            if action_name == 'assign':
+                assigned_user = User.objects.filter(id=value).first()
+                if not assigned_user:
+                    return Response({"error": "Selected user does not exist."}, status=400)
+
+                for lead in qs:
+                    lead.assigned_to = assigned_user
+                    if remark:
+                        lead.remark = remark[:500]
+                    lead.save()
+                    LeadStatusHistory.objects.create(
+                        lead=lead,
+                        old_status=lead.status,
+                        new_status=lead.status,
+                        changed_by=user,
+                        note=f"Bulk re-assigned to {assigned_user.get_full_name() or assigned_user.username}",
+                        remark=remark[:500] if remark else '',
+                    )
+                    updated_count += 1
+
+            elif action_name == 'change_source':
+                new_source = LeadSource.objects.filter(id=value).first()
+                if not new_source:
+                    return Response({"error": "Selected lead source does not exist."}, status=400)
+
+                for lead in qs:
+                    lead.source = new_source
+                    if remark:
+                        lead.remark = remark[:500]
+                    lead.save()
+                    updated_count += 1
+
+        return Response({
+            "message": f"Successfully updated {updated_count} leads.",
+            "updated_count": updated_count,
+        })
+
+    @action(detail=False, methods=['get'], url_path='export-csv')
+    def export_csv(self, request):
+        """
+        Exports leads to CSV with current filters applied,
+        protected against formula injection, encoded as utf-8-sig.
+        """
+        # Use filtered queryset from self.filter_queryset(self.get_queryset())
+        queryset = self.filter_queryset(self.get_queryset())
+
+        # If specific lead_ids given in query params, respect them
+        lead_ids_param = request.query_params.get('lead_ids')
+        if lead_ids_param:
             try:
-                name = row.get('name', '').strip()
-                phone = row.get('phone', '').strip()
-                if not name or not phone:
-                    errors.append({"row": row_idx, "error": "Both 'name' and 'phone' are required fields."})
-                    continue
+                ids = [int(i.strip()) for i in lead_ids_param.split(',') if i.strip()]
+                queryset = queryset.filter(id__in=ids)
+            except ValueError:
+                pass
 
-                # Duplicate check
-                normalized = normalize_phone(phone)
-                if find_duplicate_lead(normalized):
-                    errors.append({"row": row_idx, "error": f"Duplicate phone number '{phone}' already exists."})
-                    continue
+        timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+        response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+        response['Content-Disposition'] = f'attachment; filename="solar_crm_leads_{timestamp}.csv"'
 
-                # Optional source resolution
-                source_obj = None
-                source_name = row.get('source', '').strip()
-                if source_name:
-                    source_obj, _ = LeadSource.objects.get_or_create(name=source_name)
+        writer = csv.writer(response)
+        headers = [
+            'ID',
+            'Name',
+            'Phone',
+            'Alt Phone',
+            'Email',
+            'City',
+            'Pincode',
+            'Address',
+            'Source',
+            'Status',
+            'Next Action',
+            'Next Followup At',
+            'Monthly Bill',
+            'Roof Type',
+            'Property Type',
+            'Owner or Tenant',
+            'Assigned To',
+            'Attempt Count',
+            'Won At',
+            'Remark',
+            'Created At',
+        ]
+        writer.writerow(headers)
 
-                # Assigned user
-                assigned_to = None
-                assigned_username = row.get('assigned_to', '').strip()
-                if assigned_username:
-                    assigned_to = User.objects.filter(username=assigned_username).first()
-                elif request.user.role == User.Role.SALESPERSON:
-                    assigned_to = request.user
+        for lead in queryset.iterator():
+            writer.writerow([
+                sanitize_csv_cell(lead.id),
+                sanitize_csv_cell(lead.name),
+                sanitize_csv_cell(lead.phone),
+                sanitize_csv_cell(lead.alt_phone or ''),
+                sanitize_csv_cell(lead.email or ''),
+                sanitize_csv_cell(lead.city or ''),
+                sanitize_csv_cell(lead.pincode or ''),
+                sanitize_csv_cell(lead.address or ''),
+                sanitize_csv_cell(lead.source.name if lead.source else ''),
+                sanitize_csv_cell(lead.status),
+                sanitize_csv_cell(lead.next_action or ''),
+                sanitize_csv_cell(lead.next_followup_at.strftime('%Y-%m-%d %H:%M') if lead.next_followup_at else ''),
+                sanitize_csv_cell(lead.monthly_bill if lead.monthly_bill is not None else ''),
+                sanitize_csv_cell(lead.roof_type or ''),
+                sanitize_csv_cell(lead.property_type or ''),
+                sanitize_csv_cell(lead.owner_or_tenant or ''),
+                sanitize_csv_cell(lead.assigned_to.get_full_name() if lead.assigned_to else 'Unassigned'),
+                sanitize_csv_cell(lead.attempt_count),
+                sanitize_csv_cell(lead.won_at.strftime('%Y-%m-%d %H:%M') if lead.won_at else ''),
+                sanitize_csv_cell(lead.remark or ''),
+                sanitize_csv_cell(lead.created_at.strftime('%Y-%m-%d %H:%M')),
+            ])
 
-                monthly_bill = None
-                bill_str = row.get('monthly_bill', '').strip()
-                if bill_str:
-                    try:
-                        monthly_bill = float(bill_str)
-                    except ValueError:
-                        pass
+        return response
 
-                Lead.objects.create(
-                    name=name,
-                    phone=phone,
-                    alt_phone=row.get('alt_phone', '').strip(),
-                    email=row.get('email', '').strip(),
-                    address=row.get('address', '').strip(),
-                    city=row.get('city', '').strip(),
-                    pincode=row.get('pincode', '').strip(),
-                    property_type=row.get('property_type', '').strip(),
-                    monthly_bill=monthly_bill,
-                    roof_type=row.get('roof_type', '').strip(),
-                    owner_or_tenant=row.get('owner_or_tenant', '').strip(),
-                    source=source_obj,
-                    assigned_to=assigned_to,
-                    status=row.get('status', '').strip() or Lead.Status.NEW,
-                    next_action="Initial contact required",
-                    next_followup_at=timezone.now() + timezone.timedelta(days=1),
-                )
-                created_count += 1
-            except Exception as e:
-                errors.append({"row": row_idx, "error": str(e)})
 
-        return Response(
-            {
-                "created_count": created_count,
-                "error_count": len(errors),
-                "errors": errors,
-            },
-            status=status.HTTP_201_CREATED if created_count > 0 else status.HTTP_400_BAD_REQUEST,
-        )
+class ImportBatchViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = ImportBatch.objects.all().select_related('imported_by', 'reverted_by').order_by('-imported_at')
+    serializer_class = ImportBatchSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=True, methods=['post'], url_path='undo')
+    def undo(self, request, pk=None):
+        batch = self.get_object()
+        success, message, deleted_count = undo_import_batch(batch.id, user=request.user)
+        if not success:
+            return Response({"error": message}, status=400)
+        return Response({
+            "message": message,
+            "deleted_count": deleted_count,
+            "batch": ImportBatchSerializer(batch).data,
+        })
+
+    @action(detail=True, methods=['get'], url_path='failed-rows-csv')
+    def failed_rows_csv(self, request, pk=None):
+        batch = self.get_object()
+        csv_text = generate_failed_rows_csv(batch.failed_rows_json or [])
+        response = HttpResponse(csv_text, content_type='text/csv; charset=utf-8-sig')
+        response['Content-Disposition'] = f'attachment; filename="failed_rows_batch_{batch.id}.csv"'
+        return response
 
 
 class LeadStatusHistoryViewSet(viewsets.ReadOnlyModelViewSet):
@@ -248,70 +559,52 @@ class DashboardView(APIView):
         if user.role == User.Role.SALESPERSON and not user.is_superuser:
             qs = qs.filter(assigned_to=user)
 
-        now = timezone.now()
-        local_now = timezone.localtime()
+        total_active_leads = qs.exclude(status__in=Lead.TERMINAL_STATUSES).count()
 
-        # 1. Counts by status
-        status_counts = {item['status']: item['count'] for item in qs.values('status').annotate(count=Count('id'))}
+        status_counts = {}
+        for row in qs.values('status').annotate(c=Count('id')):
+            status_counts[row['status']] = row['c']
 
-        # 2. Funnel counts
         funnel = {
-            'new': qs.filter(status=Lead.Status.NEW).count(),
-            'interested': qs.filter(
-                status__in=[
-                    Lead.Status.INTERESTED,
-                    Lead.Status.FOLLOW_UP,
-                    Lead.Status.CALLBACK_SCHEDULED,
-                    Lead.Status.ATTEMPTING_CONTACT,
-                ]
-            ).count(),
-            'survey': qs.filter(
-                status__in=[
-                    Lead.Status.SURVEY_TO_SCHEDULE,
-                    Lead.Status.SURVEY_SCHEDULED,
-                    Lead.Status.SURVEY_RESCHEDULED,
-                    Lead.Status.SURVEY_MISSED,
-                    Lead.Status.DESIGN_PENDING,
-                    Lead.Status.ALTERNATIVE,
-                ]
-            ).count(),
-            'quote_sent': qs.filter(
-                status__in=[
-                    Lead.Status.QUOTE_SENT,
-                    Lead.Status.REVISING_QUOTE,
-                    Lead.Status.NEGOTIATION,
-                ]
-            ).count(),
-            'won': qs.filter(status=Lead.Status.WON).count(),
+            'new': status_counts.get(Lead.Status.NEW, 0),
+            'interested': status_counts.get(Lead.Status.INTERESTED, 0),
+            'survey': (
+                status_counts.get(Lead.Status.SURVEY_TO_SCHEDULE, 0)
+                + status_counts.get(Lead.Status.SURVEY_SCHEDULED, 0)
+                + status_counts.get(Lead.Status.SURVEY_RESCHEDULED, 0)
+                + status_counts.get(Lead.Status.DESIGN_PENDING, 0)
+            ),
+            'quote_sent': (
+                status_counts.get(Lead.Status.QUOTE_SENT, 0)
+                + status_counts.get(Lead.Status.REVISING_QUOTE, 0)
+                + status_counts.get(Lead.Status.NEGOTIATION, 0)
+            ),
+            'won': status_counts.get(Lead.Status.WON, 0),
         }
 
-        # 3. Overdue follow-ups
-        overdue_followups = qs.filter(
-            next_followup_at__isnull=False,
+        now = timezone.now()
+        overdue_followups = qs.exclude(status__in=Lead.TERMINAL_STATUSES).filter(
             next_followup_at__lt=now,
-        ).exclude(status__in=Lead.TERMINAL_STATUSES).count()
-
-        # 4. Leads per source
-        source_counts = [
-            {
-                'source': item['source__name'] or 'Unspecified',
-                'count': item['count']
-            }
-            for item in qs.values('source__name').annotate(count=Count('id')).order_by('-count')
-        ]
-
-        # 5. Won count for this month
-        won_this_month = qs.filter(
-            status=Lead.Status.WON,
-            won_at__year=local_now.year,
-            won_at__month=local_now.month,
+            next_followup_at__isnull=False,
         ).count()
 
-        return Response({
-            'status_counts': status_counts,
-            'funnel': funnel,
-            'overdue_followups': overdue_followups,
-            'leads_per_source': source_counts,
-            'won_this_month': won_this_month,
-            'total_active_leads': qs.exclude(status__in=Lead.TERMINAL_STATUSES).count(),
-        })
+        leads_per_source = []
+        source_counts = qs.values('source__name').annotate(c=Count('id')).order_by('-c')
+        for sc in source_counts:
+            name = sc['source__name'] or 'Unassigned'
+            leads_per_source.append({'source': name, 'count': sc['c']})
+
+        start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        won_this_month = qs.filter(status=Lead.Status.WON, won_at__gte=start_of_month).count()
+
+        return Response(
+            {
+                "status_counts": status_counts,
+                "funnel": funnel,
+                "overdue_followups": overdue_followups,
+                "leads_per_source": leads_per_source,
+                "won_this_month": won_this_month,
+                "total_active_leads": total_active_leads,
+            },
+            status=status.HTTP_200_OK,
+        )

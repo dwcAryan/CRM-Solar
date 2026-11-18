@@ -20,6 +20,7 @@ import {
   fetchNurtureReasons,
   logActivity,
 } from '../../api/client';
+import { ConfirmActionModal } from './ConfirmActionModal';
 import type { Lead, Outcome, LostReason, NurtureReason } from '../../api/types';
 
 interface LogOutcomeModalProps {
@@ -48,7 +49,10 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
   const [lostReasonId, setLostReasonId] = useState<string | null>(null);
   const [nurtureReasonId, setNurtureReasonId] = useState<string | null>(null);
   const [notes, setNotes] = useState<string>('');
+  const [remark, setRemark] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState<any>(null);
 
   // Queries
   const { data: outcomes = [] } = useQuery<Outcome[]>({
@@ -84,6 +88,7 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
       setLostReasonId(lead.lost_reason ? String(lead.lost_reason) : null);
       setNurtureReasonId(lead.nurture_reason ? String(lead.nurture_reason) : null);
       setNotes('');
+      setRemark('');
       setErrorMsg(null);
     }
   }, [opened, lead, defaultStage]);
@@ -167,12 +172,19 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
       type: stage,
       outcome_id: outcomeId ? Number(outcomeId) : null,
       notes,
+      remark: remark.trim() || undefined,
       status: statusVal,
       next_action: nextAction,
       next_followup_at: isTerminal ? null : (nextFollowupAt ? new Date(nextFollowupAt).toISOString() : null),
       lost_reason_id: lostReasonId ? Number(lostReasonId) : null,
       nurture_reason_id: nurtureReasonId ? Number(nurtureReasonId) : null,
     };
+
+    if (['Lost', 'Do not contact', 'Won'].includes(statusVal)) {
+      setPendingPayload(payload);
+      setConfirmOpen(true);
+      return;
+    }
 
     logActivityMutation.mutate(payload);
   };
@@ -285,10 +297,25 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
           <Textarea
             label="Interaction Notes"
             placeholder="Customer remarks, roof dimensions mentioned, family concerns, etc."
-            rows={3}
+            rows={2}
             value={notes}
             onChange={(e) => setNotes(e.currentTarget.value)}
           />
+
+          <div>
+            <TextInput
+              label="Optional Remark (max 500 chars)"
+              placeholder="e.g. Call back on Friday after 6 PM"
+              maxLength={500}
+              value={remark}
+              onChange={(e) => setRemark(e.currentTarget.value)}
+            />
+            {remark && (
+              <Text size="10px" c="dimmed" ta="right">
+                {remark.length}/500 chars
+              </Text>
+            )}
+          </div>
 
           <Group justify="flex-end" mt="md">
             <Button variant="default" onClick={onClose}>
@@ -300,6 +327,34 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
           </Group>
         </Stack>
       </form>
+
+      <ConfirmActionModal
+        opened={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={() => {
+          setConfirmOpen(false);
+          if (pendingPayload) {
+            logActivityMutation.mutate(pendingPayload);
+          }
+        }}
+        title={
+          statusVal === 'Lost'
+            ? 'Confirm Marking Lead Lost'
+            : statusVal === 'Won'
+            ? 'Confirm Proposal Won'
+            : 'Confirm Do Not Contact'
+        }
+        message={
+          statusVal === 'Lost'
+            ? `Are you sure you want to mark "${lead?.name}" as Lost? This is a terminal status.`
+            : statusVal === 'Won'
+            ? `Are you sure you want to mark "${lead?.name}" as Won? The customer has accepted the solar proposal.`
+            : `Are you sure you want to mark "${lead?.name}" as Do Not Contact? All further call and WhatsApp interactions will be permanently blocked.`
+        }
+        confirmLabel={statusVal === 'Won' ? 'Confirm Won' : 'Confirm Action'}
+        confirmColor={statusVal === 'Won' ? 'green' : 'red'}
+        loading={logActivityMutation.isPending}
+      />
     </Modal>
   );
 };

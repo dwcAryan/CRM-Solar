@@ -36,6 +36,7 @@ export const ReviseQuoteModal: React.FC<ReviseQuoteModalProps> = ({
   const [price, setPrice] = useState<number | string>(0);
   const [subsidyAmount, setSubsidyAmount] = useState<number | string>(0);
   const [notes, setNotes] = useState('');
+  const [remark, setRemark] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export const ReviseQuoteModal: React.FC<ReviseQuoteModalProps> = ({
       setPrice(quote.price);
       setSubsidyAmount(quote.subsidy_amount || 0);
       setNotes(`Revised from v${quote.version}: `);
+      setRemark('');
       setErrorMsg(null);
     }
   }, [opened, quote]);
@@ -60,6 +62,7 @@ export const ReviseQuoteModal: React.FC<ReviseQuoteModalProps> = ({
         price: Number(price),
         subsidy_amount: subsidyAmount ? Number(subsidyAmount) : undefined,
         notes: notes.trim(),
+        remark: remark.trim() || undefined,
       });
     },
     onSuccess: () => {
@@ -177,6 +180,15 @@ export const ReviseQuoteModal: React.FC<ReviseQuoteModalProps> = ({
             value={notes}
             onChange={(e) => setNotes(e.currentTarget.value)}
             required
+          />
+
+          <Textarea
+            label="Optional Remark"
+            placeholder="Additional internal remark (max 500 chars)"
+            rows={2}
+            maxLength={500}
+            value={remark}
+            onChange={(e) => setRemark(e.currentTarget.value)}
           />
 
           <Group justify="flex-end" mt="md">

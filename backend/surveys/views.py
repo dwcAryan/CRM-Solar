@@ -55,6 +55,7 @@ class SurveyViewSet(viewsets.ModelViewSet):
         scheduled_at = serializer.validated_data['scheduled_at']
         surveyor_id = serializer.validated_data.get('surveyor_id')
         notes = serializer.validated_data.get('notes', '')
+        remark = serializer.validated_data.get('remark', '') or notes
 
         try:
             lead = Lead.objects.get(id=lead_id)
@@ -71,6 +72,7 @@ class SurveyViewSet(viewsets.ModelViewSet):
             surveyor=surveyor,
             status=Survey.Status.BOOKED,
             notes=notes,
+            remark=remark[:500],
         )
 
         target_status = Lead.Status.SURVEY_SCHEDULED
@@ -81,6 +83,8 @@ class SurveyViewSet(viewsets.ModelViewSet):
         lead.status = target_status
         lead.next_action = next_action_text
         lead.next_followup_at = scheduled_at
+        if remark:
+            lead.remark = remark[:500]
         lead.save()
 
         # Write history and activity
@@ -90,6 +94,7 @@ class SurveyViewSet(viewsets.ModelViewSet):
             new_status=target_status,
             changed_by=request.user,
             note=notes or f"Survey booked for {scheduled_at.strftime('%Y-%m-%d %H:%M')}",
+            remark=remark[:500],
         )
 
         outcome_obj = Outcome.objects.filter(stage=Outcome.Stage.SURVEY, name__icontains='Survey booked').first()
@@ -98,6 +103,7 @@ class SurveyViewSet(viewsets.ModelViewSet):
             type=Activity.Type.VISIT,
             outcome=outcome_obj,
             notes=notes or f"Survey booked for {scheduled_at.strftime('%Y-%m-%d %H:%M')}",
+            remark=remark[:500],
             status_after=target_status,
             next_action=next_action_text,
             next_followup_at=scheduled_at,
@@ -115,12 +121,15 @@ class SurveyViewSet(viewsets.ModelViewSet):
 
         scheduled_at = serializer.validated_data['scheduled_at']
         notes = serializer.validated_data.get('notes', '')
+        remark = serializer.validated_data.get('remark', '') or notes
 
         survey.reschedule_count += 1
         survey.scheduled_at = scheduled_at
         survey.status = Survey.Status.RESCHEDULED
         if notes:
             survey.notes = f"{survey.notes}\n[Rescheduled]: {notes}".strip()
+        if remark:
+            survey.remark = remark[:500]
         survey.save()
 
         lead = survey.lead
@@ -131,6 +140,8 @@ class SurveyViewSet(viewsets.ModelViewSet):
         lead.status = target_status
         lead.next_action = next_action_text
         lead.next_followup_at = scheduled_at
+        if remark:
+            lead.remark = remark[:500]
         lead.save()
 
         LeadStatusHistory.objects.create(
@@ -139,6 +150,7 @@ class SurveyViewSet(viewsets.ModelViewSet):
             new_status=target_status,
             changed_by=request.user,
             note=notes or f"Survey rescheduled to {scheduled_at.strftime('%Y-%m-%d %H:%M')}",
+            remark=remark[:500],
         )
 
         outcome_obj = Outcome.objects.filter(stage=Outcome.Stage.SURVEY, name__icontains='reschedule').first()
@@ -147,6 +159,7 @@ class SurveyViewSet(viewsets.ModelViewSet):
             type=Activity.Type.VISIT,
             outcome=outcome_obj,
             notes=notes or f"Survey rescheduled (count: {survey.reschedule_count}) to {scheduled_at.strftime('%Y-%m-%d %H:%M')}",
+            remark=remark[:500],
             status_after=target_status,
             next_action=next_action_text,
             next_followup_at=scheduled_at,
@@ -160,10 +173,13 @@ class SurveyViewSet(viewsets.ModelViewSet):
     def mark_missed(self, request, pk=None):
         survey = self.get_object()
         notes = request.data.get('notes', '')
+        remark = request.data.get('remark', '') or notes
 
         survey.status = Survey.Status.MISSED
         if notes:
             survey.notes = f"{survey.notes}\n[Missed]: {notes}".strip()
+        if remark:
+            survey.remark = remark[:500]
         survey.save()
 
         lead = survey.lead
@@ -175,6 +191,8 @@ class SurveyViewSet(viewsets.ModelViewSet):
         lead.status = target_status
         lead.next_action = next_action_text
         lead.next_followup_at = next_followup
+        if remark:
+            lead.remark = remark[:500]
         lead.save()
 
         LeadStatusHistory.objects.create(
@@ -183,6 +201,7 @@ class SurveyViewSet(viewsets.ModelViewSet):
             new_status=target_status,
             changed_by=request.user,
             note=notes or "Customer not at site or not reachable on the day",
+            remark=remark[:500],
         )
 
         outcome_obj = Outcome.objects.filter(stage=Outcome.Stage.SURVEY, name__icontains='not at site').first()
@@ -191,6 +210,7 @@ class SurveyViewSet(viewsets.ModelViewSet):
             type=Activity.Type.VISIT,
             outcome=outcome_obj,
             notes=notes or "Survey marked missed: customer unreachable at site",
+            remark=remark[:500],
             status_after=target_status,
             next_action=next_action_text,
             next_followup_at=next_followup,
@@ -204,10 +224,13 @@ class SurveyViewSet(viewsets.ModelViewSet):
     def cancel_by_surveyor(self, request, pk=None):
         survey = self.get_object()
         notes = request.data.get('notes', '')
+        remark = request.data.get('remark', '') or notes
 
         survey.status = Survey.Status.RESCHEDULED
         if notes:
             survey.notes = f"{survey.notes}\n[Cancelled by surveyor]: {notes}".strip()
+        if remark:
+            survey.remark = remark[:500]
         survey.save()
 
         lead = survey.lead
@@ -219,6 +242,8 @@ class SurveyViewSet(viewsets.ModelViewSet):
         lead.status = target_status
         lead.next_action = next_action_text
         lead.next_followup_at = next_followup
+        if remark:
+            lead.remark = remark[:500]
         lead.save()
 
         LeadStatusHistory.objects.create(
@@ -227,6 +252,7 @@ class SurveyViewSet(viewsets.ModelViewSet):
             new_status=target_status,
             changed_by=request.user,
             note=notes or "Surveyor cancelled or delayed",
+            remark=remark[:500],
         )
 
         outcome_obj = Outcome.objects.filter(stage=Outcome.Stage.SURVEY, name__icontains='Surveyor cancels').first()
@@ -235,6 +261,7 @@ class SurveyViewSet(viewsets.ModelViewSet):
             type=Activity.Type.VISIT,
             outcome=outcome_obj,
             notes=notes or "Surveyor cancelled/delayed, reschedule needed",
+            remark=remark[:500],
             status_after=target_status,
             next_action=next_action_text,
             next_followup_at=next_followup,
@@ -252,12 +279,15 @@ class SurveyViewSet(viewsets.ModelViewSet):
 
         site_suitable = serializer.validated_data['site_suitable']
         notes = serializer.validated_data.get('notes', '')
+        remark = serializer.validated_data.get('remark', '') or notes
         lost_reason_id = serializer.validated_data.get('lost_reason_id')
 
         survey.status = Survey.Status.DONE
         survey.site_suitable = site_suitable
         if notes:
             survey.notes = f"{survey.notes}\n[Completed]: {notes}".strip()
+        if remark:
+            survey.remark = remark[:500]
         survey.save()
 
         lead = survey.lead
@@ -288,6 +318,8 @@ class SurveyViewSet(viewsets.ModelViewSet):
         lead.status = target_status
         lead.next_action = next_action_text
         lead.next_followup_at = next_followup
+        if remark:
+            lead.remark = remark[:500]
         lead.save()
 
         LeadStatusHistory.objects.create(
@@ -296,6 +328,7 @@ class SurveyViewSet(viewsets.ModelViewSet):
             new_status=target_status,
             changed_by=request.user,
             note=notes or f"Survey marked done (Site suitable: {site_suitable})",
+            remark=remark[:500],
         )
 
         Activity.objects.create(
@@ -303,6 +336,7 @@ class SurveyViewSet(viewsets.ModelViewSet):
             type=Activity.Type.VISIT,
             outcome=outcome_obj,
             notes=notes or f"Survey completed. Site suitable: {site_suitable}",
+            remark=remark[:500],
             status_after=target_status,
             next_action=next_action_text,
             next_followup_at=next_followup,

@@ -17,6 +17,7 @@ export const BookSurveyModal: React.FC<BookSurveyModalProps> = ({ opened, onClos
   const [scheduledAt, setScheduledAt] = useState('');
   const [surveyorId, setSurveyorId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  const [remark, setRemark] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const { data: users = [] } = useQuery<User[]>({
@@ -35,6 +36,7 @@ export const BookSurveyModal: React.FC<BookSurveyModalProps> = ({ opened, onClos
         scheduled_at: new Date(scheduledAt).toISOString(),
         surveyor_id: surveyorId ? Number(surveyorId) : undefined,
         notes: notes.trim(),
+        remark: remark.trim() || undefined,
       });
     },
     onSuccess: () => {
@@ -119,9 +121,17 @@ export const BookSurveyModal: React.FC<BookSurveyModalProps> = ({ opened, onClos
           <Textarea
             label="Survey Instructions / Site Notes"
             placeholder="e.g. Call before arriving, key with neighbor, check roof shadow from adjacent water tank"
-            rows={3}
+            rows={2}
             value={notes}
             onChange={(e) => setNotes(e.currentTarget.value)}
+          />
+
+          <TextInput
+            label="Optional Remark (max 500 chars)"
+            placeholder="e.g. Call customer at 9 AM to confirm gate entry"
+            maxLength={500}
+            value={remark}
+            onChange={(e) => setRemark(e.currentTarget.value)}
           />
 
           <Group justify="flex-end" mt="md">

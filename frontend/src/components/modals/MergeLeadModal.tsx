@@ -21,6 +21,7 @@ export const MergeLeadModal: React.FC<MergeLeadModalProps> = ({
   const queryClient = useQueryClient();
   const [targetLeadId, setTargetLeadId] = useState<string | null>(null);
   const [note, setNote] = useState('');
+  const [remark, setRemark] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const { data: leadsData } = useQuery<{ results: Lead[]; count: number }>({
@@ -37,7 +38,7 @@ export const MergeLeadModal: React.FC<MergeLeadModalProps> = ({
     mutationFn: () => {
       if (!duplicateLead) throw new Error('No duplicate lead selected');
       if (!targetLeadId) throw new Error('Please select primary lead');
-      return mergeLead(duplicateLead.id, Number(targetLeadId), note.trim());
+      return mergeLead(duplicateLead.id, Number(targetLeadId), note.trim(), remark.trim() || undefined);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
@@ -119,6 +120,15 @@ export const MergeLeadModal: React.FC<MergeLeadModalProps> = ({
             rows={2}
             value={note}
             onChange={(e) => setNote(e.currentTarget.value)}
+          />
+
+          <Textarea
+            label="Optional Remark"
+            placeholder="Additional internal remark (max 500 chars)"
+            rows={2}
+            maxLength={500}
+            value={remark}
+            onChange={(e) => setRemark(e.currentTarget.value)}
           />
 
           <Group justify="flex-end" mt="md">

@@ -15,6 +15,9 @@ import type {
   Notification,
   MessageTemplate,
   HealthResponse,
+  ImportBatch,
+  CsvPreviewResponse,
+  CsvImportResponse,
 } from './types';
 
 const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -184,6 +187,7 @@ export const logActivity = async (leadId: number, data: {
   type: string;
   outcome_id?: number | null;
   notes?: string;
+  remark?: string;
   status?: string;
   next_action?: string;
   next_followup_at?: string | null;
@@ -194,19 +198,69 @@ export const logActivity = async (leadId: number, data: {
   return res.data;
 };
 
-export const mergeLead = async (duplicateId: number, targetLeadId: number, note?: string): Promise<any> => {
+export const addRemark = async (leadId: number, remark: string): Promise<{ message: string; activity: any; lead: Lead }> => {
+  const res = await apiClient.post(`/api/leads/${leadId}/add-remark/`, { remark });
+  return res.data;
+};
+
+export const mergeLead = async (duplicateId: number, targetLeadId: number, note?: string, remark?: string): Promise<any> => {
   const res = await apiClient.post(`/api/leads/${duplicateId}/merge/`, {
     target_lead_id: targetLeadId,
     note: note || '',
+    remark: remark || '',
   });
   return res.data;
 };
 
-export const importCsvLeads = async (formData: FormData): Promise<{ created_count: number; error_count: number; errors: Array<{ row: number; error: string }> }> => {
-  const res = await apiClient.post('/api/leads/import-csv/', formData, {
+export const bulkActionLeads = async (payload: {
+  lead_ids: number[];
+  action: 'assign' | 'change_source';
+  value: number;
+  remark?: string;
+}): Promise<{ message: string; updated_count: number }> => {
+  const res = await apiClient.post('/api/leads/bulk-action/', payload);
+  return res.data;
+};
+
+// CSV Import & Export
+export const previewCsv = async (file: File): Promise<CsvPreviewResponse> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await apiClient.post<CsvPreviewResponse>('/api/leads/preview-csv/', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return res.data;
+};
+
+export const importCsvLeads = async (formData: FormData): Promise<CsvImportResponse> => {
+  const res = await apiClient.post<CsvImportResponse>('/api/leads/import-csv/', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return res.data;
+};
+
+export const fetchImportBatches = async (): Promise<ImportBatch[]> => {
+  const res = await apiClient.get<any>('/api/import-batches/');
+  return Array.isArray(res.data) ? res.data : (res.data.results || []);
+};
+
+export const undoImportBatch = async (batchId: number): Promise<{ message: string; deleted_count: number; batch: ImportBatch }> => {
+  const res = await apiClient.post(`/api/import-batches/${batchId}/undo/`);
+  return res.data;
+};
+
+export const downloadSampleCsv = (): void => {
+  window.open(`${API_BASE_URL}/api/leads/import-sample-csv/`, '_blank');
+};
+
+export const downloadFailedRowsCsv = (batchId: number): void => {
+  window.open(`${API_BASE_URL}/api/import-batches/${batchId}/failed-rows-csv/`, '_blank');
+};
+
+export const exportLeadsCsv = (params?: Record<string, any>): void => {
+  const queryStr = params ? new URLSearchParams(params).toString() : '';
+  const url = `${API_BASE_URL}/api/leads/export-csv/${queryStr ? '?' + queryStr : ''}`;
+  window.open(url, '_blank');
 };
 
 export const fetchOutcomes = async (stage?: string): Promise<Outcome[]> => {
@@ -251,27 +305,33 @@ export const bookSurvey = async (data: {
   scheduled_at: string;
   surveyor_id?: number | null;
   notes?: string;
+  remark?: string;
 }): Promise<Survey> => {
   const res = await apiClient.post<Survey>('/api/surveys/book/', data);
   return res.data;
 };
 
-export const rescheduleSurvey = async (id: number, data: { scheduled_at: string; notes?: string }): Promise<Survey> => {
+export const rescheduleSurvey = async (id: number, data: { scheduled_at: string; notes?: string; remark?: string }): Promise<Survey> => {
   const res = await apiClient.post<Survey>(`/api/surveys/${id}/reschedule/`, data);
   return res.data;
 };
 
-export const markSurveyMissed = async (id: number, notes?: string): Promise<Survey> => {
-  const res = await apiClient.post<Survey>(`/api/surveys/${id}/mark-missed/`, { notes: notes || '' });
+export const markSurveyMissed = async (id: number, notes?: string, remark?: string): Promise<Survey> => {
+  const res = await apiClient.post<Survey>(`/api/surveys/${id}/mark-missed/`, { notes: notes || '', remark: remark || '' });
   return res.data;
 };
 
-export const cancelSurveyBySurveyor = async (id: number, notes?: string): Promise<Survey> => {
-  const res = await apiClient.post<Survey>(`/api/surveys/${id}/cancel-by-surveyor/`, { notes: notes || '' });
+export const cancelSurveyBySurveyor = async (id: number, notes?: string, remark?: string): Promise<Survey> => {
+  const res = await apiClient.post<Survey>(`/api/surveys/${id}/cancel-by-surveyor/`, { notes: notes || '', remark: remark || '' });
   return res.data;
 };
 
-export const markSurveyDone = async (id: number, data: { site_suitable: boolean; notes?: string; lost_reason_id?: number | null }): Promise<Survey> => {
+export const markSurveyDone = async (id: number, data: {
+  site_suitable: boolean;
+  notes?: string;
+  remark?: string;
+  lost_reason_id?: number | null;
+}): Promise<Survey> => {
   const res = await apiClient.post<Survey>(`/api/surveys/${id}/mark-done/`, data);
   return res.data;
 };
@@ -288,13 +348,14 @@ export const createQuote = async (data: {
   price: number;
   subsidy_amount?: number | null;
   notes?: string;
+  remark?: string;
 }): Promise<Quote> => {
   const res = await apiClient.post<Quote>('/api/quotes/', data);
   return res.data;
 };
 
-export const markQuoteSent = async (id: number, notes?: string): Promise<Quote> => {
-  const res = await apiClient.post<Quote>(`/api/quotes/${id}/mark-sent/`, { notes: notes || '' });
+export const markQuoteSent = async (id: number, notes?: string, remark?: string): Promise<Quote> => {
+  const res = await apiClient.post<Quote>(`/api/quotes/${id}/mark-sent/`, { notes: notes || '', remark: remark || '' });
   return res.data;
 };
 
@@ -304,18 +365,19 @@ export const reviseQuote = async (id: number, data: {
   price: number;
   subsidy_amount?: number | null;
   notes?: string;
+  remark?: string;
 }): Promise<Quote> => {
   const res = await apiClient.post<Quote>(`/api/quotes/${id}/revise/`, data);
   return res.data;
 };
 
-export const acceptQuote = async (id: number, notes?: string): Promise<Quote> => {
-  const res = await apiClient.post<Quote>(`/api/quotes/${id}/accept/`, { notes: notes || '' });
+export const acceptQuote = async (id: number, notes?: string, remark?: string): Promise<Quote> => {
+  const res = await apiClient.post<Quote>(`/api/quotes/${id}/accept/`, { notes: notes || '', remark: remark || '' });
   return res.data;
 };
 
-export const rejectQuote = async (id: number, lost_reason_id: number, notes?: string): Promise<Quote> => {
-  const res = await apiClient.post<Quote>(`/api/quotes/${id}/reject/`, { lost_reason_id, notes: notes || '' });
+export const rejectQuote = async (id: number, lost_reason_id: number, notes?: string, remark?: string): Promise<Quote> => {
+  const res = await apiClient.post<Quote>(`/api/quotes/${id}/reject/`, { lost_reason_id, notes: notes || '', remark: remark || '' });
   return res.data;
 };
 

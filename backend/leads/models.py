@@ -2,6 +2,42 @@ from django.conf import settings
 from django.db import models
 
 
+class ImportBatch(models.Model):
+    file_name = models.CharField(max_length=255)
+    imported_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='import_batches',
+    )
+    imported_at = models.DateTimeField(auto_now_add=True)
+    total_rows = models.PositiveIntegerField(default=0)
+    imported_count = models.PositiveIntegerField(default=0)
+    skipped_count = models.PositiveIntegerField(default=0)
+    duplicate_count = models.PositiveIntegerField(default=0)
+    failed_count = models.PositiveIntegerField(default=0)
+    is_reverted = models.BooleanField(default=False)
+    reverted_at = models.DateTimeField(null=True, blank=True)
+    reverted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reverted_batches',
+    )
+    failed_rows_json = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ['-imported_at']
+        verbose_name = 'Import Batch'
+        verbose_name_plural = 'Import Batches'
+
+    def __str__(self) -> str:
+        status_str = "Reverted" if self.is_reverted else f"{self.imported_count} imported"
+        return f"Batch #{self.id} ({self.file_name}) - {status_str}"
+
+
 class Lead(models.Model):
     class Status(models.TextChoices):
         NEW = 'New', 'New'
@@ -83,6 +119,14 @@ class Lead(models.Model):
     do_not_contact = models.BooleanField(default=False)
     attempt_count = models.PositiveIntegerField(default=0)
     won_at = models.DateTimeField(null=True, blank=True)
+    import_batch = models.ForeignKey(
+        ImportBatch,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='leads',
+    )
+    remark = models.CharField(max_length=500, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -93,6 +137,7 @@ class Lead(models.Model):
             models.Index(fields=['next_followup_at']),
             models.Index(fields=['assigned_to']),
             models.Index(fields=['phone']),
+            models.Index(fields=['import_batch']),
         ]
         verbose_name = 'Lead'
         verbose_name_plural = 'Leads'
@@ -118,6 +163,7 @@ class LeadStatusHistory(models.Model):
     )
     changed_at = models.DateTimeField(auto_now_add=True)
     note = models.TextField(blank=True)
+    remark = models.CharField(max_length=500, blank=True, default='')
 
     class Meta:
         ordering = ['-changed_at']

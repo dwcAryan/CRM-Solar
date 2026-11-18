@@ -16,6 +16,7 @@ import { LeadsListPage } from './pages/LeadsListPage';
 import { LeadDetailPage } from './pages/LeadDetailPage';
 import { SurveysPage } from './pages/SurveysPage';
 import { QuotesPage } from './pages/QuotesPage';
+import { ImportLeadsPage } from './pages/ImportLeadsPage';
 import { AdminPage } from './pages/AdminPage';
 import { HealthPage } from './pages/HealthPage';
 
@@ -56,6 +57,7 @@ export const App: React.FC = () => {
                 <Route path="/today" element={<TodayPage />} />
                 <Route path="/leads" element={<LeadsListPage />} />
                 <Route path="/leads/:id" element={<LeadDetailPage />} />
+                <Route path="/import-leads" element={<ImportLeadsPage />} />
                 <Route path="/surveys" element={<SurveysPage />} />
                 <Route path="/quotes" element={<QuotesPage />} />
                 <Route
