@@ -10,8 +10,8 @@ export default defineConfig({
   testDir,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: 0,
-  workers: 1,
+  retries: 1,
+  workers: 4,
   reporter: 'list',
   use: {
     baseURL: 'http://localhost:5173',
@@ -29,19 +29,18 @@ export default defineConfig({
       testMatch: /.*\.setup\.ts/,
     },
     {
-      name: 'unauthenticated',
-      testMatch: /.*(login_clean|language_option)\.spec\.ts/,
+      name: 'desktop-chrome',
+      dependencies: ['setup'],
       use: {
         ...devices['Desktop Chrome'],
       },
     },
     {
-      name: 'smoke',
-      testMatch: /.*\.spec\.ts/,
-      testIgnore: /.*(login_clean|language_option)\.spec\.ts/,
+      name: 'mobile-390',
       dependencies: ['setup'],
       use: {
-        ...devices['Desktop Chrome'],
+        viewport: { width: 390, height: 844 },
+        isMobile: true,
       },
     },
   ],

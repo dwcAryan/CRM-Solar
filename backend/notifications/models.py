@@ -146,3 +146,47 @@ class EmailLog(models.Model):
     def __str__(self) -> str:
         return f"[{self.status.upper()}] {self.template} -> {self.to} ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
 
+
+class EmailOutbox(models.Model):
+    """
+    Dedicated asynchronous email queue with exponential backoff, rate limiting,
+    and deduplication via idempotency keys (Phase 14M).
+    """
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        SENT = 'sent', 'Sent'
+        FAILED = 'failed', 'Failed'
+
+    to = models.EmailField(max_length=255)
+    subject = models.CharField(max_length=255)
+    template_name = models.CharField(max_length=100)
+    context_json = models.JSONField(default=dict, blank=True)
+    language = models.CharField(max_length=10, default='en')
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True)
+    attempts = models.PositiveIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_error = models.TextField(blank=True, default='')
+    idempotency_key = models.CharField(max_length=255, null=True, blank=True, unique=True, db_index=True)
+    related_lead = models.ForeignKey(
+        'leads.Lead',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='email_outbox_items',
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['status', 'next_attempt_at']),
+            models.Index(fields=['created_at']),
+        ]
+        verbose_name = 'Email Outbox'
+        verbose_name_plural = 'Email Outbox'
+
+    def __str__(self) -> str:
+        return f"[{self.status.upper()}] {self.template_name} -> {self.to} (attempts={self.attempts})"
+
+

@@ -1,4 +1,4 @@
-import defusedcsv
+import defusedcsv.csv as defusedcsv
 import io
 import json
 import re

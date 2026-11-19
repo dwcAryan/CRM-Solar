@@ -175,12 +175,17 @@ class LeadSerializer(serializers.ModelSerializer):
             return disp or obj.alt_phone_e164
         return obj.alt_phone or ""
 
+    def _get_calling_hours_eval(self, obj):
+        if not hasattr(obj, '_calling_hours_eval'):
+            obj._calling_hours_eval = check_calling_hours(obj)
+        return obj._calling_hours_eval
+
     def get_is_within_calling_hours(self, obj) -> bool:
-        allowed, _ = check_calling_hours(obj)
+        allowed, _ = self._get_calling_hours_eval(obj)
         return allowed
 
     def get_calling_hours_reason(self, obj) -> str:
-        _, reason = check_calling_hours(obj)
+        _, reason = self._get_calling_hours_eval(obj)
         return reason
 
     def to_representation(self, instance):
@@ -345,11 +350,21 @@ class AddRemarkInputSerializer(serializers.Serializer):
 class BulkActionSerializer(serializers.Serializer):
     lead_ids = serializers.ListField(
         child=serializers.IntegerField(),
-        allow_empty=False,
+        allow_empty=True,
+        required=False,
+        default=list,
     )
-    action = serializers.ChoiceField(choices=['assign', 'change_source'])
-    value = serializers.IntegerField(required=True)
+    select_all_matching = serializers.BooleanField(required=False, default=False)
+    action = serializers.ChoiceField(choices=['assign', 'change_source', 'add_remark'])
+    value = serializers.IntegerField(required=False, allow_null=True, default=None)
     remark = serializers.CharField(max_length=500, required=False, allow_blank=True, default='')
+
+    def validate(self, attrs):
+        if not attrs.get('select_all_matching') and not attrs.get('lead_ids'):
+            raise serializers.ValidationError("Either 'lead_ids' must be non-empty or 'select_all_matching' must be True.")
+        if attrs.get('action') in ['assign', 'change_source'] and attrs.get('value') is None:
+            raise serializers.ValidationError({"value": f"A value is required for action '{attrs.get('action')}'."})
+        return attrs
 
 
 class ImportBatchSerializer(serializers.ModelSerializer):

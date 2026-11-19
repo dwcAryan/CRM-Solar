@@ -229,7 +229,7 @@ from corsheaders.defaults import default_headers
 
 CORS_ALLOWED_ORIGINS = [
     origin.strip()
-    for origin in os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173').split(',')
+    for origin in os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174').split(',')
     if origin.strip()
 ]
 CORS_ALLOW_CREDENTIALS = True
@@ -237,6 +237,10 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     'x-app-language',
     'accept-language',
 ]
+CORS_EXPOSE_HEADERS = [
+    'content-disposition',
+]
+CORS_PREFLIGHT_MAX_AGE = 60 if DEBUG else 86400
 
 # Django REST Framework
 REST_FRAMEWORK = {
@@ -252,6 +256,8 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ),
+    'DEFAULT_PAGINATION_CLASS': 'leads.pagination.StandardResultsSetPagination',
+    'PAGE_SIZE': 25,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',

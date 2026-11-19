@@ -476,6 +476,25 @@ security_privacy:
 - अनधिकृत पहुंच रोकने के सुरक्षा उपाय
 - सिस्टम डेटा बैकअप और ऑडिट ट्रेल
 - सीआरएम सुरक्षा मानक और गोपनीयता नियंत्रण
+date_filter:
+- How to filter leads by date?
+- How do I filter leads by date range?
+- Can I filter leads by created date or next follow up date?
+- How to use the date range filter on leads?
+- Date filter kaise use karein?
+- Tarikh ke anusar leads ko filter kaise karein?
+- Show me leads created this month or last month
+- How do date presets like Today and Yesterday work?
+- Can I filter by last activity date or won date?
+- Filter leads by from date and to date
+- How does the date range filter work on mobile?
+- तारीख के अनुसार लीड्स को कैसे फ़िल्टर करें?
+- क्या मैं निर्माण तिथि या फॉलो-अप तिथि के अनुसार लीड्स खोज सकता हूँ?
+- डेट रेंज फ़िल्टर का उपयोग कैसे करें?
+- पिछले महीने या आज बनी लीड्स को फ़िल्टर कैसे करें?
+- फ़िल्टर की गई लीड्स को सीएसवी में कैसे निर्यात करें?
+- क्या तारीख की सीमाएं उपयोगकर्ता के समय क्षेत्र में काम करती हैं?
+- फॉलो-अप तारीख और अंतिम गतिविधि के अनुसार खोज कैसे करें?
 out_of_scope:
 - Tell me a joke
 - What is the weather in Melbourne today?

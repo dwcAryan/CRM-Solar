@@ -269,10 +269,28 @@ export const downloadFailedRowsCsv = (batchId: number): void => {
   window.open(`${API_BASE_URL}/api/import-batches/${batchId}/failed-rows-csv/`, '_blank');
 };
 
-export const exportLeadsCsv = (params?: Record<string, any>): void => {
-  const queryStr = params ? new URLSearchParams(params).toString() : '';
-  const url = `${API_BASE_URL}/api/leads/export-csv/${queryStr ? '?' + queryStr : ''}`;
-  window.open(url, '_blank');
+export const exportLeadsCsv = async (params?: Record<string, any>): Promise<void> => {
+  const res = await apiClient.get('/api/leads/export-csv/', {
+    params,
+    responseType: 'blob',
+  });
+  const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8;' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const disposition = res.headers['content-disposition'];
+  let filename = 'leads_export.csv';
+  if (disposition) {
+    const match = disposition.match(/filename\*?=['"]?(?:UTF-\d['"]*)?([^;\r\n"']*)['"]?/i);
+    if (match && match[1]) {
+      filename = decodeURIComponent(match[1]);
+    }
+  }
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
 };
 
 export const fetchOutcomes = async (stage?: string): Promise<Outcome[]> => {

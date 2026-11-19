@@ -1,4 +1,4 @@
-import defusedcsv
+import defusedcsv.csv as defusedcsv
 import json
 import logging
 from datetime import timedelta
@@ -26,6 +26,7 @@ from activities.serializers import ActivitySerializer
 from ai_assist.service import get_or_generate_ai_suggestion
 from masters.models import LeadSource
 
+from .filters import LeadFilterSet, LeadDateFilterMixin
 from .import_service import (
     auto_match_headers,
     execute_csv_import,
@@ -54,6 +55,7 @@ from .serializers import (
     MergeLeadInputSerializer,
     PrivacyCorrectInputSerializer,
 )
+from .pagination import StandardResultsSetPagination
 from .services import process_log_activity
 
 
@@ -70,8 +72,11 @@ logger = logging.getLogger(__name__)
 
 
 class LeadViewSet(viewsets.ModelViewSet):
-    queryset = Lead.objects.all().select_related('source', 'assigned_to', 'lost_reason', 'nurture_reason', 'region')
+    queryset = Lead.objects.all().select_related(
+        'source', 'assigned_to', 'lost_reason', 'nurture_reason', 'region'
+    ).prefetch_related('status_history')
     serializer_class = LeadSerializer
+    pagination_class = StandardResultsSetPagination
     permission_classes = [LeadPermission]
     permission_map = {
         'list': 'lead.view',
@@ -104,9 +109,9 @@ class LeadViewSet(viewsets.ModelViewSet):
         'add_remark': 'lead.bulk_action',
     }
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['status', 'assigned_to', 'source', 'city', 'state', 'region', 'consent_status', 'dncr_status', 'do_not_contact', 'property_type']
-    search_fields = ['name', 'phone', 'alt_phone', 'phone_e164', 'alt_phone_e164', 'email', 'city', 'suburb', 'postcode', 'pincode']
-    ordering_fields = ['created_at', 'updated_at', 'next_followup_at', 'name', 'status']
+    filterset_class = LeadFilterSet
+    search_fields = ['name', 'phone', 'email', 'city', 'suburb', 'postcode', 'pincode']
+    ordering_fields = ['created_at', 'updated_at', 'next_followup_at', 'last_activity_at', 'won_at', 'name', 'status']
 
     def get_queryset(self):
         user = self.request.user
@@ -156,48 +161,6 @@ class LeadViewSet(viewsets.ModelViewSet):
             qs = qs.filter(status='Interested')
         elif tab == 'quote_sent':
             qs = qs.filter(status='Quote sent')
-
-        # Safe Whitelisted Date Filtering
-        date_from = self.request.query_params.get('date_from')
-        date_to = self.request.query_params.get('date_to')
-        date_field = self.request.query_params.get('date_field', 'created_at')
-
-        if date_from or date_to:
-            WHITELISTED_DATE_FIELDS = {'created_at', 'updated_at', 'next_followup_at', 'won_at', 'deleted_at'}
-            if date_field not in WHITELISTED_DATE_FIELDS:
-                from rest_framework.exceptions import ValidationError as DRFValidationError
-                raise DRFValidationError(f"Invalid date_field '{date_field}'. Permitted fields: {sorted(WHITELISTED_DATE_FIELDS)}")
-
-            import datetime
-            from django.utils.dateparse import parse_date, parse_datetime
-
-            if date_from:
-                parsed_from = parse_datetime(date_from) or parse_date(date_from)
-                if not parsed_from:
-                    from rest_framework.exceptions import ValidationError as DRFValidationError
-                    raise DRFValidationError("Invalid 'date_from' format. Use ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ).")
-                if isinstance(parsed_from, datetime.date) and not isinstance(parsed_from, datetime.datetime):
-                    parsed_from = timezone.make_aware(datetime.datetime.combine(parsed_from, datetime.time.min))
-                elif timezone.is_naive(parsed_from):
-                    parsed_from = timezone.make_aware(parsed_from)
-                if parsed_from.year < 1900 or parsed_from.year > 2100:
-                    from rest_framework.exceptions import ValidationError as DRFValidationError
-                    raise DRFValidationError("date_from year out of range (1900-2100).")
-                qs = qs.filter(**{f"{date_field}__gte": parsed_from})
-
-            if date_to:
-                parsed_to = parse_datetime(date_to) or parse_date(date_to)
-                if not parsed_to:
-                    from rest_framework.exceptions import ValidationError as DRFValidationError
-                    raise DRFValidationError("Invalid 'date_to' format. Use ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ).")
-                if isinstance(parsed_to, datetime.date) and not isinstance(parsed_to, datetime.datetime):
-                    parsed_to = timezone.make_aware(datetime.datetime.combine(parsed_to, datetime.time.max))
-                elif timezone.is_naive(parsed_to):
-                    parsed_to = timezone.make_aware(parsed_to)
-                if parsed_to.year < 1900 or parsed_to.year > 2100:
-                    from rest_framework.exceptions import ValidationError as DRFValidationError
-                    raise DRFValidationError("date_to year out of range (1900-2100).")
-                qs = qs.filter(**{f"{date_field}__lte": parsed_to})
 
         return qs
 
@@ -462,6 +425,11 @@ class LeadViewSet(viewsets.ModelViewSet):
             Q(next_followup_at__lt=end_of_today) & Q(next_followup_at__isnull=False)
         ).order_by('next_followup_at')
 
+        page = self.paginate_queryset(due_today_or_overdue)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
         serializer = LeadSerializer(due_today_or_overdue, many=True, context={'request': request})
         return Response(serializer.data)
 
@@ -643,9 +611,15 @@ class LeadViewSet(viewsets.ModelViewSet):
         if not can(request.user, 'lead.unassigned_queue'):
             return Response({"error": "You do not have permission to access the unassigned leads queue."}, status=status.HTTP_403_FORBIDDEN)
 
-        qs = Lead.objects.filter(assigned_to__isnull=True, is_deleted=False)
+        qs = Lead.objects.filter(assigned_to__isnull=True, is_deleted=False).select_related(
+            'source', 'assigned_to', 'lost_reason', 'nurture_reason', 'region'
+        ).prefetch_related('status_history')
         if not request.user.is_superuser:
             qs = qs.filter(region__in=request.user.allowed_regions.all())
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
         serializer = LeadSerializer(qs, many=True, context={'request': request})
         return Response(serializer.data)
 
@@ -654,9 +628,15 @@ class LeadViewSet(viewsets.ModelViewSet):
         if not can(request.user, 'lead.lost_approval'):
             return Response({"error": "You do not have permission to view Lost approvals."}, status=status.HTTP_403_FORBIDDEN)
 
-        qs = Lead.objects.filter(status=Lead.Status.LOST_APPROVAL_PENDING, is_deleted=False)
+        qs = Lead.objects.filter(status=Lead.Status.LOST_APPROVAL_PENDING, is_deleted=False).select_related(
+            'source', 'assigned_to', 'lost_reason', 'nurture_reason', 'region'
+        ).prefetch_related('status_history')
         if not request.user.is_superuser:
             qs = qs.filter(region__in=request.user.allowed_regions.all())
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
         serializer = LeadSerializer(qs, many=True, context={'request': request})
         return Response(serializer.data)
 
@@ -1086,9 +1066,10 @@ class LeadViewSet(viewsets.ModelViewSet):
         serializer = BulkActionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        lead_ids = serializer.validated_data['lead_ids']
+        select_all_matching = serializer.validated_data.get('select_all_matching', False)
+        lead_ids = serializer.validated_data.get('lead_ids', [])
         action_name = serializer.validated_data['action']
-        value = serializer.validated_data['value']
+        value = serializer.validated_data.get('value')
         remark = serializer.validated_data.get('remark', '')
 
         user = request.user
@@ -1102,7 +1083,11 @@ class LeadViewSet(viewsets.ModelViewSet):
         if action_name == 'assign' and not can(user, 'lead.assign'):
             return Response({"error": "You do not have permission to assign leads."}, status=status.HTTP_403_FORBIDDEN)
 
-        qs = self.get_queryset().filter(id__in=lead_ids)
+        if select_all_matching:
+            qs = self.filter_queryset(self.get_queryset())
+        else:
+            qs = self.get_queryset().filter(id__in=lead_ids)
+
         if user.role == User.Role.SALESPERSON and not user.is_superuser:
             qs = qs.filter(assigned_to=user)
 
@@ -1196,7 +1181,8 @@ class LeadViewSet(viewsets.ModelViewSet):
         if fmt == 'pdf':
             pdf_bytes = generate_lead_dossier_pdf(lead)
             response = HttpResponse(pdf_bytes, content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename="privacy_dossier_lead_{lead.id}.pdf"'
+            from config.pdf_engine import format_rfc5987_content_disposition
+            response['Content-Disposition'] = format_rfc5987_content_disposition(f"privacy_dossier_{lead.name}_{lead.id}.pdf")
             response['Cache-Control'] = 'no-store, no-cache, must-revalidate, private'
             response['Pragma'] = 'no-cache'
             return response
@@ -1383,7 +1369,7 @@ class LeadViewSet(viewsets.ModelViewSet):
         ]
         writer.writerow(headers)
 
-        for lead in queryset.iterator():
+        for lead in queryset.iterator(chunk_size=1000):
             writer.writerow([
                 sanitize_csv_cell(lead.id),
                 sanitize_csv_cell(lead.name),
@@ -1539,7 +1525,9 @@ class DashboardView(APIView):
                 else:
                     qs = qs.filter(region__in=allowed)
             else:
-                qs = qs.none()
+                region_param = request.query_params.get('region')
+                if region_param:
+                    qs = qs.filter(region_id=region_param.upper().strip())
         else:
             region_param = request.query_params.get('region')
             if region_param:
@@ -1548,42 +1536,12 @@ class DashboardView(APIView):
         if user.role == User.Role.SALESPERSON and not user.is_superuser:
             qs = qs.filter(assigned_to=user)
 
-        # Safe Date Filtering on Dashboard
-        date_from = request.query_params.get('date_from')
-        date_to = request.query_params.get('date_to')
-        date_field = request.query_params.get('date_field', 'created_at')
-
-        if date_from or date_to:
-            WHITELISTED_DATE_FIELDS = {'created_at', 'updated_at', 'next_followup_at', 'won_at'}
-            if date_field not in WHITELISTED_DATE_FIELDS:
-                return Response({"error": f"Invalid date_field '{date_field}'."}, status=status.HTTP_400_BAD_REQUEST)
-
-            import datetime
-            from django.utils.dateparse import parse_date, parse_datetime
-
-            if date_from:
-                parsed_from = parse_datetime(date_from) or parse_date(date_from)
-                if not parsed_from:
-                    return Response({"error": "Invalid date_from format."}, status=status.HTTP_400_BAD_REQUEST)
-                if isinstance(parsed_from, datetime.date) and not isinstance(parsed_from, datetime.datetime):
-                    parsed_from = timezone.make_aware(datetime.datetime.combine(parsed_from, datetime.time.min))
-                elif timezone.is_naive(parsed_from):
-                    parsed_from = timezone.make_aware(parsed_from)
-                if parsed_from.year < 1900 or parsed_from.year > 2100:
-                    return Response({"error": "date_from year out of range."}, status=status.HTTP_400_BAD_REQUEST)
-                qs = qs.filter(**{f"{date_field}__gte": parsed_from})
-
-            if date_to:
-                parsed_to = parse_datetime(date_to) or parse_date(date_to)
-                if not parsed_to:
-                    return Response({"error": "Invalid date_to format."}, status=status.HTTP_400_BAD_REQUEST)
-                if isinstance(parsed_to, datetime.date) and not isinstance(parsed_to, datetime.datetime):
-                    parsed_to = timezone.make_aware(datetime.datetime.combine(parsed_to, datetime.time.max))
-                elif timezone.is_naive(parsed_to):
-                    parsed_to = timezone.make_aware(parsed_to)
-                if parsed_to.year < 1900 or parsed_to.year > 2100:
-                    return Response({"error": "date_to year out of range."}, status=status.HTTP_400_BAD_REQUEST)
-                qs = qs.filter(**{f"{date_field}__lte": parsed_to})
+        # Safe Date Filtering on Dashboard using shared LeadDateFilterMixin
+        try:
+            qs = LeadDateFilterMixin.apply_date_filter(request, qs)
+        except DRFValidationError as err:
+            err_data = err.detail if hasattr(err, 'detail') else {"error": str(err)}
+            return Response(err_data, status=status.HTTP_400_BAD_REQUEST)
 
         total_active_leads = qs.exclude(status__in=Lead.TERMINAL_STATUSES).count()
 

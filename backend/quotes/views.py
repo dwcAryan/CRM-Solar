@@ -377,3 +377,22 @@ class QuoteViewSet(viewsets.ModelViewSet):
         )
 
         return Response(QuoteSerializer(quote, context={'request': request}).data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'], url_path='pdf')
+    def pdf(self, request, pk=None):
+        """
+        Generates and securely serves an authenticated PDF quotation for this quote.
+        Protected by QuotePermission. Never exposed as a public static file in production.
+        """
+        quote = self.get_object()
+        from quotes.pdf_service import generate_quote_pdf
+        from config.pdf_engine import format_rfc5987_content_disposition
+        from django.http import HttpResponse
+
+        pdf_bytes = generate_quote_pdf(quote)
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        filename = f"quote_{quote.lead.name}_{quote.id}_v{quote.version}.pdf"
+        response['Content-Disposition'] = format_rfc5987_content_disposition(filename)
+        response['Cache-Control'] = 'no-store, no-cache, must-revalidate, private'
+        response['Pragma'] = 'no-cache'
+        return response

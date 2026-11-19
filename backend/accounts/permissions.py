@@ -498,7 +498,7 @@ class QuotePermission(DynamicRBACPermission):
     """Quote permission adapter implementing object checks via `can()`."""
     def get_perm_key(self, request, view):
         action = getattr(view, 'action', None)
-        if action in ['list', 'retrieve', 'versions']:
+        if action in ['list', 'retrieve', 'versions', 'pdf']:
             return 'quote.view'
         if action == 'create':
             return 'quote.create'

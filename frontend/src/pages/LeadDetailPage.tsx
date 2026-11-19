@@ -68,6 +68,7 @@ import { CreateQuoteModal } from '../components/modals/CreateQuoteModal';
 import { ReviseQuoteModal } from '../components/modals/ReviseQuoteModal';
 import { RejectQuoteModal } from '../components/modals/RejectQuoteModal';
 import { MergeLeadModal } from '../components/modals/MergeLeadModal';
+import { downloadPdfBlob } from '../utils/downloadPdf';
 import { AddRemarkModal } from '../components/modals/AddRemarkModal';
 import { ConfirmActionModal } from '../components/modals/ConfirmActionModal';
 import { AnonymizeLeadModal, PrivacyCorrectModal } from '../components/modals/PrivacyModals';
@@ -170,9 +171,17 @@ export const LeadDetailPage: React.FC = () => {
     }
   };
 
-  const handleExportDossier = (fmt: 'pdf' | 'json' = 'pdf') => {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-    window.open(`${baseUrl}/api/leads/${leadId}/privacy-export/?format=${fmt}`, '_blank');
+  const handleExportDossier = async (fmt: 'pdf' | 'json' = 'pdf') => {
+    if (fmt === 'pdf') {
+      try {
+        await downloadPdfBlob(`/api/leads/${leadId}/privacy-export/?format=pdf`, `privacy_dossier_${leadId}.pdf`);
+      } catch {
+        // error toast handled inside downloadPdfBlob
+      }
+    } else {
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      window.open(`${baseUrl}/api/leads/${leadId}/privacy-export/?format=${fmt}`, '_blank');
+    }
   };
 
   const deleteMutation = useMutation({
@@ -1039,6 +1048,15 @@ export const LeadDetailPage: React.FC = () => {
                                   </Button>
                                 </>
                               )}
+                              <Button
+                                size="xs"
+                                variant="light"
+                                color="gray"
+                                leftSection={<IconDownload size={12} />}
+                                onClick={() => downloadPdfBlob(`/api/quotes/${quote.id}/pdf/`, `quote_${quote.id}.pdf`)}
+                              >
+                                PDF
+                              </Button>
                             </Group>
                           </Table.Td>
                         </Table.Tr>

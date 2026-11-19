@@ -258,16 +258,25 @@ def remind_surveys_scheduled_tomorrow(
     }
 
 
+def run_outbox_queue_dispatch(limit: int = 30) -> int:
+    """Dispatches ready items in the EmailOutbox with rate limiting and exponential backoff."""
+    from notifications.outbox_service import process_outbox_batch
+    return process_outbox_batch(limit=limit)
+
+
 def run_hourly_scheduled_tasks(now: Optional[datetime.datetime] = None) -> Dict[str, Any]:
     """
     Master hourly task checking all users and leads across their individual timezones:
     - 09:00 local: Sends daily morning follow-up digests.
     - 18:00 local: Sends tomorrow survey reminders.
+    - Continuous/Hourly: Flushes email outbox queue.
     """
     curr = now or timezone.now()
     notifs = notify_salespersons_daily_followups(now=curr, force=False)
     survey_res = remind_surveys_scheduled_tomorrow(now=curr, force=False)
+    outbox_count = run_outbox_queue_dispatch(limit=30)
     return {
         'notifications_created': len(notifs),
         'survey_reminders': survey_res,
+        'outbox_dispatched': outbox_count,
     }

@@ -21,12 +21,14 @@ import {
   IconRefresh,
   IconCheck,
   IconFileCertificate,
+  IconDownload,
 } from '@tabler/icons-react';
 import { fetchQuotes, markQuoteSent, acceptQuote } from '../api/client';
 import { useTranslation } from 'react-i18next';
 import { translateStatus } from '../i18n/formatters';
 import { ReviseQuoteModal } from '../components/modals/ReviseQuoteModal';
 import { RejectQuoteModal } from '../components/modals/RejectQuoteModal';
+import { downloadPdfBlob } from '../utils/downloadPdf';
 import type { Quote } from '../api/types';
 
 export const QuotesPage: React.FC = () => {
@@ -266,6 +268,15 @@ export const QuotesPage: React.FC = () => {
                               </Button>
                             </>
                           )}
+                          <Button
+                            size="xs"
+                            variant="light"
+                            color="gray"
+                            leftSection={<IconDownload size={12} />}
+                            onClick={() => downloadPdfBlob(`/api/quotes/${quote.id}/pdf/`, `quote_${quote.id}.pdf`)}
+                          >
+                            PDF
+                          </Button>
                         </Group>
                       </Table.Td>
                     </Table.Tr>

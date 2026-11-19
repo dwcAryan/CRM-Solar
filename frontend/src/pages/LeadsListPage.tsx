@@ -34,7 +34,10 @@ import {
   IconDownload,
   IconAlertTriangle,
   IconClock,
+  IconFilterOff,
 } from '@tabler/icons-react';
+import dayjs from 'dayjs';
+import { DateRangeFilter, type DateFilterValue } from '../components/leads/DateRangeFilter';
 import {
   fetchLeads,
   fetchLeadSources,
@@ -62,12 +65,22 @@ export const LeadsListPage: React.FC = () => {
   // Search & Filter state
   const initialSearch = searchParams.get('search') || '';
   const initialTab = searchParams.get('tab') || 'all';
+  const initialDateField = (searchParams.get('date_field') as DateFilterValue['field']) || 'created_at';
+  const rawDateFrom = searchParams.get('date_from');
+  const rawDateTo = searchParams.get('date_to');
+  const initialDateFrom = rawDateFrom && dayjs(rawDateFrom).isValid() ? dayjs(rawDateFrom).toDate() : null;
+  const initialDateTo = rawDateTo && dayjs(rawDateTo).isValid() ? dayjs(rawDateTo).toDate() : null;
 
   const [search, setSearch] = useState(initialSearch);
   const [activeTab, setActiveTab] = useState<string>(initialTab);
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
-  const [sourceFilter, setSourceFilter] = useState<string | null>(null);
-  const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string | null>(searchParams.get('status'));
+  const [sourceFilter, setSourceFilter] = useState<string | null>(searchParams.get('source'));
+  const [assigneeFilter, setAssigneeFilter] = useState<string | null>(searchParams.get('assigned_to'));
+  const [dateFilter, setDateFilter] = useState<DateFilterValue>({
+    field: initialDateField,
+    from: initialDateFrom,
+    to: initialDateTo,
+  });
   const [page, setPage] = useState(1);
   const pageSize = 15;
 
@@ -81,6 +94,66 @@ export const LeadsListPage: React.FC = () => {
   const [outcomeModalOpen, setOutcomeModalOpen] = useState(false);
   const [remarkModalOpen, setRemarkModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+
+  const handleDateFilterChange = (newVal: DateFilterValue) => {
+    setDateFilter(newVal);
+    setPage(1);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (newVal.field && newVal.field !== 'created_at') {
+        next.set('date_field', newVal.field);
+      } else {
+        next.delete('date_field');
+      }
+      if (newVal.from) {
+        next.set('date_from', dayjs(newVal.from).format('YYYY-MM-DD'));
+      } else {
+        next.delete('date_from');
+      }
+      if (newVal.to) {
+        next.set('date_to', dayjs(newVal.to).format('YYYY-MM-DD'));
+      } else {
+        next.delete('date_to');
+      }
+      return next;
+    });
+  };
+
+  const handleClearDateFilter = () => {
+    handleDateFilterChange({
+      field: 'created_at',
+      from: null,
+      to: null,
+    });
+  };
+
+  const handleClearAllFilters = () => {
+    setSearch('');
+    setStatusFilter(null);
+    setSourceFilter(null);
+    setAssigneeFilter(null);
+    setDateFilter({
+      field: 'created_at',
+      from: null,
+      to: null,
+    });
+    setPage(1);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams();
+      const tab = prev.get('tab');
+      if (tab) next.set('tab', tab);
+      return next;
+    });
+  };
+
+  const hasActiveFilters = Boolean(
+    search.trim() ||
+    statusFilter ||
+    sourceFilter ||
+    assigneeFilter ||
+    dateFilter.from ||
+    dateFilter.to
+  );
 
   // Sync search param when updated from global search
   React.useEffect(() => {
@@ -112,6 +185,9 @@ export const LeadsListPage: React.FC = () => {
   if (sourceFilter) queryParams.source = sourceFilter;
   if (assigneeFilter) queryParams.assigned_to = assigneeFilter;
   if (selectedRegion) queryParams.region = selectedRegion;
+  if (dateFilter.field) queryParams.date_field = dateFilter.field;
+  if (dateFilter.from) queryParams.date_from = dayjs(dateFilter.from).format('YYYY-MM-DD');
+  if (dateFilter.to) queryParams.date_to = dayjs(dateFilter.to).format('YYYY-MM-DD');
 
   const { data: leadsData, isLoading, refetch } = useQuery<{ results: Lead[]; count: number }>({
     queryKey: ['leads', queryParams, selectedRegion],
@@ -163,6 +239,9 @@ export const LeadsListPage: React.FC = () => {
     if (statusFilter) exportParams.status = statusFilter;
     if (sourceFilter) exportParams.source = sourceFilter;
     if (assigneeFilter) exportParams.assigned_to = assigneeFilter;
+    if (dateFilter.field) exportParams.date_field = dateFilter.field;
+    if (dateFilter.from) exportParams.date_from = dayjs(dateFilter.from).format('YYYY-MM-DD');
+    if (dateFilter.to) exportParams.date_to = dayjs(dateFilter.to).format('YYYY-MM-DD');
     exportLeadsCsv(exportParams);
   };
 
@@ -291,76 +370,98 @@ export const LeadsListPage: React.FC = () => {
 
         {/* Filters Bar */}
         <Paper p="sm" withBorder radius="md">
-          <Group gap="sm" wrap="wrap">
-            <TextInput
-              placeholder={t('filters.search_placeholder', 'Search by name, phone or city...')}
-              leftSection={<IconSearch size={16} />}
-              value={search}
-              onChange={(e) => {
-                setSearch(e.currentTarget.value);
-                setPage(1);
-              }}
-              style={{ flex: 1, minWidth: 200 }}
-            />
-
-            <Select
-              placeholder={t('filters.status_placeholder', 'Filter by Status')}
-              clearable
-              data={[
-                { value: 'New', label: translateStatus('New', i18n.language) },
-                { value: 'Attempting contact', label: translateStatus('Attempting contact', i18n.language) },
-                { value: 'Callback scheduled', label: translateStatus('Callback scheduled', i18n.language) },
-                { value: 'Interested', label: translateStatus('Interested', i18n.language) },
-                { value: 'Survey to schedule', label: translateStatus('Survey to schedule', i18n.language) },
-                { value: 'Survey scheduled', label: translateStatus('Survey scheduled', i18n.language) },
-                { value: 'Design pending', label: translateStatus('Design pending', i18n.language) },
-                { value: 'Quote sent', label: translateStatus('Quote sent', i18n.language) },
-                { value: 'Revising quote', label: translateStatus('Revising quote', i18n.language) },
-                { value: 'Negotiation', label: translateStatus('Negotiation', i18n.language) },
-                { value: 'Won', label: translateStatus('Won', i18n.language) },
-                { value: 'Lost', label: translateStatus('Lost', i18n.language) },
-                { value: 'Nurture', label: translateStatus('Nurture', i18n.language) },
-                { value: 'Unreachable', label: translateStatus('Unreachable', i18n.language) },
-                { value: 'Do not contact', label: translateStatus('Do not contact', i18n.language) },
-                { value: 'Merged', label: translateStatus('Merged', i18n.language) },
-              ]}
-              value={statusFilter}
-              onChange={(val) => {
-                setStatusFilter(val);
-                setPage(1);
-              }}
-              style={{ minWidth: 170 }}
-            />
-
-            <Select
-              placeholder={t('filters.source_placeholder', 'Filter by Source')}
-              clearable
-              data={sources.map((s) => ({ value: String(s.id), label: s.display_name || s.name }))}
-              value={sourceFilter}
-              onChange={(val) => {
-                setSourceFilter(val);
-                setPage(1);
-              }}
-              style={{ minWidth: 150 }}
-            />
-
-            {(can('user.view_team') || isAdminOrManager) && (
-              <Select
-                placeholder={t('filters.assignee_placeholder', 'Filter by Assignee')}
-                clearable
-                data={users.map((u) => ({
-                  value: String(u.id),
-                  label: `${u.first_name || u.username} (${translateRole(u.role, i18n.language)})`,
-                }))}
-                value={assigneeFilter}
-                onChange={(val) => {
-                  setAssigneeFilter(val);
+          <Stack gap="xs">
+            <Group gap="sm" wrap="wrap">
+              <TextInput
+                placeholder={t('filters.search_placeholder', 'Search by name, phone or city...')}
+                leftSection={<IconSearch size={16} />}
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.currentTarget.value);
                   setPage(1);
                 }}
-                style={{ minWidth: 160 }}
+                style={{ flex: 1, minWidth: 200 }}
               />
-            )}
-          </Group>
+
+              <Select
+                placeholder={t('filters.status_placeholder', 'Filter by Status')}
+                clearable
+                data={[
+                  { value: 'New', label: translateStatus('New', i18n.language) },
+                  { value: 'Attempting contact', label: translateStatus('Attempting contact', i18n.language) },
+                  { value: 'Callback scheduled', label: translateStatus('Callback scheduled', i18n.language) },
+                  { value: 'Interested', label: translateStatus('Interested', i18n.language) },
+                  { value: 'Survey to schedule', label: translateStatus('Survey to schedule', i18n.language) },
+                  { value: 'Survey scheduled', label: translateStatus('Survey scheduled', i18n.language) },
+                  { value: 'Design pending', label: translateStatus('Design pending', i18n.language) },
+                  { value: 'Quote sent', label: translateStatus('Quote sent', i18n.language) },
+                  { value: 'Revising quote', label: translateStatus('Revising quote', i18n.language) },
+                  { value: 'Negotiation', label: translateStatus('Negotiation', i18n.language) },
+                  { value: 'Won', label: translateStatus('Won', i18n.language) },
+                  { value: 'Lost', label: translateStatus('Lost', i18n.language) },
+                  { value: 'Nurture', label: translateStatus('Nurture', i18n.language) },
+                  { value: 'Unreachable', label: translateStatus('Unreachable', i18n.language) },
+                  { value: 'Do not contact', label: translateStatus('Do not contact', i18n.language) },
+                  { value: 'Merged', label: translateStatus('Merged', i18n.language) },
+                ]}
+                value={statusFilter}
+                onChange={(val) => {
+                  setStatusFilter(val);
+                  setPage(1);
+                }}
+                style={{ minWidth: 170 }}
+              />
+
+              <Select
+                placeholder={t('filters.source_placeholder', 'Filter by Source')}
+                clearable
+                data={sources.map((s) => ({ value: String(s.id), label: s.display_name || s.name }))}
+                value={sourceFilter}
+                onChange={(val) => {
+                  setSourceFilter(val);
+                  setPage(1);
+                }}
+                style={{ minWidth: 150 }}
+              />
+
+              {(can('user.view_team') || isAdminOrManager) && (
+                <Select
+                  placeholder={t('filters.assignee_placeholder', 'Filter by Assignee')}
+                  clearable
+                  data={users.map((u) => ({
+                    value: String(u.id),
+                    label: `${u.first_name || u.username} (${translateRole(u.role, i18n.language)})`,
+                  }))}
+                  value={assigneeFilter}
+                  onChange={(val) => {
+                    setAssigneeFilter(val);
+                    setPage(1);
+                  }}
+                  style={{ minWidth: 160 }}
+                />
+              )}
+            </Group>
+
+            <Group gap="sm" justify="space-between" wrap="wrap" align="center">
+              <DateRangeFilter
+                value={dateFilter}
+                onChange={handleDateFilterChange}
+                onClear={handleClearDateFilter}
+              />
+
+              {hasActiveFilters && (
+                <Button
+                  variant="subtle"
+                  color="red"
+                  size="xs"
+                  leftSection={<IconFilterOff size={14} />}
+                  onClick={handleClearAllFilters}
+                >
+                  {t('filters.clear_all', 'Clear all filters')}
+                </Button>
+              )}
+            </Group>
+          </Stack>
         </Paper>
 
         {/* Bulk Actions Floating Bar */}

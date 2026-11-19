@@ -223,6 +223,7 @@ class Lead(models.Model):
     previous_status_before_lost = models.CharField(max_length=50, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    last_activity_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     class Meta:
         ordering = ['-created_at']
@@ -234,6 +235,10 @@ class Lead(models.Model):
             models.Index(fields=['phone_e164']),
             models.Index(fields=['region']),
             models.Index(fields=['import_batch']),
+            models.Index(fields=['created_at']),
+            models.Index(fields=['updated_at']),
+            models.Index(fields=['won_at']),
+            models.Index(fields=['last_activity_at']),
         ]
         verbose_name = 'Lead'
         verbose_name_plural = 'Leads'

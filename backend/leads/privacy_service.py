@@ -161,12 +161,15 @@ def generate_lead_dossier_dict(lead: Lead) -> Dict[str, Any]:
 
 def generate_lead_dossier_pdf(lead: Lead) -> bytes:
     """
-    Generates a clean, professional PDF dossier using ReportLab.
+    Generates a clean, professional PDF dossier using ReportLab with A4 size and Unicode support.
     """
     from reportlab.lib import colors
-    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from config.pdf_engine import RenderSlotContext, ensure_unicode_fonts
+
+    regular_font, bold_font = ensure_unicode_fonts()
 
     dossier = generate_lead_dossier_dict(lead)
     profile = dossier['lead_profile']
@@ -176,7 +179,7 @@ def generate_lead_dossier_pdf(lead: Lead) -> bytes:
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
-        pagesize=letter,
+        pagesize=A4,
         rightMargin=36,
         leftMargin=36,
         topMargin=36,
@@ -187,6 +190,7 @@ def generate_lead_dossier_pdf(lead: Lead) -> bytes:
     title_style = ParagraphStyle(
         'DocTitle',
         parent=styles['Heading1'],
+        fontName=bold_font,
         fontSize=18,
         leading=22,
         textColor=colors.HexColor('#1a365d'),
@@ -195,6 +199,7 @@ def generate_lead_dossier_pdf(lead: Lead) -> bytes:
     h2_style = ParagraphStyle(
         'SectionHeading',
         parent=styles['Heading2'],
+        fontName=bold_font,
         fontSize=12,
         leading=16,
         textColor=colors.HexColor('#2b6cb0'),
@@ -204,6 +209,7 @@ def generate_lead_dossier_pdf(lead: Lead) -> bytes:
     meta_style = ParagraphStyle(
         'MetaStyle',
         parent=styles['Normal'],
+        fontName=regular_font,
         fontSize=9,
         leading=12,
         textColor=colors.HexColor('#4a5568'),
@@ -211,6 +217,7 @@ def generate_lead_dossier_pdf(lead: Lead) -> bytes:
     cell_style = ParagraphStyle(
         'TableCell',
         parent=styles['Normal'],
+        fontName=regular_font,
         fontSize=8.5,
         leading=11,
     )
@@ -219,7 +226,7 @@ def generate_lead_dossier_pdf(lead: Lead) -> bytes:
         parent=styles['Normal'],
         fontSize=8.5,
         leading=11,
-        fontName='Helvetica-Bold',
+        fontName=bold_font,
         textColor=colors.HexColor('#2d3748'),
     )
 
@@ -411,7 +418,8 @@ def generate_lead_dossier_pdf(lead: Lead) -> bytes:
         meta_style,
     ))
 
-    doc.build(elements)
+    with RenderSlotContext(timeout=15.0):
+        doc.build(elements)
     buffer.seek(0)
     return buffer.getvalue()
 

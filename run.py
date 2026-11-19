@@ -240,14 +240,18 @@ def setup_frontend_npm(npm_bin, skip_install=False):
         log_info("Frontend packages up to date (cached).")
 
 
-def verify_production_secrets():
-    """Ensure production environment has a valid strong SECRET_KEY."""
+def verify_production_secrets(allow_localhost_prod=False):
+    """Ensure production environment has a valid strong SECRET_KEY and valid APP_BASE_URL."""
     env_file = BACKEND_DIR / ".env"
     secret_key = ""
+    app_base_url = ""
     if env_file.exists():
         for line in env_file.read_text(encoding="utf-8").splitlines():
             if line.startswith("SECRET_KEY="):
                 secret_key = line.split("=", 1)[1].strip().strip('"').strip("'")
+            elif line.startswith("APP_BASE_URL="):
+                app_base_url = line.split("=", 1)[1].strip().strip('"').strip("'")
+
     if not secret_key or secret_key == "django-insecure-default-dev-key" or len(secret_key) < 32:
         import secrets
         new_secret = secrets.token_urlsafe(50)
@@ -259,6 +263,12 @@ def verify_production_secrets():
             content += f"\nSECRET_KEY={new_secret}\n"
         env_file.write_text(content, encoding="utf-8")
         log_info("Generated and saved a 50-character cryptographically secure SECRET_KEY.")
+
+    # Validate APP_BASE_URL
+    allow_local = allow_localhost_prod or os.getenv("ALLOW_LOCALHOST_PROD", "0") in ("1", "true", "True")
+    if not allow_local:
+        if not app_base_url or "localhost" in app_base_url or "127.0.0.1" in app_base_url:
+            log_warn("APP_BASE_URL points to localhost/127.0.0.1. Set ALLOW_LOCALHOST_PROD=1 or use --allow-localhost-prod if testing production locally.")
 
 
 def check_admin_account():
@@ -394,6 +404,7 @@ def main():
     parser.add_argument("--backend-only", action="store_true", help="Start backend server only (no frontend/scheduler).")
     parser.add_argument("--seed-demo", action="store_true", help="Seed demo accounts and sample leads for training/UAT.")
     parser.add_argument("--reset-demo", action="store_true", help="Reset and regenerate all demo accounts and sample leads.")
+    parser.add_argument("--allow-localhost-prod", action="store_true", help="Allow APP_BASE_URL to point to localhost in production mode.")
     parser.add_argument("-y", "--yes", action="store_true", help="Automatically accept confirmation prompts.")
     args = parser.parse_args()
 
@@ -404,7 +415,7 @@ def main():
 
     if args.prod:
         os.environ["APP_ENV"] = "production"
-        verify_production_secrets()
+        verify_production_secrets(allow_localhost_prod=args.allow_localhost_prod)
         if not args.backend_only:
             setup_frontend_npm(npm_bin, skip_install=args.skip_install)
             build_frontend(npm_bin)

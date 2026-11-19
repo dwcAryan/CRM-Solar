@@ -389,6 +389,18 @@ in_scope:
   topic: security_privacy
 - query: कर्मचारी के छोड़ने पर उसका खाता कैसे सुरक्षित रूप से बंद करें?
   topic: security_privacy
+- query: How do I filter leads by date range?
+  topic: date_filter
+- query: Can I filter leads created last month or this week?
+  topic: date_filter
+- query: How does the next follow-up date filter work?
+  topic: date_filter
+- query: तारीख के अनुसार लीड्स को कैसे फ़िल्टर करें?
+  topic: date_filter
+- query: क्या मैं पिछले महीने या आज बनी लीड्स को फ़िल्टर कर सकता हूँ?
+  topic: date_filter
+- query: फॉलो-अप तारीख और अंतिम गतिविधि के अनुसार खोज कैसे करें?
+  topic: date_filter
 out_of_scope:
 - query: Can you tell me a funny joke?
 - query: What is the weather in Sydney today?

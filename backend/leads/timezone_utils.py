@@ -70,6 +70,18 @@ def format_datetime_in_timezone(dt: Optional[datetime.datetime], tz_name: str = 
     return local_dt.strftime('%d/%m/%Y %I:%M %p %Z')
 
 
+_HOLIDAY_CACHE = {}
+
+
+def get_holiday_for_date(region, date):
+    reg_code = getattr(region, 'code', str(region))
+    cache_key = (reg_code, date)
+    if cache_key not in _HOLIDAY_CACHE:
+        from masters.models import PublicHoliday
+        _HOLIDAY_CACHE[cache_key] = PublicHoliday.objects.filter(region=region, date=date).first()
+    return _HOLIDAY_CACHE[cache_key]
+
+
 def check_calling_hours(lead, target_datetime: Optional[datetime.datetime] = None) -> Tuple[bool, str]:
     """
     Evaluates whether target_datetime (default now) is within allowed calling hours
@@ -100,8 +112,7 @@ def check_calling_hours(lead, target_datetime: Optional[datetime.datetime] = Non
     weekday = local_dt.weekday()  # Monday=0, Sunday=6
 
     # 1. Check Public Holidays
-    from masters.models import PublicHoliday
-    holiday = PublicHoliday.objects.filter(region=region, date=local_date).first()
+    holiday = get_holiday_for_date(region, local_date)
     if holiday:
         return False, f"Today ({local_date.strftime('%d/%m/%Y')}) is a recognized public holiday in {region.name}: '{holiday.name}'. Outbound calling is prohibited."
 

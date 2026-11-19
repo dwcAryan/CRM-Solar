@@ -52,5 +52,12 @@ class Activity(models.Model):
         verbose_name = 'Activity'
         verbose_name_plural = 'Activities'
 
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        if is_new and self.lead_id:
+            from leads.models import Lead
+            Lead.objects.filter(pk=self.lead_id).update(last_activity_at=self.created_at)
+
     def __str__(self) -> str:
         return f"{self.get_type_display()} on {self.lead.name} -> {self.status_after} ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
