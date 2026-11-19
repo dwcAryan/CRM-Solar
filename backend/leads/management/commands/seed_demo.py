@@ -39,6 +39,13 @@ class Command(BaseCommand):
             action='store_true',
             help='Delete existing leads and re-seed all demo accounts and leads from scratch.',
         )
+        parser.add_argument(
+            '--accounts-only',
+            '--users-only',
+            action='store_true',
+            dest='accounts_only',
+            help='Create/update only the demo user accounts and credentials without seeding sample leads.',
+        )
 
     def handle(self, *args, **options):
         app_env = getattr(settings, 'APP_ENV', 'development').lower()
@@ -63,8 +70,11 @@ class Command(BaseCommand):
         self.stdout.write("\nWriting generated credentials to docs/DEMO_ACCOUNTS.md...")
         self.write_demo_accounts_doc(credentials_info)
 
-        self.stdout.write("\nCreating 15 Indian and 15 Australian sample leads...")
-        self.seed_leads(users)
+        if not options.get('accounts_only'):
+            self.stdout.write("\nCreating 15 Indian and 15 Australian sample leads...")
+            self.seed_leads(users)
+        else:
+            self.stdout.write(self.style.NOTICE("\nSkipping lead generation (--accounts-only specified)."))
 
         self.stdout.write(self.style.SUCCESS("\nDemo data seeding completed successfully!"))
         self.print_user_credentials(credentials_info)
