@@ -430,3 +430,22 @@ def test_translate_missing_logic(db, setup_i18n_masters, admin_user):
     # Completeness updated
     hi_lang.refresh_from_db()
     assert hi_lang.completeness_pct > 0
+
+
+# ==============================================================================
+# 9. CORS PREFLIGHT ALLOWS X-APP-LANGUAGE
+# ==============================================================================
+
+def test_cors_allows_i18n_headers(api_client):
+    """Ensure CORS preflight OPTIONS requests permit X-App-Language and Accept-Language headers."""
+    response = api_client.options(
+        "/api/auth/password-reset/",
+        HTTP_ORIGIN="http://localhost:5173",
+        HTTP_ACCESS_CONTROL_REQUEST_METHOD="POST",
+        HTTP_ACCESS_CONTROL_REQUEST_HEADERS="x-app-language,accept-language,content-type",
+    )
+    assert response.status_code == 200
+    allow_headers = response.get("Access-Control-Allow-Headers", "").lower()
+    assert "x-app-language" in allow_headers
+    assert "accept-language" in allow_headers
+
