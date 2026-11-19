@@ -126,7 +126,16 @@ class MeView(APIView):
         Allows updating basic contact profile.
         Strictly prevents privilege escalation (cannot modify role, is_staff, is_superuser, allowed_regions).
         """
-        disallowed_fields = ['role', 'is_staff', 'is_superuser', 'allowed_regions', 'default_region', 'is_active']
+        disallowed_fields = [
+            'role',
+            'is_staff',
+            'is_superuser',
+            'allowed_regions',
+            'default_region',
+            'is_active',
+            'is_demo',
+            'must_change_password',
+        ]
         for field in disallowed_fields:
             if field in request.data:
                 return Response(
@@ -295,4 +304,87 @@ class PasswordChangeView(APIView):
         user.save(update_fields=['password', 'must_change_password'])
 
         return Response({"status": "success", "message": "Password changed successfully."})
+
+
+from django.core.cache import cache
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
+
+
+class SolarTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        data['user'] = {
+            'id': self.user.id,
+            'username': self.user.username,
+            'email': self.user.email,
+            'role': self.user.role,
+            'must_change_password': getattr(self.user, 'must_change_password', False),
+            'preferred_language': getattr(self.user, 'preferred_language', 'en'),
+        }
+        return data
+
+
+class SolarTokenObtainPairView(TokenObtainPairView):
+    """
+    Hardened Token Obtain View:
+    - Rate limits login attempts (max 5 failed attempts per 5 minutes per IP/username).
+    - Account lockout for 15 minutes after 5 consecutive failures.
+    - Uniform generic error on authentication failure (preventing username enumeration).
+    - Throttling scope: 'login'.
+    """
+    serializer_class = SolarTokenObtainPairSerializer
+    throttle_scope = 'login'
+
+    def post(self, request, *args, **kwargs):
+        username = str(request.data.get('username', '')).strip().lower()
+        ip = request.META.get('REMOTE_ADDR', 'unknown')
+        cache_key = f"login_attempts_{ip}_{username}"
+        lockout_key = f"login_lockout_{ip}_{username}"
+
+        if cache.get(lockout_key):
+            return Response(
+                {"detail": "Account temporarily locked due to too many failed login attempts. Please try again in 15 minutes."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+        response = super().post(request, *args, **kwargs)
+
+        if response.status_code == status.HTTP_200_OK:
+            cache.delete(cache_key)
+            cache.delete(lockout_key)
+        else:
+            attempts = cache.get(cache_key, 0) + 1
+            cache.set(cache_key, attempts, timeout=300)
+            if attempts >= 5:
+                cache.set(lockout_key, True, timeout=900)
+                return Response(
+                    {"detail": "Too many failed login attempts. Account temporarily locked for 15 minutes."},
+                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                )
+            # Uniform message to prevent username enumeration
+            response.data = {"detail": "No active account found with the given credentials."}
+
+        return response
+
+
+class LogoutView(APIView):
+    """
+    Blacklists the refresh token to immediately revoke session access.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        refresh_token = request.data.get('refresh')
+        if not refresh_token:
+            return Response({"error": "Refresh token is required."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+        except Exception as e:
+            return Response({"error": f"Invalid or expired token: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"message": "Successfully logged out and session revoked."}, status=status.HTTP_200_OK)
+
 

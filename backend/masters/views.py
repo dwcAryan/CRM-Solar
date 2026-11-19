@@ -1,4 +1,4 @@
-import csv
+import defusedcsv
 import io
 import json
 import re
@@ -11,6 +11,7 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 
 from accounts.permissions import HasPermission, IsAdmin
+from leads.import_service import sanitize_csv_cell
 from leads.models import AuditLog
 
 from .models import (
@@ -183,12 +184,17 @@ class PolicySettingsViewSet(viewsets.ModelViewSet):
 # PHASE 14L: LANGUAGE & TRANSLATION MANAGEMENT
 # ==============================================================================
 
-SCRIPT_OR_EVENT_REGEX = re.compile(r'(<script|<\/script|javascript:|on\w+=)', re.IGNORECASE)
+SCRIPT_OR_EVENT_REGEX = re.compile(
+    r'(<\s*(script|iframe|embed|object|link|style|meta|form|input|button|svg|math|base|applet)[\s/>]|javascript:|data:\s*text/html|on\w+\s*=)',
+    re.IGNORECASE,
+)
 
 
 def sanitize_and_validate_translation(english_text: str, translated_text: str) -> str:
     if not translated_text:
         return translated_text
+    if len(translated_text) > 5000:
+        raise ValidationError("Translation string exceeds maximum permitted length of 5,000 characters.")
     # Reject dangerous script injection / event handlers
     if SCRIPT_OR_EVENT_REGEX.search(translated_text):
         raise ValidationError("Unsafe HTML tags or event handlers detected in translation text.")
@@ -349,10 +355,17 @@ class TranslationViewSet(viewsets.ModelViewSet):
         if export_fmt == 'csv':
             response = HttpResponse(content_type='text/csv; charset=utf-8')
             response['Content-Disposition'] = f'attachment; filename="translations_{lang_code}.csv"'
-            writer = csv.writer(response)
+            writer = defusedcsv.writer(response)
             writer.writerow(['namespace', 'key', 'english_text', 'translated_text', 'status', 'is_customer_facing'])
             for e in entries:
-                writer.writerow([e.namespace, e.key, e.english_text, e.translated_text, e.status, e.is_customer_facing])
+                writer.writerow([
+                    sanitize_csv_cell(e.namespace),
+                    sanitize_csv_cell(e.key),
+                    sanitize_csv_cell(e.english_text),
+                    sanitize_csv_cell(e.translated_text),
+                    sanitize_csv_cell(e.status),
+                    sanitize_csv_cell(e.is_customer_facing),
+                ])
             return response
 
         # JSON export
@@ -390,7 +403,7 @@ class TranslationViewSet(viewsets.ModelViewSet):
                 return Response({'error': "Import file exceeds maximum size limit of 5MB."}, status=status.HTTP_400_BAD_REQUEST)
             content = uploaded_file.read().decode('utf-8', errors='replace')
             if uploaded_file.name.endswith('.csv'):
-                reader = csv.DictReader(io.StringIO(content))
+                reader = defusedcsv.DictReader(io.StringIO(content))
                 rows = list(reader)
             else:
                 try:

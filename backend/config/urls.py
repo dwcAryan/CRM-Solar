@@ -20,7 +20,15 @@ from rest_framework_simplejwt.views import (
 )
 
 from accounts.password_reset_views import PasswordResetConfirmView, PasswordResetRequestView
-from accounts.views import MeView, PasswordChangeView, RolesMatrixView, TourStateView, UserViewSet
+from accounts.views import (
+    LogoutView,
+    MeView,
+    PasswordChangeView,
+    RolesMatrixView,
+    SolarTokenObtainPairView,
+    TourStateView,
+    UserViewSet,
+)
 from activities.views import ActivityViewSet
 from leads.views import (
     AuditLogViewSet,
@@ -149,8 +157,9 @@ urlpatterns = [
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema', permission_classes=doc_permissions), name='redoc'),
 
     # JWT Authentication
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/', SolarTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/auth/logout/', LogoutView.as_view(), name='auth_logout'),
 
     # Password Reset & Change Flow
     path('api/auth/password-reset/', PasswordResetRequestView.as_view(), name='password_reset_request'),

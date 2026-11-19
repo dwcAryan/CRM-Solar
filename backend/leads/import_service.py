@@ -25,13 +25,13 @@ MAX_ROWS = 5000
 
 def sanitize_csv_cell(value: Any) -> str:
     """
-    Prevents CSV / Formula injection attacks by prepending an apostrophe (')
-    if the cell value starts with '=', '+', '-', or '@'.
+    Prevents CSV / Formula injection attacks (OWASP / CWE-1236) by prepending an apostrophe (')
+    if the cell value starts with '=', '+', '-', '@', '\t', '\r', '%', or '|'.
     """
     if value is None:
         return ""
     s = str(value).strip()
-    if s and s[0] in ('=', '+', '-', '@'):
+    if s and s[0] in ('=', '+', '-', '@', '\t', '\r', '%', '|'):
         return f"'{s}"
     return s
 

@@ -46,7 +46,14 @@ class ActivityViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        lead = serializer.validated_data.get('lead')
+        user = self.request.user
+        if not user.is_superuser:
+            if user.allowed_regions.exists() and not user.allowed_regions.filter(code=lead.region_id).exists():
+                raise PermissionDenied("Cannot create activity for a lead outside your permitted regions.")
+            if user.role == User.Role.SALESPERSON and lead.assigned_to_id != user.id:
+                raise PermissionDenied("Cannot create activity for a lead assigned to another representative.")
+        serializer.save(created_by=user)
 
     def update(self, request, *args, **kwargs):
         raise PermissionDenied("Activities are immutable and cannot be updated.")

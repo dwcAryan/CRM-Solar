@@ -1,7 +1,10 @@
 import logging
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from rest_framework import permissions, status
@@ -17,8 +20,10 @@ User = get_user_model()
 class PasswordResetRequestView(APIView):
     """
     Initiates password reset by issuing a single-use token expiring in 1 hour.
+    Immune to Host-header/Origin poisoning: reset URL always built from APP_BASE_URL.
     """
     permission_classes = [permissions.AllowAny]
+    throttle_scope = 'login'
 
     def post(self, request):
         email = request.data.get('email', '').strip().lower()
@@ -27,12 +32,13 @@ class PasswordResetRequestView(APIView):
 
         # Look up active user(s) with this email
         users = User.objects.filter(email__iexact=email, is_active=True)
-        frontend_origin = request.headers.get('Origin') or 'http://localhost:5173'
+        # Built exclusively from APP_BASE_URL to prevent Host-header poisoning
+        app_base_url = getattr(settings, 'APP_BASE_URL', 'http://localhost:5173').rstrip('/')
 
         for user in users:
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
-            reset_url = f"{frontend_origin}/reset-password?uid={uid}&token={token}"
+            reset_url = f"{app_base_url}/reset-password?uid={uid}&token={token}"
 
             try:
                 send_password_reset_email(user, reset_url)
@@ -50,9 +56,10 @@ class PasswordResetRequestView(APIView):
 
 class PasswordResetConfirmView(APIView):
     """
-    Validates single-use token (1-hour window) and sets a new password.
+    Validates single-use token (1-hour window) and sets a new password with policy validation.
     """
     permission_classes = [permissions.AllowAny]
+    throttle_scope = 'login'
 
     def post(self, request):
         uidb64 = request.data.get('uid', '').strip()
@@ -62,12 +69,6 @@ class PasswordResetConfirmView(APIView):
         if not uidb64 or not token or not new_password:
             return Response(
                 {"error": "uid, token, and new_password are required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if len(new_password) < 6:
-            return Response(
-                {"error": "Password must be at least 6 characters long."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -87,7 +88,15 @@ class PasswordResetConfirmView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Enforce full password policy validation
+        try:
+            validate_password(new_password, user=user)
+        except DjangoValidationError as err:
+            error_msgs = list(err.messages) if hasattr(err, 'messages') else [str(err)]
+            return Response({"error": error_msgs[0]}, status=status.HTTP_400_BAD_REQUEST)
+
         user.set_password(new_password)
+        user.must_change_password = False
         user.save()
 
         logger.info(f"Password successfully reset for user {user.username} via reset token.")

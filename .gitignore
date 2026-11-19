@@ -65,3 +65,6 @@ backend/backups/
 .DS_Store
 Thumbs.db
 .qodo/
+
+# Schemathesis
+.schemathesis/

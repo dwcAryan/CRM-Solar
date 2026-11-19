@@ -95,6 +95,24 @@ class QuoteViewSet(viewsets.ModelViewSet):
 
         return Response(QuoteSerializer(quote, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
+    def update(self, request, *args, **kwargs):
+        quote = self.get_object()
+        if quote.status != Quote.Status.DRAFT:
+            return Response(
+                {"error": f"Cannot modify quote in '{quote.status}' status. Use the 'revise' endpoint to issue a new version."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        quote = self.get_object()
+        if quote.status != Quote.Status.DRAFT:
+            return Response(
+                {"error": f"Cannot modify quote in '{quote.status}' status. Use the 'revise' endpoint to issue a new version."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().partial_update(request, *args, **kwargs)
+
     @action(detail=True, methods=['post'], url_path='mark-sent')
     @transaction.atomic
     def mark_sent(self, request, pk=None):

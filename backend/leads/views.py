@@ -1,4 +1,4 @@
-import csv
+import defusedcsv
 import json
 import logging
 from datetime import timedelta
@@ -6,6 +6,7 @@ from typing import Dict
 
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError as DjangoValidationError
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from django.db import transaction
 from django.db.models import Count, Q
 from django.http import HttpResponse
@@ -156,6 +157,48 @@ class LeadViewSet(viewsets.ModelViewSet):
         elif tab == 'quote_sent':
             qs = qs.filter(status='Quote sent')
 
+        # Safe Whitelisted Date Filtering
+        date_from = self.request.query_params.get('date_from')
+        date_to = self.request.query_params.get('date_to')
+        date_field = self.request.query_params.get('date_field', 'created_at')
+
+        if date_from or date_to:
+            WHITELISTED_DATE_FIELDS = {'created_at', 'updated_at', 'next_followup_at', 'won_at', 'deleted_at'}
+            if date_field not in WHITELISTED_DATE_FIELDS:
+                from rest_framework.exceptions import ValidationError as DRFValidationError
+                raise DRFValidationError(f"Invalid date_field '{date_field}'. Permitted fields: {sorted(WHITELISTED_DATE_FIELDS)}")
+
+            import datetime
+            from django.utils.dateparse import parse_date, parse_datetime
+
+            if date_from:
+                parsed_from = parse_datetime(date_from) or parse_date(date_from)
+                if not parsed_from:
+                    from rest_framework.exceptions import ValidationError as DRFValidationError
+                    raise DRFValidationError("Invalid 'date_from' format. Use ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ).")
+                if isinstance(parsed_from, datetime.date) and not isinstance(parsed_from, datetime.datetime):
+                    parsed_from = timezone.make_aware(datetime.datetime.combine(parsed_from, datetime.time.min))
+                elif timezone.is_naive(parsed_from):
+                    parsed_from = timezone.make_aware(parsed_from)
+                if parsed_from.year < 1900 or parsed_from.year > 2100:
+                    from rest_framework.exceptions import ValidationError as DRFValidationError
+                    raise DRFValidationError("date_from year out of range (1900-2100).")
+                qs = qs.filter(**{f"{date_field}__gte": parsed_from})
+
+            if date_to:
+                parsed_to = parse_datetime(date_to) or parse_date(date_to)
+                if not parsed_to:
+                    from rest_framework.exceptions import ValidationError as DRFValidationError
+                    raise DRFValidationError("Invalid 'date_to' format. Use ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ).")
+                if isinstance(parsed_to, datetime.date) and not isinstance(parsed_to, datetime.datetime):
+                    parsed_to = timezone.make_aware(datetime.datetime.combine(parsed_to, datetime.time.max))
+                elif timezone.is_naive(parsed_to):
+                    parsed_to = timezone.make_aware(parsed_to)
+                if parsed_to.year < 1900 or parsed_to.year > 2100:
+                    from rest_framework.exceptions import ValidationError as DRFValidationError
+                    raise DRFValidationError("date_to year out of range (1900-2100).")
+                qs = qs.filter(**{f"{date_field}__lte": parsed_to})
+
         return qs
 
     def list(self, request, *args, **kwargs):
@@ -208,6 +251,12 @@ class LeadViewSet(viewsets.ModelViewSet):
             new_region = serializer.validated_data.get('region')
             if new_region and new_region != instance.region:
                 raise PermissionDenied("Salespeople cannot change the lead region.")
+
+        new_status = serializer.validated_data.get('status')
+        if new_status == Lead.Status.WON:
+            from quotes.models import Quote
+            if not instance.quotes.filter(status=Quote.Status.ACCEPTED).exists():
+                raise DRFValidationError("A lead cannot be marked as 'Won' without an accepted quote.")
 
         serializer.save()
 
@@ -319,11 +368,17 @@ class LeadViewSet(viewsets.ModelViewSet):
             )
 
         try:
-            target_lead = Lead.objects.get(id=target_lead_id)
+            target_lead = self.get_queryset().get(id=target_lead_id)
         except Lead.DoesNotExist:
             return Response(
-                {"target_lead_id": "Target lead not found."},
+                {"target_lead_id": "Target lead not found or not accessible within your permitted regions."},
                 status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if duplicate_lead.region_id != target_lead.region_id:
+            return Response(
+                {"error": "Cannot merge leads across different regions/countries."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         with transaction.atomic():
@@ -494,7 +549,7 @@ class LeadViewSet(viewsets.ModelViewSet):
         except User.DoesNotExist:
             return Response({"error": "Target user not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        qs = Lead.objects.filter(id__in=lead_ids, is_deleted=False)
+        qs = self.get_queryset().filter(id__in=lead_ids)
         updated_count = 0
         with transaction.atomic():
             for lead in qs:
@@ -557,7 +612,7 @@ class LeadViewSet(viewsets.ModelViewSet):
 
         import itertools
         cycle = itertools.cycle(salespeople)
-        leads = list(Lead.objects.filter(id__in=lead_ids, is_deleted=False))
+        leads = list(self.get_queryset().filter(id__in=lead_ids))
         distributed_count = 0
 
         with transaction.atomic():
@@ -735,6 +790,21 @@ class LeadViewSet(viewsets.ModelViewSet):
         if new_status not in Lead.Status.values:
             return Response({"error": f"Invalid status '{new_status}'."}, status=status.HTTP_400_BAD_REQUEST)
 
+        if new_status == Lead.Status.WON:
+            from quotes.models import Quote
+            if not lead.quotes.filter(status=Quote.Status.ACCEPTED).exists():
+                return Response(
+                    {"error": "A lead cannot be marked as 'Won' without an accepted quote."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        from accounts.permissions import can_user_mark_lost
+        if new_status == Lead.Status.LOST and not can_user_mark_lost(request.user):
+            return Response(
+                {"error": "You do not have permission to mark leads as Lost directly."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         # Enforce follow-up rule
         if new_status not in Lead.TERMINAL_STATUSES and not next_followup_at and not lead.next_followup_at:
             return Response({"error": "Next follow-up date is required for non-terminal statuses."}, status=status.HTTP_400_BAD_REQUEST)
@@ -871,7 +941,7 @@ class LeadViewSet(viewsets.ModelViewSet):
         response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
         response['Content-Disposition'] = f'attachment; filename="solar_leads_sample_{reg.lower()}.csv"'
 
-        writer = csv.writer(response)
+        writer = defusedcsv.writer(response)
 
         if reg == 'AU':
             headers = [
@@ -1032,7 +1102,7 @@ class LeadViewSet(viewsets.ModelViewSet):
         if action_name == 'assign' and not can(user, 'lead.assign'):
             return Response({"error": "You do not have permission to assign leads."}, status=status.HTTP_403_FORBIDDEN)
 
-        qs = Lead.objects.filter(id__in=lead_ids)
+        qs = self.get_queryset().filter(id__in=lead_ids)
         if user.role == User.Role.SALESPERSON and not user.is_superuser:
             qs = qs.filter(assigned_to=user)
 
@@ -1127,10 +1197,15 @@ class LeadViewSet(viewsets.ModelViewSet):
             pdf_bytes = generate_lead_dossier_pdf(lead)
             response = HttpResponse(pdf_bytes, content_type='application/pdf')
             response['Content-Disposition'] = f'attachment; filename="privacy_dossier_lead_{lead.id}.pdf"'
+            response['Cache-Control'] = 'no-store, no-cache, must-revalidate, private'
+            response['Pragma'] = 'no-cache'
             return response
 
         dossier = generate_lead_dossier_dict(lead)
-        return Response(dossier, status=status.HTTP_200_OK)
+        response = Response(dossier, status=status.HTTP_200_OK)
+        response['Cache-Control'] = 'no-store, no-cache, must-revalidate, private'
+        response['Pragma'] = 'no-cache'
+        return response
 
     @action(detail=True, methods=['post'], url_path='anonymize')
     def anonymize(self, request, pk=None):
@@ -1270,7 +1345,7 @@ class LeadViewSet(viewsets.ModelViewSet):
         response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
         response['Content-Disposition'] = f'attachment; filename="solar_crm_leads_{timestamp}.csv"'
 
-        writer = csv.writer(response)
+        writer = defusedcsv.writer(response)
         headers = [
             'ID',
             'Name',
@@ -1409,6 +1484,23 @@ class LeadStatusHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_fields = ['lead', 'old_status', 'new_status', 'changed_by']
     ordering_fields = ['changed_at', 'id']
 
+    def get_queryset(self):
+        user = self.request.user
+        qs = super().get_queryset()
+        if not user.is_authenticated:
+            return qs.none()
+        if not user.is_superuser:
+            allowed = user.allowed_regions.all()
+            if allowed.exists():
+                qs = qs.filter(lead__region__in=allowed)
+            else:
+                qs = qs.none()
+            if user.role == User.Role.SALESPERSON:
+                qs = qs.filter(lead__assigned_to=user)
+            elif user.role == User.Role.SURVEYOR:
+                qs = qs.none()
+        return qs
+
 
 class DashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -1438,15 +1530,60 @@ class DashboardView(APIView):
         if not user.is_superuser:
             allowed = user.allowed_regions.all()
             if allowed.exists():
-                qs = qs.filter(region__in=allowed)
-
-        # Region query filter (?region=IN or ?region=AU)
-        region_param = request.query_params.get('region')
-        if region_param:
-            qs = qs.filter(region_id=region_param.upper().strip())
+                region_param = request.query_params.get('region')
+                if region_param:
+                    region_code = region_param.upper().strip()
+                    if not allowed.filter(code=region_code).exists():
+                        return Response({"error": "You do not have access to the requested region."}, status=status.HTTP_403_FORBIDDEN)
+                    qs = qs.filter(region_id=region_code)
+                else:
+                    qs = qs.filter(region__in=allowed)
+            else:
+                qs = qs.none()
+        else:
+            region_param = request.query_params.get('region')
+            if region_param:
+                qs = qs.filter(region_id=region_param.upper().strip())
 
         if user.role == User.Role.SALESPERSON and not user.is_superuser:
             qs = qs.filter(assigned_to=user)
+
+        # Safe Date Filtering on Dashboard
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+        date_field = request.query_params.get('date_field', 'created_at')
+
+        if date_from or date_to:
+            WHITELISTED_DATE_FIELDS = {'created_at', 'updated_at', 'next_followup_at', 'won_at'}
+            if date_field not in WHITELISTED_DATE_FIELDS:
+                return Response({"error": f"Invalid date_field '{date_field}'."}, status=status.HTTP_400_BAD_REQUEST)
+
+            import datetime
+            from django.utils.dateparse import parse_date, parse_datetime
+
+            if date_from:
+                parsed_from = parse_datetime(date_from) or parse_date(date_from)
+                if not parsed_from:
+                    return Response({"error": "Invalid date_from format."}, status=status.HTTP_400_BAD_REQUEST)
+                if isinstance(parsed_from, datetime.date) and not isinstance(parsed_from, datetime.datetime):
+                    parsed_from = timezone.make_aware(datetime.datetime.combine(parsed_from, datetime.time.min))
+                elif timezone.is_naive(parsed_from):
+                    parsed_from = timezone.make_aware(parsed_from)
+                if parsed_from.year < 1900 or parsed_from.year > 2100:
+                    return Response({"error": "date_from year out of range."}, status=status.HTTP_400_BAD_REQUEST)
+                qs = qs.filter(**{f"{date_field}__gte": parsed_from})
+
+            if date_to:
+                parsed_to = parse_datetime(date_to) or parse_date(date_to)
+                if not parsed_to:
+                    return Response({"error": "Invalid date_to format."}, status=status.HTTP_400_BAD_REQUEST)
+                if isinstance(parsed_to, datetime.date) and not isinstance(parsed_to, datetime.datetime):
+                    parsed_to = timezone.make_aware(datetime.datetime.combine(parsed_to, datetime.time.max))
+                elif timezone.is_naive(parsed_to):
+                    parsed_to = timezone.make_aware(parsed_to)
+                if parsed_to.year < 1900 or parsed_to.year > 2100:
+                    return Response({"error": "date_to year out of range."}, status=status.HTTP_400_BAD_REQUEST)
+                qs = qs.filter(**{f"{date_field}__lte": parsed_to})
 
         total_active_leads = qs.exclude(status__in=Lead.TERMINAL_STATUSES).count()
 

@@ -27,5 +27,6 @@ rank-bm25>=0.2.2
 whitenoise>=6.8.0
 waitress>=3.0.0
 gunicorn>=21.2.0; sys_platform != "win32"
+defusedcsv>=3.0.0
 
 
