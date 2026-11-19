@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 from leads.models import AuditLog, Lead
 from notifications.models import Notification
 
-from .models import User, UserTourState
+from .models import User, UserTourState, UserOnboardingState
 from .permissions import (
     PERMISSION_MATRIX,
     HasPermission,
@@ -386,5 +386,159 @@ class LogoutView(APIView):
             return Response({"error": f"Invalid or expired token: {e}"}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({"message": "Successfully logged out and session revoked."}, status=status.HTTP_200_OK)
+
+
+class OnboardingStateView(APIView):
+    """
+    Manages the server-side one-way completion latch for the
+    'Getting Started with Solar CRM' dashboard card.
+    Single source of truth:
+    - Returns { visible, items, completed_at, dismissed_at, is_collapsed }
+    - Once completed_at or dismissed_at is set, visible is False and items is empty [].
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def _get_role_items(self, user):
+        if user.role == User.Role.SURVEYOR:
+            return [
+                {"id": "tour", "label": "Complete the interactive Product Tour"},
+                {"id": "surveys", "label": "Review assigned site surveys and locations"},
+                {"id": "tour_center", "label": "Explore specialized workflows in the Tour Center"},
+            ]
+        return [
+            {"id": "tour", "label": "Complete the interactive Product Tour"},
+            {"id": "leads", "label": "Review your leads pipeline and customer details"},
+            {"id": "quote", "label": "Create your first solar pricing proposal"},
+            {"id": "tour_center", "label": "Explore specialized workflows in the Tour Center"},
+        ]
+
+    def get(self, request):
+        user = request.user
+        state, _ = UserOnboardingState.objects.get_or_create(user=user)
+
+        # Permanent latch check
+        if state.is_latched():
+            return Response({
+                "visible": False,
+                "items": [],
+                "completed_at": state.completed_at.isoformat() if state.completed_at else None,
+                "dismissed_at": state.dismissed_at.isoformat() if state.dismissed_at else None,
+                "is_collapsed": state.is_collapsed,
+            }, status=status.HTTP_200_OK)
+
+        # Check real events on server and update latched ticked_items
+        ticked = dict(state.ticked_items or {})
+
+        # 1. Tour completed (only complete status ticks it; ending early does not)
+        if not ticked.get('tour'):
+            if UserTourState.objects.filter(
+                user=user,
+                tour_id__in=['complete', 'main'],
+                status=UserTourState.Status.COMPLETED
+            ).exists():
+                ticked['tour'] = True
+
+        # 2. Leads event / existence
+        if not ticked.get('leads') and user.role != User.Role.SURVEYOR:
+            from leads.models import Lead
+            if Lead.objects.filter(assigned_to=user).exists() or Lead.objects.filter(created_by=user).exists():
+                ticked['leads'] = True
+
+        # 3. Quotes event / existence
+        if not ticked.get('quote') and user.role != User.Role.SURVEYOR:
+            from quotes.models import Quote
+            if Quote.objects.filter(created_by=user).exists() or Quote.objects.filter(lead__assigned_to=user).exists():
+                ticked['quote'] = True
+
+        # 4. Surveys event
+        if not ticked.get('surveys') and user.role == User.Role.SURVEYOR:
+            from surveys.models import Survey
+            if Survey.objects.filter(surveyor=user).exists():
+                ticked['surveys'] = True
+
+        if ticked != state.ticked_items:
+            state.ticked_items = ticked
+            state.save()
+
+        # Check if all items for the user's role are now done
+        role_items = self._get_role_items(user)
+        items_payload = []
+        all_done = True
+        for item in role_items:
+            is_done = bool(ticked.get(item['id'], False))
+            if not is_done:
+                all_done = False
+            items_payload.append({
+                "id": item['id'],
+                "label": item['label'],
+                "done": is_done,
+            })
+
+        if all_done and role_items:
+            # Latch permanently right now!
+            state.completed_at = timezone.now()
+            state.save()
+            return Response({
+                "visible": False,
+                "just_completed": True,
+                "items": items_payload,
+                "completed_at": state.completed_at.isoformat(),
+                "dismissed_at": None,
+                "is_collapsed": state.is_collapsed,
+            }, status=status.HTTP_200_OK)
+
+        return Response({
+            "visible": True,
+            "items": items_payload,
+            "completed_at": None,
+            "dismissed_at": None,
+            "is_collapsed": state.is_collapsed,
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        user = request.user
+        state, _ = UserOnboardingState.objects.get_or_create(user=user)
+
+        action = request.data.get('action')
+        if action == 'dismiss':
+            state.dismissed_at = timezone.now()
+            state.save()
+            return Response({
+                "visible": False,
+                "items": [],
+                "completed_at": state.completed_at.isoformat() if state.completed_at else None,
+                "dismissed_at": state.dismissed_at.isoformat(),
+                "is_collapsed": state.is_collapsed,
+            }, status=status.HTTP_200_OK)
+
+        if action == 'collapse':
+            is_collapsed = bool(request.data.get('is_collapsed', not state.is_collapsed))
+            state.is_collapsed = is_collapsed
+            state.save()
+            return Response({
+                "is_collapsed": state.is_collapsed,
+            }, status=status.HTTP_200_OK)
+
+        if action == 'event':
+            event_name = request.data.get('event')
+            if event_name:
+                ticked = dict(state.ticked_items or {})
+                ticked[event_name] = True
+                state.ticked_items = ticked
+                state.save()
+
+            role_items = self._get_role_items(user)
+            all_done = all(ticked.get(item['id'], False) for item in role_items)
+            if all_done and not state.completed_at:
+                state.completed_at = timezone.now()
+                state.save()
+
+        if action == 'complete':
+            if not state.completed_at:
+                state.completed_at = timezone.now()
+                state.save()
+
+        return self.get(request)
+
 
 

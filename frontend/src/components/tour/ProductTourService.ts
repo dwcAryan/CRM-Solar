@@ -50,7 +50,6 @@ export const startTour = (tourId: string = 'complete', onFinish?: () => void) =>
     localStorage.setItem('solar_crm_has_seen_tour', 'true');
     updateTourState({
       has_seen_tour: true,
-      completed_tours: [tourId],
     }).catch(() => {});
   } catch {
     // ignore
@@ -67,15 +66,21 @@ export const startTour = (tourId: string = 'complete', onFinish?: () => void) =>
     doneBtnText: 'Finish',
     progressText: '{{current}} of {{total}}',
     onDestroyStarted: () => {
+      const wasCompleted = driverObj.isLastStep();
       startingTour = false;
       activeDriver = null;
       driverObj.destroy();
       try {
         localStorage.setItem('solar_crm_has_seen_tour', 'true');
-        updateTourState({
-          has_seen_tour: true,
-          completed_tours: [tourId],
-        }).catch(err => console.error('Failed to save tour state:', err));
+        if (wasCompleted) {
+          updateTourState({
+            has_seen_tour: true,
+            completed_tours: [tourId],
+          }).catch(err => console.error('Failed to save tour state:', err));
+          import('../../api/client').then(({ recordOnboardingEvent }) => {
+            recordOnboardingEvent('tour').catch(() => {});
+          });
+        }
       } catch {
         // ignore
       }

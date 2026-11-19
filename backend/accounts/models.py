@@ -82,3 +82,27 @@ class UserTourState(models.Model):
     def __str__(self) -> str:
         return f"{self.user.username} - {self.tour_id} (v{self.version}): {self.status}"
 
+
+class UserOnboardingState(models.Model):
+    """
+    Server-side one-way completion latch for the 'Getting Started with Solar CRM' dashboard card.
+    Once completed_at or dismissed_at is set, the card is permanently hidden.
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='onboarding_state')
+    completed_at = models.DateTimeField(null=True, blank=True)
+    dismissed_at = models.DateTimeField(null=True, blank=True)
+    is_collapsed = models.BooleanField(default=False)
+    ticked_items = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'User Onboarding State'
+        verbose_name_plural = 'User Onboarding States'
+
+    def is_latched(self) -> bool:
+        return self.completed_at is not None or self.dismissed_at is not None
+
+    def __str__(self) -> str:
+        return f"{self.user.username} - latched: {self.is_latched()}"
+

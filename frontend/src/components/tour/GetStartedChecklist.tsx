@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   Group,
@@ -18,9 +18,17 @@ import {
   IconChevronUp,
   IconArrowRight,
   IconX,
+  IconCheck,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { startTour } from './ProductTourService';
+import {
+  fetchOnboardingState,
+  dismissOnboarding,
+  toggleCollapseOnboarding,
+  recordOnboardingEvent,
+  type OnboardingState,
+} from '../../api/client';
 
 interface GetStartedChecklistProps {
   userRole?: string;
@@ -28,77 +36,132 @@ interface GetStartedChecklistProps {
   onOpenTourCenter: () => void;
 }
 
-interface ChecklistItem {
-  id: string;
-  label: string;
-  actionText: string;
-  action: () => void;
-  done: boolean;
-}
-
 export const GetStartedChecklist: React.FC<GetStartedChecklistProps> = ({
   userRole = 'salesperson',
-  hasSeenTour = false,
   onOpenTourCenter,
 }) => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<OnboardingState | null>(null);
+  const [showAllDone, setShowAllDone] = useState(false);
   const [opened, setOpened] = useState(true);
-  const [dismissed, setDismissed] = useState(false);
-  const [completedItems, setCompletedItems] = useState<Record<string, boolean>>({
-    tour: hasSeenTour,
-  });
 
-  if (dismissed) return null;
-
-  const toggleItem = (id: string) => {
-    setCompletedItems(prev => ({ ...prev, [id]: !prev[id] }));
+  const syncState = async () => {
+    try {
+      const res = await fetchOnboardingState();
+      setState(res);
+      setOpened(!res.is_collapsed);
+      if (res.just_completed) {
+        setShowAllDone(true);
+        setTimeout(() => {
+          setState(prev => prev ? { ...prev, visible: false } : null);
+          setShowAllDone(false);
+        }, 3000);
+      }
+    } catch {
+      // In case of error, fail safe and don't block dashboard
+      setState(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const items: ChecklistItem[] = [
-    {
-      id: 'tour',
-      label: 'Complete the interactive Product Tour',
-      actionText: 'Start Tour',
-      action: () => startTour('complete'),
-      done: completedItems['tour'] || hasSeenTour,
-    },
-    ...(userRole === 'surveyor'
-      ? [
-          {
-            id: 'surveys',
-            label: 'Review assigned site surveys and locations',
-            actionText: 'View Surveys',
-            action: () => navigate('/surveys'),
-            done: !!completedItems['surveys'],
-          },
-        ]
-      : [
-          {
-            id: 'leads',
-            label: 'Review your leads pipeline and customer details',
-            actionText: 'Open Leads',
-            action: () => navigate('/leads'),
-            done: !!completedItems['leads'],
-          },
-          {
-            id: 'quote',
-            label: 'Create your first solar pricing proposal',
-            actionText: 'Open Quotes',
-            action: () => navigate('/quotes'),
-            done: !!completedItems['quote'],
-          },
-        ]),
-    {
-      id: 'tour_center',
-      label: 'Explore specialized workflows in the Tour Center',
-      actionText: 'Tour Center',
-      action: onOpenTourCenter,
-      done: !!completedItems['tour_center'],
-    },
-  ];
+  useEffect(() => {
+    syncState();
+  }, [userRole]);
 
+  // Rule 4: No flicker. While loading or if latched/hidden, render nothing.
+  if (loading || !state) return null;
+  if (!state.visible && !showAllDone) return null;
+
+  const items = state.items || [];
   const completedCount = items.filter(i => i.done).length;
-  const progressPercent = Math.round((completedCount / items.length) * 100);
+  const progressPercent = items.length > 0 ? Math.round((completedCount / items.length) * 100) : 100;
+
+  const handleDismiss = async () => {
+    try {
+      const res = await dismissOnboarding();
+      setState(res);
+    } catch {
+      setState(prev => prev ? { ...prev, visible: false } : null);
+    }
+  };
+
+  const handleCollapseToggle = async () => {
+    const nextOpened = !opened;
+    setOpened(nextOpened);
+    try {
+      await toggleCollapseOnboarding(!nextOpened);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleItemAction = async (itemId: string) => {
+    if (itemId === 'tour') {
+      startTour('complete', () => {
+        syncState();
+      });
+      return;
+    }
+
+    try {
+      const res = await recordOnboardingEvent(itemId);
+      setState(res);
+      if (res.just_completed || (!res.visible && res.completed_at)) {
+        setShowAllDone(true);
+        setTimeout(() => {
+          setState(prev => prev ? { ...prev, visible: false } : null);
+          setShowAllDone(false);
+        }, 3000);
+      }
+    } catch {
+      // ignore
+    }
+
+    if (itemId === 'leads') {
+      navigate('/leads');
+    } else if (itemId === 'quote') {
+      navigate('/quotes');
+    } else if (itemId === 'surveys') {
+      navigate('/surveys');
+    } else if (itemId === 'tour_center') {
+      onOpenTourCenter();
+    }
+  };
+
+  if (showAllDone) {
+    return (
+      <Card
+        withBorder
+        radius="md"
+        padding="md"
+        mb="md"
+        data-testid="onboarding-card"
+        data-tour="dashboard-checklist"
+        style={{ borderColor: '#22c55e', background: '#f0fdf4', transition: 'all 0.3s ease' }}
+      >
+        <Group justify="space-between" align="center">
+          <Group gap="sm">
+            <ThemeIcon size="lg" color="teal" variant="filled" radius="xl">
+              <IconCheck size={20} />
+            </ThemeIcon>
+            <div>
+              <Text fw={700} size="sm" c="teal.9">
+                All done! Getting Started checklist completed 🎉
+              </Text>
+              <Text size="xs" c="teal.7">
+                You're ready to maximize your solar pipeline and close more deals.
+              </Text>
+            </div>
+          </Group>
+          <Badge size="sm" color="teal" variant="filled">
+            Completed
+          </Badge>
+        </Group>
+      </Card>
+    );
+  }
 
   return (
     <Card
@@ -106,6 +169,7 @@ export const GetStartedChecklist: React.FC<GetStartedChecklistProps> = ({
       radius="md"
       padding="md"
       mb="md"
+      data-testid="onboarding-card"
       data-tour="dashboard-checklist"
       style={{ borderColor: '#cbd5e1', background: '#f8fafc' }}
     >
@@ -131,8 +195,9 @@ export const GetStartedChecklist: React.FC<GetStartedChecklistProps> = ({
             variant="subtle"
             color="gray"
             size="sm"
-            onClick={() => setOpened(o => !o)}
+            onClick={handleCollapseToggle}
             title={opened ? 'Collapse' : 'Expand'}
+            aria-label="Collapse checklist"
           >
             {opened ? <IconChevronUp size={16} /> : <IconChevronDown size={16} />}
           </ActionIcon>
@@ -140,8 +205,9 @@ export const GetStartedChecklist: React.FC<GetStartedChecklistProps> = ({
             variant="subtle"
             color="gray"
             size="sm"
-            onClick={() => setDismissed(true)}
+            onClick={handleDismiss}
             title="Dismiss"
+            aria-label="Dismiss checklist"
           >
             <IconX size={16} />
           </ActionIcon>
@@ -157,7 +223,7 @@ export const GetStartedChecklist: React.FC<GetStartedChecklistProps> = ({
               <Group gap="xs" wrap="nowrap">
                 <Checkbox
                   checked={item.done}
-                  onChange={() => toggleItem(item.id)}
+                  readOnly
                   color="blue"
                   size="xs"
                 />
@@ -177,9 +243,17 @@ export const GetStartedChecklist: React.FC<GetStartedChecklistProps> = ({
                 variant="subtle"
                 color="blue"
                 rightSection={<IconArrowRight size={10} />}
-                onClick={item.action}
+                onClick={() => handleItemAction(item.id)}
               >
-                {item.actionText}
+                {item.id === 'tour'
+                  ? 'Start Tour'
+                  : item.id === 'leads'
+                  ? 'Open Leads'
+                  : item.id === 'quote'
+                  ? 'Open Quotes'
+                  : item.id === 'surveys'
+                  ? 'View Surveys'
+                  : 'Tour Center'}
               </Button>
             </Group>
           ))}

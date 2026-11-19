@@ -1,0 +1,1613 @@
+# ==============================================================================
+# Solar CRM - User Acceptance Testing (UAT) Scenario Catalog
+# Phase 17: User Acceptance Testing (UAT)
+# ==============================================================================
+
+version: "1.0.0"
+date: "2026-11-19"
+system: "Solar CRM"
+
+scenarios:
+  # ----------------------------------------------------------------------------
+  # SECTION 1: CORE CALL OUTCOMES (15 Out of 15)
+  # ----------------------------------------------------------------------------
+  - id: "UAT-001"
+    role: "salesperson"
+    region: "IN"
+    title: "Call outcome: No Answer triggers ladder increment"
+    preconditions: "Lead exists in New status assigned to salesperson"
+    steps:
+      - "Open lead detail page"
+      - "Click 'Log Activity' and select Call"
+      - "Choose outcome 'No answer (NO_ANSWER)'"
+      - "Enter mandatory remark and submit"
+    expected_result: "Status updates to Attempting Contact, attempt count increments to 1, next follow-up scheduled"
+    type: "auto"
+
+  - id: "UAT-002"
+    role: "salesperson"
+    region: "IN"
+    title: "Call outcome: Busy or Switched Off"
+    preconditions: "Lead exists in Attempting Contact"
+    steps:
+      - "Log call outcome 'Busy or switched off (BUSY_SWITCHED_OFF)'"
+      - "Provide note 'Line busy on second ring'"
+    expected_result: "Next follow-up date set per outcome rule (+4 hours / next working day), status remains Attempting Contact"
+    type: "auto"
+
+  - id: "UAT-003"
+    role: "salesperson"
+    region: "IN"
+    title: "Call outcome: Customer asks to call later"
+    preconditions: "Lead exists in Attempting Contact"
+    steps:
+      - "Log call outcome 'Customer asks to call later (CALL_LATER)'"
+      - "Pick custom follow-up date and time tomorrow 11:00 AM with remark"
+    expected_result: "Next follow-up date updated to chosen slot, status set to Follow Up Scheduled"
+    type: "auto"
+
+  - id: "UAT-004"
+    role: "salesperson"
+    region: "IN"
+    title: "Call outcome: Wrong or invalid number"
+    preconditions: "Lead exists in New"
+    steps:
+      - "Log call outcome 'Wrong or invalid number (WRONG_INVALID_NUMBER)' with remark"
+    expected_result: "Lead status transitions to Lost immediately with reason Invalid Contact"
+    type: "auto"
+
+  - id: "UAT-005"
+    role: "salesperson"
+    region: "IN"
+    title: "Call outcome: Not the decision maker"
+    preconditions: "Lead exists in New"
+    steps:
+      - "Log call outcome 'Not the decision maker (NOT_DECISION_MAKER)' with spouse contact remark"
+    expected_result: "Lead status set to Follow Up Scheduled, remark saved to timeline"
+    type: "auto"
+
+  - id: "UAT-006"
+    role: "salesperson"
+    region: "IN"
+    title: "Call outcome: Interested, wants more information"
+    preconditions: "Lead in New status"
+    steps:
+      - "Log call outcome 'Interested, wants more information (INTERESTED_MORE_INFO)'"
+      - "Add remark 'Interested in 5kW rooftop system, sent brochure'"
+    expected_result: "Status advances to Interested, brochure dispatch activity logged"
+    type: "auto"
+
+  - id: "UAT-007"
+    role: "salesperson"
+    region: "IN"
+    title: "Call outcome: Agrees, ready for site survey"
+    preconditions: "Lead in Interested status"
+    steps:
+      - "Log call outcome 'Agrees, ready for site survey (AGREES_SURVEY)'"
+    expected_result: "Status set to Survey to Schedule, survey booking modal unlocked"
+    type: "auto"
+
+  - id: "UAT-008"
+    role: "salesperson"
+    region: "IN"
+    title: "Call outcome: Wants to discuss with family"
+    preconditions: "Lead in Interested status"
+    steps:
+      - "Log call outcome 'Wants to discuss with family (DISCUSS_FAMILY)' with follow-up 3 days later"
+    expected_result: "Status set to Follow Up Scheduled with exact date rule"
+    type: "auto"
+
+  - id: "UAT-009"
+    role: "salesperson"
+    region: "IN"
+    title: "Call outcome: Price or budget concern"
+    preconditions: "Lead in Interested status"
+    steps:
+      - "Log call outcome 'Price or budget concern (BUDGET_CONCERN)'"
+    expected_result: "Lead moves to Nurture queue with reason waiting_budget"
+    type: "auto"
+
+  - id: "UAT-010"
+    role: "salesperson"
+    region: "IN"
+    title: "Call outcome: Not interested for now"
+    preconditions: "Lead in Interested status"
+    steps:
+      - "Log call outcome 'Not interested for now (NOT_INTERESTED_NOW)'"
+    expected_result: "Lead moved to Nurture status with reminder set for 30 days"
+    type: "auto"
+
+  - id: "UAT-011"
+    role: "salesperson"
+    region: "IN"
+    title: "Call outcome: Not interested at all"
+    preconditions: "Lead in Attempting Contact"
+    steps:
+      - "Log call outcome 'Not interested at all (NOT_INTERESTED_ALL)' with mandatory reason"
+    expected_result: "Lead marked Lost (not_interested)"
+    type: "auto"
+
+  - id: "UAT-012"
+    role: "salesperson"
+    region: "IN"
+    title: "Call outcome: Already installed solar"
+    preconditions: "Lead in New status"
+    steps:
+      - "Log call outcome 'Already installed solar (ALREADY_INSTALLED)'"
+    expected_result: "Lead marked Lost (already_installed)"
+    type: "auto"
+
+  - id: "UAT-013"
+    role: "salesperson"
+    region: "IN"
+    title: "Call outcome: Not the owner / no suitable roof"
+    preconditions: "Lead in New status"
+    steps:
+      - "Log call outcome 'Not owner, rented house or no suitable roof (NOT_OWNER_NO_ROOF)'"
+    expected_result: "Lead marked Lost (not_owner_no_roof)"
+    type: "auto"
+
+  - id: "UAT-014"
+    role: "salesperson"
+    region: "IN"
+    title: "Call outcome: Asked not to be called again (Do Not Contact)"
+    preconditions: "Lead in Attempting Contact"
+    steps:
+      - "Log call outcome 'Asked not to be called again (DO_NOT_CONTACT)'"
+    expected_result: "do_not_contact flag enabled, all outgoing SMS/WhatsApp/Call buttons disabled"
+    type: "auto"
+
+  - id: "UAT-015"
+    role: "salesperson"
+    region: "IN"
+    title: "Call outcome: Duplicate enquiry"
+    preconditions: "Lead in New status with duplicate phone in system"
+    steps:
+      - "Log call outcome 'Duplicate enquiry (DUPLICATE_ENQUIRY)' and link primary lead"
+    expected_result: "Lead status set to Duplicate and merged into primary lead timeline"
+    type: "auto"
+
+  # ----------------------------------------------------------------------------
+  # SECTION 2: CORE SURVEY OUTCOMES (7 Out of 7)
+  # ----------------------------------------------------------------------------
+  - id: "UAT-016"
+    role: "manager"
+    region: "IN"
+    title: "Survey outcome: Survey booked"
+    preconditions: "Lead in Survey to Schedule"
+    steps:
+      - "Select surveyor, scheduled date and time slot"
+      - "Submit survey booking"
+    expected_result: "Status updates to Survey Scheduled, notification sent to surveyor"
+    type: "auto"
+
+  - id: "UAT-017"
+    role: "surveyor"
+    region: "IN"
+    title: "Survey outcome: Customer asks to reschedule"
+    preconditions: "Survey in Booked status"
+    steps:
+      - "Log survey outcome 'Customer asks to reschedule (SURVEY_RESCHEDULE)'"
+      - "Pick new date 2 days later with remark"
+    expected_result: "Survey status set to Rescheduled, customer SMS notification queued"
+    type: "auto"
+
+  - id: "UAT-018"
+    role: "surveyor"
+    region: "IN"
+    title: "Survey outcome: Customer not reachable on site"
+    preconditions: "Survey scheduled for today"
+    steps:
+      - "Log outcome 'Customer not at site or not reachable (SURVEY_CUSTOMER_UNREACHABLE)'"
+    expected_result: "Survey marked Missed, lead flagged for salesperson follow-up"
+    type: "auto"
+
+  - id: "UAT-019"
+    role: "surveyor"
+    region: "IN"
+    title: "Survey outcome: Surveyor delayed or cancels"
+    preconditions: "Survey scheduled"
+    steps:
+      - "Log outcome 'Surveyor cancels or is delayed (SURVEYOR_DELAYED)' with reason"
+    expected_result: "Manager alerted to reassign survey or reschedule slot"
+    type: "auto"
+
+  - id: "UAT-020"
+    role: "surveyor"
+    region: "IN"
+    title: "Survey outcome: Survey done, site suitable"
+    preconditions: "Survey scheduled"
+    steps:
+      - "Upload roof photos, enter usable area 450 sqft, structure RCC"
+      - "Log outcome 'Survey done, site suitable (SURVEY_DONE_SUITABLE)'"
+    expected_result: "Status moves to Design Pending, quote generator unlocked"
+    type: "auto"
+
+  - id: "UAT-021"
+    role: "surveyor"
+    region: "IN"
+    title: "Survey outcome: Survey done, site not suitable"
+    preconditions: "Survey scheduled"
+    steps:
+      - "Log outcome 'Survey done, site not suitable (SURVEY_DONE_UNSUITABLE)' with shade notes"
+    expected_result: "Lead transitions to Lost Approval Pending with manager notification"
+    type: "auto"
+
+  - id: "UAT-022"
+    role: "surveyor"
+    region: "IN"
+    title: "Survey outcome: Customer changes mind before survey"
+    preconditions: "Survey scheduled"
+    steps:
+      - "Log outcome 'Customer changes mind (SURVEY_CHANGES_MIND)'"
+    expected_result: "Survey cancelled, lead returned to Salesperson queue"
+    type: "auto"
+
+  # ----------------------------------------------------------------------------
+  # SECTION 3: CORE QUOTE OUTCOMES (7 Out of 7)
+  # ----------------------------------------------------------------------------
+  - id: "UAT-023"
+    role: "salesperson"
+    region: "IN"
+    title: "Quote outcome: Quote sent, no reply"
+    preconditions: "Quote version 1 generated and emailed"
+    steps:
+      - "Log quote follow-up 'Quote sent, no reply (QUOTE_SENT_NO_REPLY)'"
+    expected_result: "Next follow-up date set to +3 business days per rule"
+    type: "auto"
+
+  - id: "UAT-024"
+    role: "salesperson"
+    region: "IN"
+    title: "Quote outcome: Customer asks technical questions"
+    preconditions: "Quote in Sent status"
+    steps:
+      - "Log outcome 'Customer asks questions (QUOTE_QUESTIONS)' with remark"
+    expected_result: "Lead stays in Quote Sent, question recorded in timeline"
+    type: "auto"
+
+  - id: "UAT-025"
+    role: "salesperson"
+    region: "IN"
+    title: "Quote outcome: Customer requests changes (revision)"
+    preconditions: "Quote in Sent status"
+    steps:
+      - "Log outcome 'Customer asks for changes (QUOTE_REVISION)'"
+      - "Create revised Quote Version 2 (6kW instead of 5kW)"
+    expected_result: "Quote v1 superseded, Quote v2 set as active, status Revising Quote"
+    type: "auto"
+
+  - id: "UAT-026"
+    role: "salesperson"
+    region: "IN"
+    title: "Quote outcome: Customer compares with competitor (Negotiation)"
+    preconditions: "Quote v2 active"
+    steps:
+      - "Log outcome 'Customer compares with competitor (QUOTE_NEGOTIATION)'"
+    expected_result: "Status advances to Negotiation, competitor discount field enabled"
+    type: "auto"
+
+  - id: "UAT-027"
+    role: "salesperson"
+    region: "IN"
+    title: "Quote outcome: Customer wants to wait"
+    preconditions: "Quote in Negotiation status"
+    steps:
+      - "Log outcome 'Customer wants to wait (QUOTE_WAIT)'"
+    expected_result: "Lead moved to Nurture queue with follow-up in 45 days"
+    type: "auto"
+
+  - id: "UAT-028"
+    role: "salesperson"
+    region: "IN"
+    title: "Quote outcome: Customer accepts proposal (Won)"
+    preconditions: "Quote in Negotiation or Quote Sent"
+    steps:
+      - "Click 'Accept Quote - Mark Won' and enter deposit details"
+    expected_result: "Lead status becomes Won, won_at timestamp recorded, celebration banner shown"
+    type: "auto"
+
+  - id: "UAT-029"
+    role: "salesperson"
+    region: "IN"
+    title: "Quote outcome: Customer rejects proposal"
+    preconditions: "Quote in Sent status"
+    steps:
+      - "Click 'Customer Rejects (QUOTE_LOST)' and select reason 'Price too high'"
+    expected_result: "Lead moves to Lost Approval Pending requiring manager review"
+    type: "auto"
+
+  # ----------------------------------------------------------------------------
+  # SECTION 4: CORE WORKFLOWS & AUTOMATION (UAT-030 to UAT-060)
+  # ----------------------------------------------------------------------------
+  - id: "UAT-030"
+    role: "salesperson"
+    region: "IN"
+    title: "Retry ladder: 4 consecutive No Answers leads to Unreachable then Lost"
+    preconditions: "Lead in New status"
+    steps:
+      - "Log Call: No Answer (Attempt 1)"
+      - "Log Call: No Answer (Attempt 2)"
+      - "Log Call: No Answer (Attempt 3)"
+      - "Log Call: No Answer (Attempt 4)"
+    expected_result: "Attempt count reaches 4, status automatically updates to Lost (Unreachable)"
+    type: "auto"
+
+  - id: "UAT-031"
+    role: "salesperson"
+    region: "IN"
+    title: "Full end-to-end journey from New to Won with remarks at each step"
+    preconditions: "Clean fresh lead created"
+    steps:
+      - "Create lead with contact and address info"
+      - "Log Call: Interested with remark"
+      - "Book Survey with remark"
+      - "Complete Survey: Suitable with remark"
+      - "Create Quote v1 and dispatch"
+      - "Accept Quote to Won with payment remark"
+    expected_result: "Complete timeline displays all 6 audit entries with matching user and remarks"
+    type: "auto"
+
+  - id: "UAT-032"
+    role: "salesperson"
+    region: "IN"
+    title: "Lead to Nurture and return to Active Pipeline"
+    preconditions: "Lead in Interested status"
+    steps:
+      - "Move to Nurture with reason waiting_loan"
+      - "Verify presence in Nurture tab"
+      - "Reactivate lead from Nurture with remark 'Loan sanctioned'"
+    expected_result: "Lead returns to Active Leads list in Follow Up Scheduled status"
+    type: "auto"
+
+  - id: "UAT-033"
+    role: "salesperson"
+    region: "IN"
+    title: "Duplicate phone detection warning on lead creation"
+    preconditions: "Lead exists with phone 9825100001"
+    steps:
+      - "Attempt to create second lead with same phone 9825100001"
+    expected_result: "Duplicate warning modal surfaces existing lead link with option to merge or view"
+    type: "auto"
+
+  - id: "UAT-034"
+    role: "manager"
+    region: "IN"
+    title: "CSV Import of 200 leads with 10 invalid rows"
+    preconditions: "CSV file containing 190 valid rows and 10 malformed phones/emails"
+    steps:
+      - "Upload CSV file in Import Leads page"
+      - "Map columns and execute import"
+    expected_result: "190 leads successfully imported, error report generated for 10 rows with error details"
+    type: "auto"
+
+  - id: "UAT-035"
+    role: "manager"
+    region: "IN"
+    title: "Undo recent CSV Import batch"
+    preconditions: "Import batch completed in UAT-034"
+    steps:
+      - "Click 'Revert Batch' on the import history row"
+    expected_result: "All 190 imported leads deleted, batch status marked Reverted"
+    type: "auto"
+
+  - id: "UAT-036"
+    role: "surveyor"
+    region: "IN"
+    title: "Surveyor workflow on 390px mobile viewport"
+    preconditions: "Surveyor logged in with assigned surveys on mobile viewport"
+    steps:
+      - "Open My Surveys tab on 390px screen"
+      - "Click into survey detail"
+      - "Fill roof measurements and submit site suitable"
+    expected_result: "All touch targets >= 44px, bottom sheet layout renders cleanly without horizontal overflow"
+    type: "auto"
+
+  - id: "UAT-037"
+    role: "manager"
+    region: "IN"
+    title: "Manager KPI dashboard validation"
+    preconditions: "Leads seeded across New, Interested, Survey, Quote, Won"
+    steps:
+      - "Navigate to Dashboard"
+      - "Verify funnel counts and conversion percentages"
+    expected_result: "Funnel numbers match database counts, overdue follow-up alert badges render accurately"
+    type: "auto"
+
+  - id: "UAT-038"
+    role: "admin"
+    region: "ALL"
+    title: "Admin changes default follow-up days for outcome"
+    preconditions: "Admin logged into Masters settings"
+    steps:
+      - "Navigate to Master Data -> Outcomes"
+      - "Edit 'Customer asks to call later' default days from 1 to 2"
+      - "Save outcome settings"
+    expected_result: "Future logging of that outcome calculates next follow-up at +2 days by default"
+    type: "auto"
+
+  - id: "UAT-039"
+    role: "any"
+    region: "ALL"
+    title: "Password reset request and confirmation"
+    preconditions: "Active user account demo_sales_in"
+    steps:
+      - "Request reset on /forgot-password with email"
+      - "Retrieve token from backend outbox"
+      - "Submit new password meeting complexity criteria"
+    expected_result: "Password updated, user can log in with new password immediately"
+    type: "auto"
+
+  - id: "UAT-040"
+    role: "manager"
+    region: "IN"
+    title: "Daily morning digest email generation"
+    preconditions: "Scheduler active with leads due today"
+    steps:
+      - "Trigger management command run_daily_digest"
+    expected_result: "Email queued with Today's follow-up list, pending surveys, and manager attention items"
+    type: "auto"
+
+  - id: "UAT-041"
+    role: "salesperson"
+    region: "IN"
+    title: "Web push notification permission dialog acceptance"
+    preconditions: "User logged in with notification permission default"
+    steps:
+      - "Accept notification prompt in application header"
+    expected_result: "Browser subscription endpoint registered on server, test notification delivered"
+    type: "auto"
+
+  - id: "UAT-042"
+    role: "salesperson"
+    region: "ALL"
+    title: "PWA Service Worker registration and desktop app installability"
+    preconditions: "Application loaded in desktop browser"
+    steps:
+      - "Verify service worker registration"
+      - "Inspect web manifest for standalone display, icons, and theme color"
+    expected_result: "Install button surfaces in sidebar, manifest validates with 100% PWA compliance"
+    type: "auto"
+
+  - id: "UAT-043"
+    role: "salesperson"
+    region: "IN"
+    title: "Interactive product tour completion"
+    preconditions: "New user session"
+    steps:
+      - "Start product tour from Tour Center"
+      - "Step through all 5 tour steps to completion"
+    expected_result: "Tour finishes cleanly, completed_tours recorded on server"
+    type: "auto"
+
+  - id: "UAT-044"
+    role: "salesperson"
+    region: "IN"
+    title: "Helpbot: 5 in-scope CRM workflow answers"
+    preconditions: "Helpbot assistant drawer opened"
+    steps:
+      - "Ask: 'How do I log a call outcome?'"
+      - "Ask: 'What happens when customer asks to reschedule a survey?'"
+      - "Ask: 'What is the retry ladder for unreachable leads?'"
+      - "Ask: 'How do I generate a quote PDF?'"
+      - "Ask: 'Who can approve a Lost lead?'"
+    expected_result: "All 5 queries receive accurate markdown answers with relevant tour shortcut links"
+    type: "auto"
+
+  - id: "UAT-045"
+    role: "salesperson"
+    region: "IN"
+    title: "Helpbot: 5 out-of-scope refusals with suggested questions"
+    preconditions: "Helpbot assistant drawer opened"
+    steps:
+      - "Ask: 'What is the weather in Delhi?'"
+      - "Ask: 'Write Python code to sort an array'"
+      - "Ask: 'Tell me a joke about solar energy'"
+      - "Ask: 'Who won the cricket world cup?'"
+      - "Ask: 'How do I cook biryani?'"
+    expected_result: "All 5 queries politely refused as out of scope, providing 3 CRM starter suggestions"
+    type: "auto"
+
+  - id: "UAT-046"
+    role: "salesperson"
+    region: "IN"
+    title: "Today queue prioritization"
+    preconditions: "Leads with past follow-up, today follow-up, and future follow-up"
+    steps:
+      - "Open Today page"
+    expected_result: "Overdue items shown at top in red, today's items below in order of scheduled time"
+    type: "auto"
+
+  - id: "UAT-047"
+    role: "manager"
+    region: "IN"
+    title: "Manager needs-attention queue displays unassigned leads"
+    preconditions: "Leads created without assigned_to salesperson"
+    steps:
+      - "Open Manager Attention page"
+    expected_result: "Unassigned leads listed with 1-click salesperson assignment dropdown"
+    type: "auto"
+
+  - id: "UAT-048"
+    role: "salesperson"
+    region: "IN"
+    title: "Lead search by phone number substring"
+    preconditions: "Lead with phone 9825123456"
+    steps:
+      - "Enter '123456' into global search input"
+    expected_result: "Search results immediately filter to the matching lead"
+    type: "auto"
+
+  - id: "UAT-049"
+    role: "salesperson"
+    region: "IN"
+    title: "Lead search by customer name substring"
+    preconditions: "Lead named 'Rajesh Patel'"
+    steps:
+      - "Enter 'Rajesh' in leads list search"
+    expected_result: "Lead 'Rajesh Patel' returned in results table"
+    type: "auto"
+
+  - id: "UAT-050"
+    role: "salesperson"
+    region: "IN"
+    title: "Lead edit updates address and electricity details"
+    preconditions: "Lead exists in system"
+    steps:
+      - "Edit address to 'Shop 12, MG Road' and monthly bill to 6500"
+      - "Save lead"
+    expected_result: "Lead details updated, audit entry logged with previous and new values"
+    type: "auto"
+
+  - id: "UAT-051"
+    role: "manager"
+    region: "IN"
+    title: "Audit log captures user IP and exact field diffs"
+    preconditions: "Status change performed on lead"
+    steps:
+      - "Open lead timeline and inspect audit log modal"
+    expected_result: "Timestamp, user, IP address, changed fields, and previous/new states displayed"
+    type: "auto"
+
+  - id: "UAT-052"
+    role: "salesperson"
+    region: "IN"
+    title: "WhatsApp template message preview and dispatch"
+    preconditions: "Lead in Interested status"
+    steps:
+      - "Click WhatsApp icon on lead card"
+      - "Select 'Information Brochure' template"
+      - "Send message"
+    expected_result: "Message queued with interpolated customer name and system size, activity logged"
+    type: "auto"
+
+  - id: "UAT-053"
+    role: "salesperson"
+    region: "IN"
+    title: "SMS message character counter & GSM-7 encoding warning"
+    preconditions: "Lead detail SMS composer opened"
+    steps:
+      - "Type 150 characters of ASCII text"
+      - "Add one Unicode Hindi word 'नमस्ते'"
+    expected_result: "Counter switches from 160 GSM-7 segment to 70 UCS-2 segment warning"
+    type: "auto"
+
+  - id: "UAT-054"
+    role: "salesperson"
+    region: "IN"
+    title: "Mandatory remarks on every status transition"
+    preconditions: "Lead in New status"
+    steps:
+      - "Attempt to change status without entering remark"
+    expected_result: "Form submission blocked with validation error 'Remark is mandatory for status change'"
+    type: "auto"
+
+  - id: "UAT-055"
+    role: "manager"
+    region: "IN"
+    title: "Lead status history chronology"
+    preconditions: "Lead transitioned through 3 different statuses"
+    steps:
+      - "Inspect Status History tab"
+    expected_result: "Entries listed in reverse chronological order with time-in-status duration"
+    type: "auto"
+
+  - id: "UAT-056"
+    role: "admin"
+    region: "ALL"
+    title: "Database backup creation and integrity check"
+    preconditions: "Admin CLI access"
+    steps:
+      - "Execute python scripts/backup_db.py"
+    expected_result: "Compressed backup dump created in backups/ directory with non-zero byte size"
+    type: "auto"
+
+  - id: "UAT-057"
+    role: "admin"
+    region: "ALL"
+    title: "Database restore from backup verification"
+    preconditions: "Recent backup file available"
+    steps:
+      - "Execute python scripts/restore_db.py on test database"
+    expected_result: "All tables, rows, and constraints restored without corruption"
+    type: "auto"
+
+  - id: "UAT-058"
+    role: "salesperson"
+    region: "IN"
+    title: "AI suggestions: Situation summary and recommended pitch"
+    preconditions: "Lead with 2 logged calls and 1 site survey"
+    steps:
+      - "Open AI Coach tab on lead detail page"
+      - "Click 'Generate Suggestions'"
+    expected_result: "Situation summary generated, PII scrubbed, next action pitch provided with confidence score"
+    type: "auto"
+
+  - id: "UAT-059"
+    role: "salesperson"
+    region: "IN"
+    title: "AI suggestions cache hit within 24 hours"
+    preconditions: "Suggestion generated in UAT-058"
+    steps:
+      - "Re-open AI Coach tab without clicking refresh"
+    expected_result: "Cached suggestion rendered in under 100ms without making outbound LLM API call"
+    type: "auto"
+
+  - id: "UAT-060"
+    role: "admin"
+    region: "ALL"
+    title: "Production readiness health check endpoint"
+    preconditions: "Production server running"
+    steps:
+      - "GET /api/health/"
+    expected_result: "Returns HTTP 200 with database: healthy, cache: ready, disk: ok"
+    type: "auto"
+
+  # ----------------------------------------------------------------------------
+  # SECTION 5: INDIA AND AUSTRALIA MULTI-COUNTRY (UAT-061 to UAT-080)
+  # ----------------------------------------------------------------------------
+  - id: "UAT-061"
+    role: "salesperson"
+    region: "IN"
+    title: "Indian salesperson restricted to Indian region"
+    preconditions: "demo_sales_in user logged in"
+    steps:
+      - "View leads list"
+      - "Attempt to query ?region=AU"
+    expected_result: "Only Indian leads visible; AU query returns HTTP 403 Forbidden"
+    type: "auto"
+
+  - id: "UAT-062"
+    role: "salesperson"
+    region: "AU"
+    title: "Australian salesperson restricted to Australian region"
+    preconditions: "demo_sales_au user logged in"
+    steps:
+      - "View leads list"
+      - "Attempt to query ?region=IN"
+    expected_result: "Only Australian leads visible; IN query returns HTTP 403 Forbidden"
+    type: "auto"
+
+  - id: "UAT-063"
+    role: "manager"
+    region: "ALL"
+    title: "Manager switches between India and Australia regions"
+    preconditions: "demo_manager has access to both IN and AU"
+    steps:
+      - "Select 'India (IN)' in header region selector"
+      - "Verify Indian leads and INR currency"
+      - "Select 'Australia (AU)' in header region selector"
+    expected_result: "Leads list switches to AU leads, currency changes to AUD ($), timezone updates"
+    type: "auto"
+
+  - id: "UAT-064"
+    role: "salesperson"
+    region: "AU"
+    title: "Australian leads: Perth (AWST) vs Sydney (AEST) local time boundaries"
+    preconditions: "One lead in Perth (WA) and one lead in Sydney (NSW)"
+    steps:
+      - "Inspect local time display on lead detail for both leads"
+    expected_result: "Perth displays UTC+8 time; Sydney displays UTC+10 (or UTC+11 DST) local time"
+    type: "auto"
+
+  - id: "UAT-065"
+    role: "salesperson"
+    region: "AU"
+    title: "Calling hours compliance: Call outside 9am-8pm blocked with warning"
+    preconditions: "Lead located in Perth where local time is 9:30 PM"
+    steps:
+      - "Attempt to initiate outbound call or schedule call during late night"
+    expected_result: "Calling hours warning modal surfaces: 'Outside permissible calling hours in WA (Perth)'"
+    type: "auto"
+
+  - id: "UAT-066"
+    role: "salesperson"
+    region: "AU"
+    title: "Australian Do Not Call Register (DNCR) blocking"
+    preconditions: "Lead marked DNCR opted-out"
+    steps:
+      - "Attempt to log call or send marketing SMS"
+    expected_result: "Action disabled with badge 'Do Not Call - Registered'"
+    type: "auto"
+
+  - id: "UAT-067"
+    role: "salesperson"
+    region: "IN"
+    title: "Indian Quote: INR currency and PM Surya Ghar subsidy calculation"
+    preconditions: "Indian lead ready for quote"
+    steps:
+      - "Generate 3kW residential rooftop quote"
+    expected_result: "Base price formatted in ₹ (e.g. ₹1,80,000), PM Surya Ghar subsidy applied (₹78,000), Net: ₹1,02,000"
+    type: "auto"
+
+  - id: "UAT-068"
+    role: "salesperson"
+    region: "AU"
+    title: "Australian Quote: AUD currency and STC rebate incentive"
+    preconditions: "Australian lead ready for quote"
+    steps:
+      - "Generate 6.6kW solar proposal in NSW"
+    expected_result: "Base price formatted in $ AUD, Small-scale Technology Certificates (STC) discount calculated and deducted"
+    type: "auto"
+
+  - id: "UAT-069"
+    role: "salesperson"
+    region: "AU"
+    title: "Quarterly electricity bill conversion for Australia"
+    preconditions: "Australian lead creation"
+    steps:
+      - "Enter quarterly bill $950"
+    expected_result: "System calculates annualized bill $3,800 and monthly equivalent $316.67"
+    type: "auto"
+
+  - id: "UAT-070"
+    role: "manager"
+    region: "ALL"
+    title: "Mixed-country CSV import correctly routes leads by region"
+    preconditions: "CSV containing 5 Indian and 5 Australian leads"
+    steps:
+      - "Execute CSV import"
+    expected_result: "5 leads assigned region IN with +91 E.164 phones, 5 leads assigned AU with +61 E.164 phones"
+    type: "auto"
+
+  - id: "UAT-071"
+    role: "salesperson"
+    region: "IN"
+    title: "Indian SMS template contains TRAI opt-out compliance line"
+    preconditions: "Lead detail SMS preview"
+    steps:
+      - "Select standard reminder template"
+    expected_result: "Footer contains 'To opt out reply STOP to 9825000000'"
+    type: "auto"
+
+  - id: "UAT-072"
+    role: "salesperson"
+    region: "AU"
+    title: "Australian SMS template contains Spam Act 2003 unsubscribe line"
+    preconditions: "AU lead detail SMS preview"
+    steps:
+      - "Select Australian quote notification template"
+    expected_result: "Footer contains 'Reply STOP to opt out. Solar CRM Pty Ltd, ABN 12 345 678 901'"
+    type: "auto"
+
+  - id: "UAT-073"
+    role: "admin"
+    region: "ALL"
+    title: "Admin edits public holidays for India and Australia"
+    preconditions: "Admin logged into Regional Masters"
+    steps:
+      - "Add 'Diwali' for IN region on 2026-11-08"
+      - "Add 'Australia Day' for AU region on 2027-01-26"
+      - "Save holidays"
+    expected_result: "Calling hours and follow-up schedulers treat dates as non-calling public holidays"
+    type: "auto"
+
+  - id: "UAT-074"
+    role: "manager"
+    region: "ALL"
+    title: "Data Subject Access Request (DSAR): Export customer dossier"
+    preconditions: "Lead exists with activities and quotes"
+    steps:
+      - "Click 'Export Customer Dossier' in lead privacy tools"
+    expected_result: "Downloadable PDF contains all personal data, contact history, and quote versions"
+    type: "auto"
+
+  - id: "UAT-075"
+    role: "manager"
+    region: "ALL"
+    title: "Right to be Forgotten: Anonymize customer personal data"
+    preconditions: "Lead with sensitive personal info"
+    steps:
+      - "Click 'Anonymize Lead' and confirm with manager credential"
+    expected_result: "Name redacted to 'Anonymized Lead', phone hashed, email scrubbed, audit preserved"
+    type: "auto"
+
+  - id: "UAT-076"
+    role: "salesperson"
+    region: "IN"
+    title: "Phone validation enforces E.164 format for India (+91)"
+    preconditions: "Lead creation form"
+    steps:
+      - "Enter local phone 9825123456"
+    expected_result: "System formats and validates as +919825123456"
+    type: "auto"
+
+  - id: "UAT-077"
+    role: "salesperson"
+    region: "AU"
+    title: "Phone validation enforces E.164 format for Australia (+61)"
+    preconditions: "AU lead creation form"
+    steps:
+      - "Enter local mobile 0412 345 678"
+    expected_result: "System formats and validates as +61412345678"
+    type: "auto"
+
+  - id: "UAT-078"
+    role: "salesperson"
+    region: "ALL"
+    title: "Helpbot answers regional policy questions"
+    preconditions: "Helpbot opened"
+    steps:
+      - "Ask: 'What is the PM Surya Ghar subsidy in India?'"
+      - "Ask: 'What are the calling hours rules in Australia?'"
+    expected_result: "Helpbot explains ₹78,000 national subsidy for IN and 9am-8pm ACMA rules for AU"
+    type: "auto"
+
+  - id: "UAT-079"
+    role: "manager"
+    region: "ALL"
+    title: "Scheduler timezone alignment per region"
+    preconditions: "Automated cron jobs configured"
+    steps:
+      - "Run scheduled reminder check"
+    expected_result: "Jobs trigger according to the lead's local state timezone (Perth, Sydney, Kolkata)"
+    type: "auto"
+
+  - id: "UAT-080"
+    role: "admin"
+    region: "ALL"
+    title: "Data retention policy settings enforcement"
+    preconditions: "Data retention policy set to 365 days"
+    steps:
+      - "Verify data retention policy settings view"
+    expected_result: "Configured days saved in PolicySettings table and visible in Admin dashboard"
+    type: "auto"
+
+  # ----------------------------------------------------------------------------
+  # SECTION 6: ROLES & RBAC MATRIX COMPLIANCE (UAT-081 to UAT-100)
+  # ----------------------------------------------------------------------------
+  - id: "UAT-081"
+    role: "salesperson"
+    region: "IN"
+    title: "Salesperson attempting lead assignment fails with 403"
+    preconditions: "demo_sales_in logged in"
+    steps:
+      - "POST /api/leads/{id}/assign/ with another user id"
+    expected_result: "HTTP 403 Forbidden with permission error message"
+    type: "auto"
+
+  - id: "UAT-082"
+    role: "salesperson"
+    region: "IN"
+    title: "Salesperson attempting CSV export fails with 403"
+    preconditions: "demo_sales_in logged in"
+    steps:
+      - "GET /api/leads/export-csv/"
+    expected_result: "HTTP 403 Forbidden: export restricted to Managers and Admins"
+    type: "auto"
+
+  - id: "UAT-083"
+    role: "salesperson"
+    region: "IN"
+    title: "Salesperson attempting CSV import fails with 403"
+    preconditions: "demo_sales_in logged in"
+    steps:
+      - "POST /api/leads/import-csv/"
+    expected_result: "HTTP 403 Forbidden: import restricted to Managers and Admins"
+    type: "auto"
+
+  - id: "UAT-084"
+    role: "manager"
+    region: "IN"
+    title: "Manager approves Lost lead"
+    preconditions: "Lead in Lost Approval Pending"
+    steps:
+      - "Open lead and click 'Approve Lost'"
+      - "Enter approval remark"
+    expected_result: "Status finalized to Lost, salesperson notified"
+    type: "auto"
+
+  - id: "UAT-085"
+    role: "manager"
+    region: "IN"
+    title: "Manager rejects Lost lead back to active pipeline"
+    preconditions: "Lead in Lost Approval Pending"
+    steps:
+      - "Click 'Reject Lost - Reopen Lead' with remark 'Try calling spouse'"
+    expected_result: "Status returns to Follow Up Scheduled with new follow-up date"
+    type: "auto"
+
+  - id: "UAT-086"
+    role: "manager"
+    region: "IN"
+    title: "Manager assigns lead to specific salesperson"
+    preconditions: "Unassigned lead exists"
+    steps:
+      - "Select demo_sales_in and click Assign"
+    expected_result: "Lead assigned_to updated, notification dispatched to demo_sales_in"
+    type: "auto"
+
+  - id: "UAT-087"
+    role: "manager"
+    region: "IN"
+    title: "Manager bulk-assigns 20 leads across sales team"
+    preconditions: "20 unassigned leads in queue"
+    steps:
+      - "Select all 20 leads via checkboxes"
+      - "Select demo_sales_in and click 'Bulk Assign'"
+    expected_result: "All 20 leads assigned, audit logs created for each assignment"
+    type: "auto"
+
+  - id: "UAT-088"
+    role: "manager"
+    region: "IN"
+    title: "Manager assigns surveyor to pending survey"
+    preconditions: "Survey in Booked status unassigned"
+    steps:
+      - "Assign demo_surveyor_in to survey"
+    expected_result: "Survey assigned, visible in surveyor's My Surveys list"
+    type: "auto"
+
+  - id: "UAT-089"
+    role: "manager"
+    region: "IN"
+    title: "Reassign all leads of a disabled user"
+    preconditions: "Salesperson user deactivated"
+    steps:
+      - "Click 'Reassign User Leads' and pick replacement salesperson"
+    expected_result: "All active leads transferred to new salesperson with batch reassignment remark"
+    type: "auto"
+
+  - id: "UAT-090"
+    role: "surveyor"
+    region: "IN"
+    title: "Surveyor cannot view financial pricing or quote amounts"
+    preconditions: "demo_surveyor_in logged in"
+    steps:
+      - "Open survey detail page"
+      - "Inspect lead summary panel"
+    expected_result: "Price, monthly bill, and quote values are completely masked or omitted"
+    type: "auto"
+
+  - id: "UAT-091"
+    role: "surveyor"
+    region: "IN"
+    title: "Surveyor restricted from leads list and quotes navigation"
+    preconditions: "demo_surveyor_in logged in"
+    steps:
+      - "Attempt to navigate to /leads or /quotes"
+    expected_result: "Navigation links hidden; direct URL access redirects to /my-surveys"
+    type: "auto"
+
+  - id: "UAT-092"
+    role: "admin"
+    region: "ALL"
+    title: "Admin creates new user and sets password policy"
+    preconditions: "demo_admin logged in"
+    steps:
+      - "Navigate to User Management -> Add User"
+      - "Enter username, email, select role Salesperson, assign region IN"
+      - "Save user"
+    expected_result: "User created with must_change_password=True flag enabled"
+    type: "auto"
+
+  - id: "UAT-093"
+    role: "admin"
+    region: "ALL"
+    title: "Admin updates user role from Salesperson to Manager"
+    preconditions: "Existing sales user"
+    steps:
+      - "Edit user role to Manager and save"
+    expected_result: "User permissions updated, user granted access to manager attention and reports"
+    type: "auto"
+
+  - id: "UAT-094"
+    role: "admin"
+    region: "ALL"
+    title: "Admin home page navigation & access"
+    preconditions: "demo_admin logged in"
+    steps:
+      - "Navigate to /admin"
+    expected_result: "Admin dashboard renders User Management, Master Tables, and Audit Logs"
+    type: "auto"
+
+  - id: "UAT-095"
+    role: "manager"
+    region: "IN"
+    title: "Manager home page navigation & access"
+    preconditions: "demo_manager logged in"
+    steps:
+      - "Navigate to /"
+    expected_result: "Team performance metrics, needs-attention queue, and region switchers render cleanly"
+    type: "auto"
+
+  - id: "UAT-096"
+    role: "salesperson"
+    region: "IN"
+    title: "Salesperson home page navigation & access"
+    preconditions: "demo_sales_in logged in"
+    steps:
+      - "Navigate to /"
+    expected_result: "Personal pipeline overview, today's call list, and lead creation button visible"
+    type: "auto"
+
+  - id: "UAT-097"
+    role: "surveyor"
+    region: "IN"
+    title: "Surveyor home page navigation & access"
+    preconditions: "demo_surveyor_in logged in"
+    steps:
+      - "Navigate to /"
+    expected_result: "Surveyor dashboard displays today's assigned surveys and pending site visits"
+    type: "auto"
+
+  - id: "UAT-098"
+    role: "salesperson"
+    region: "IN"
+    title: "Salesperson restricted from accessing /admin"
+    preconditions: "demo_sales_in logged in"
+    steps:
+      - "Navigate to /admin"
+    expected_result: "Redirected to / with 403 access denied banner"
+    type: "auto"
+
+  - id: "UAT-099"
+    role: "manager"
+    region: "IN"
+    title: "Roles Matrix live API verification"
+    preconditions: "demo_manager logged in"
+    steps:
+      - "Navigate to /roles-matrix"
+    expected_result: "Permission grid renders exact permission codes for Admin, Manager, Sales, Surveyor"
+    type: "auto"
+
+  - id: "UAT-100"
+    role: "admin"
+    region: "ALL"
+    title: "Session token revocation upon logout"
+    preconditions: "Authenticated session"
+    steps:
+      - "Click Logout"
+      - "Attempt to use refresh token"
+    expected_result: "Refresh token blacklisted, API calls reject with HTTP 401 Unauthorized"
+    type: "auto"
+
+  # ----------------------------------------------------------------------------
+  # SECTION 7: PHASE 14M DATE FILTER, PDF AUDIT & EMAIL (UAT-101 to UAT-115)
+  # ----------------------------------------------------------------------------
+  - id: "UAT-101"
+    role: "salesperson"
+    region: "IN"
+    title: "Filter leads by Created Date range"
+    preconditions: "Leads created across different dates"
+    steps:
+      - "Select 'Filter by: Created Date'"
+      - "Enter From: 2026-11-01 and To: 2026-11-15"
+    expected_result: "Leads table displays only leads created within the selected range"
+    type: "auto"
+
+  - id: "UAT-102"
+    role: "manager"
+    region: "IN"
+    title: "Filter leads by Next Follow-up Date range"
+    preconditions: "Leads with scheduled follow-ups"
+    steps:
+      - "Select 'Filter by: Next Follow-up Date'"
+      - "Enter From: today and To: today + 7 days"
+    expected_result: "Only leads with upcoming follow-ups in the next 7 days returned"
+    type: "auto"
+
+  - id: "UAT-103"
+    role: "salesperson"
+    region: "IN"
+    title: "Filter leads by Last Activity Date range"
+    preconditions: "Leads with recent activity"
+    steps:
+      - "Select 'Filter by: Last Activity Date'"
+      - "Choose preset 'Last 7 days'"
+    expected_result: "Removable active chip displays 'Last Activity: Last 7 days', URL query synced"
+    type: "auto"
+
+  - id: "UAT-104"
+    role: "salesperson"
+    region: "IN"
+    title: "Quick presets: Today, Yesterday, This month, Last month"
+    preconditions: "All leads page open"
+    steps:
+      - "Click preset 'This month'"
+      - "Click 'Clear all filters'"
+    expected_result: "Range applies instantly; clear filters restores full active lead list"
+    type: "auto"
+
+  - id: "UAT-105"
+    role: "salesperson"
+    region: "IN"
+    title: "Open-ended date filter (From date only, To date only)"
+    preconditions: "All leads page open"
+    steps:
+      - "Enter From date 2026-11-10 with To date left blank"
+    expected_result: "All leads from 2026-11-10 to present returned without error"
+    type: "auto"
+
+  - id: "UAT-106"
+    role: "manager"
+    region: "AU"
+    title: "Day boundaries calculated in requesting user's timezone"
+    preconditions: "Perth user (UTC+8) and Sydney user (UTC+11) requesting same date"
+    steps:
+      - "Query /api/leads/?date_field=created_at&date_from=2026-11-19&date_to=2026-11-19"
+    expected_result: "Perth bounds converted to UTC: 2026-11-18 16:00 to 2026-11-19 15:59:59"
+    type: "auto"
+
+  - id: "UAT-107"
+    role: "manager"
+    region: "IN"
+    title: "Export filtered leads respects active date range"
+    preconditions: "Date filter active"
+    steps:
+      - "Click 'Export CSV' with active date filter"
+    expected_result: "Exported CSV contains exactly the filtered row count matching on-screen leads"
+    type: "auto"
+
+  - id: "UAT-108"
+    role: "salesperson"
+    region: "IN"
+    title: "Quote proposal PDF download on desktop"
+    preconditions: "Quote exists in system"
+    steps:
+      - "Click 'Download Quote PDF'"
+    expected_result: "Valid PDF downloaded with correct header, system specs, pricing table, and logo"
+    type: "auto"
+
+  - id: "UAT-109"
+    role: "manager"
+    region: "IN"
+    title: "Privacy dossier PDF download on desktop"
+    preconditions: "Lead exists in system"
+    steps:
+      - "Click 'Download DSAR Dossier PDF'"
+    expected_result: "Multi-page PDF downloaded with customer contact, timeline, and consent logs"
+    type: "auto"
+
+  - id: "UAT-110"
+    role: "salesperson"
+    region: "IN"
+    title: "PDF download on 390px mobile viewport"
+    preconditions: "Mobile viewport 390px"
+    steps:
+      - "Click quote PDF download"
+    expected_result: "PDF blob downloaded and saved cleanly on mobile browser"
+    type: "auto"
+
+  - id: "UAT-111"
+    role: "surveyor"
+    region: "IN"
+    title: "Unauthorized user attempting PDF download fails with 403"
+    preconditions: "demo_surveyor_in logged in"
+    steps:
+      - "Attempt to GET /api/quotes/{id}/pdf/"
+    expected_result: "HTTP 403 Forbidden: quote PDF download restricted"
+    type: "auto"
+
+  - id: "UAT-112"
+    role: "any"
+    region: "ALL"
+    title: "Forgot-password email end-to-end dispatch"
+    preconditions: "Valid user email"
+    steps:
+      - "Submit reset request on /forgot-password"
+    expected_result: "Email queued in EmailOutbox with inline CSS styles and single-use reset URL"
+    type: "auto"
+
+  - id: "UAT-113"
+    role: "manager"
+    region: "IN"
+    title: "Lead assignment email notification"
+    preconditions: "Lead assigned to demo_sales_in"
+    steps:
+      - "Execute lead assignment"
+    expected_result: "Notification email queued to salesperson's inbox with lead name and direct link"
+    type: "auto"
+
+  - id: "UAT-114"
+    role: "manager"
+    region: "ALL"
+    title: "Email settings page: Failed email retry"
+    preconditions: "Email in outbox with FAILED status"
+    steps:
+      - "Navigate to Email Outbox -> click 'Retry Dispatch'"
+    expected_result: "Email re-queued and attempt counter incremented"
+    type: "auto"
+
+  - id: "UAT-115"
+    role: "staff"
+    region: "ALL"
+    title: "Email deliverability: Real inbox dark mode & spam check"
+    preconditions: "Real SMTP connection configured"
+    steps:
+      - "Send test email to corporate Gmail and Outlook inboxes"
+      - "Verify email lands in Primary inbox (not Spam)"
+      - "Verify readable contrast in dark mode"
+    expected_result: "Email renders with crisp typography and readable contrast in light and dark mode"
+    type: "manual"
+
+  # ----------------------------------------------------------------------------
+  # SECTION 8: PHASE 14L LOCALIZATION & I18N (UAT-116 to UAT-136)
+  # ----------------------------------------------------------------------------
+  - id: "UAT-116"
+    role: "any"
+    region: "IN"
+    title: "Language selector on login page switches to Hindi"
+    preconditions: "Unauthenticated login screen"
+    steps:
+      - "Select 'हिन्दी' from language dropdown"
+    expected_result: "All headings, placeholders, labels, and buttons instantly translate to Hindi"
+    type: "auto"
+
+  - id: "UAT-117"
+    role: "salesperson"
+    region: "IN"
+    title: "Header language switch persists to user profile across sessions"
+    preconditions: "Logged in user"
+    steps:
+      - "Switch language to Hindi in top header"
+      - "Verify preferred_language saved on backend user record"
+      - "Open new browser tab"
+    expected_result: "New tab opens in Hindi automatically"
+    type: "auto"
+
+  - id: "UAT-118"
+    role: "salesperson"
+    region: "IN"
+    title: "Full lead journey in Hindi with native script lead name"
+    preconditions: "User in Hindi interface"
+    steps:
+      - "Create lead with name 'विक्रम शर्मा'"
+      - "Log call outcome in Hindi"
+      - "Schedule survey in Hindi"
+      - "Accept quote to 'सफल (Won)' in Hindi"
+    expected_result: "Entire flow completes in Hindi; status codes remain stable enums under the hood"
+    type: "auto"
+
+  - id: "UAT-119"
+    role: "salesperson"
+    region: "IN"
+    title: "Salesperson in Hindi while lead communication language is English"
+    preconditions: "Salesperson user language 'hi', lead preferred communication language 'en'"
+    steps:
+      - "Send WhatsApp quote notification to customer"
+    expected_result: "Customer receives message in English; salesperson interface remains in Hindi"
+    type: "auto"
+
+  - id: "UAT-120"
+    role: "salesperson"
+    region: "IN"
+    title: "Salesperson in English while lead communication language is Hindi"
+    preconditions: "Salesperson user language 'en', lead preferred communication language 'hi'"
+    steps:
+      - "Send SMS quote notification to customer"
+    expected_result: "Customer receives message in Hindi; salesperson interface remains in English"
+    type: "auto"
+
+  - id: "UAT-121"
+    role: "salesperson"
+    region: "IN"
+    title: "Missing language template falls back to English cleanly"
+    preconditions: "Lead preferred language set to unsupported locale 'gu'"
+    steps:
+      - "Trigger automated survey confirmation"
+    expected_result: "System falls back to standard English template without crashing"
+    type: "auto"
+
+  - id: "UAT-122"
+    role: "salesperson"
+    region: "IN"
+    title: "Hindi WhatsApp and SMS messages include Hindi opt-out footer"
+    preconditions: "Hindi customer message preview"
+    steps:
+      - "Inspect message preview"
+    expected_result: "Footer contains 'अनसब्सक्राइब करने के लिए STOP लिखें'"
+    type: "auto"
+
+  - id: "UAT-123"
+    role: "salesperson"
+    region: "IN"
+    title: "Staff notification and email arrives in recipient's language"
+    preconditions: "demo_sales_in has preferred_language='hi'"
+    steps:
+      - "Manager assigns lead to demo_sales_in"
+    expected_result: "In-app notification and email subject/body generated in Hindi"
+    type: "auto"
+
+  - id: "UAT-124"
+    role: "salesperson"
+    region: "IN"
+    title: "Audit timeline re-renders dynamically upon switching language"
+    preconditions: "Lead with history entries viewed in English"
+    steps:
+      - "Switch interface to Hindi"
+    expected_result: "System-generated actions re-render in Hindi; user-entered remarks remain untranslated"
+    type: "auto"
+
+  - id: "UAT-125"
+    role: "salesperson"
+    region: "IN"
+    title: "Interactive product tour renders in Hindi"
+    preconditions: "User interface in Hindi"
+    steps:
+      - "Start product tour"
+    expected_result: "Tour popovers display Hindi titles, descriptions, and 'अगला' / 'समाप्त' buttons"
+    type: "auto"
+
+  - id: "UAT-126"
+    role: "salesperson"
+    region: "IN"
+    title: "Helpbot in Hindi: Valid workflow query"
+    preconditions: "User interface in Hindi"
+    steps:
+      - "Ask: 'साइट सर्वे कैसे शेड्यूल करें?'"
+    expected_result: "Helpbot replies in natural Hindi explaining survey scheduling steps"
+    type: "auto"
+
+  - id: "UAT-127"
+    role: "salesperson"
+    region: "IN"
+    title: "Helpbot in Hindi: Out-of-scope query refusal"
+    preconditions: "User interface in Hindi"
+    steps:
+      - "Ask: 'आज का मौसम कैसा है?'"
+    expected_result: "Helpbot refuses in polite Hindi and provides 3 Hindi starter questions"
+    type: "auto"
+
+  - id: "UAT-128"
+    role: "manager"
+    region: "IN"
+    title: "CSV import with Language column sets lead communication language"
+    preconditions: "CSV containing column Language with values 'hi' and 'en'"
+    steps:
+      - "Import CSV file"
+    expected_result: "Imported leads have preferred_language field set accordingly"
+    type: "auto"
+
+  - id: "UAT-129"
+    role: "admin"
+    region: "ALL"
+    title: "Admin enables new language and runs translation draft"
+    preconditions: "demo_admin logged in"
+    steps:
+      - "Navigate to Master Data -> Languages"
+      - "Add language Marathi (mr)"
+      - "Execute python manage.py translate_missing --lang mr"
+    expected_result: "Catalog entries seeded in draft status flagged needs_review=True"
+    type: "auto"
+
+  - id: "UAT-130"
+    role: "admin"
+    region: "ALL"
+    title: "Admin edits string and marks translation reviewed"
+    preconditions: "Draft translation string exists"
+    steps:
+      - "Edit Marathi string in translation admin and toggle reviewed"
+      - "Save string"
+    expected_result: "String updated with audit trail of admin user and timestamp"
+    type: "auto"
+
+  - id: "UAT-131"
+    role: "admin"
+    region: "ALL"
+    title: "Language with unreviewed templates blocked from customer communication"
+    preconditions: "Language enabled but templates flagged unreviewed"
+    steps:
+      - "Attempt to select language as default communication language"
+    expected_result: "Validation warning blocks selection until templates are approved"
+    type: "auto"
+
+  - id: "UAT-132"
+    role: "salesperson"
+    region: "IN"
+    title: "Salesperson trying to access translation admin fails with 403"
+    preconditions: "demo_sales_in logged in"
+    steps:
+      - "GET /api/masters/translations/"
+    expected_result: "HTTP 403 Forbidden: translation management restricted to Admins"
+    type: "auto"
+
+  - id: "UAT-133"
+    role: "salesperson"
+    region: "IN"
+    title: "Indian user chooses English (India) locale formatting"
+    preconditions: "User chooses en-IN"
+    steps:
+      - "View numbers and currency"
+    expected_result: "Numbers formatted in Indian lakh/crore grouping (e.g. 1,00,000) with ₹ symbol"
+    type: "auto"
+
+  - id: "UAT-134"
+    role: "salesperson"
+    region: "AU"
+    title: "Australian user chooses English (Australia) locale formatting"
+    preconditions: "User chooses en-AU"
+    steps:
+      - "View numbers and currency"
+    expected_result: "Numbers formatted in standard thousands grouping (e.g. 100,000) with $ symbol"
+    type: "auto"
+
+  - id: "UAT-135"
+    role: "admin"
+    region: "ALL"
+    title: "Pseudo-RTL layout verification (ar-XB)"
+    preconditions: "Locale set to ar-XB"
+    steps:
+      - "Inspect document root"
+    expected_result: "dir='rtl' attribute applied, sidebar mirrors cleanly without breaking layout"
+    type: "auto"
+
+  - id: "UAT-136"
+    role: "staff"
+    region: "IN"
+    title: "Native Hindi speaker manual review of 10 key screens"
+    preconditions: "Interface switched to Hindi"
+    steps:
+      - "Review: Login, Dashboard, Leads List, Lead Detail, Survey Booking, Quote Generator, Today Queue, Manager Attention, Settings, Helpbot"
+      - "Verify linguistic naturalness, grammatical correctness, and lack of awkward machine translations"
+    expected_result: "All 10 screens approved by native speaker as production-ready"
+    type: "manual"
+
+  # ----------------------------------------------------------------------------
+  # SECTION 9: PRODUCT TOUR & ONBOARDING CARD LATCH (UAT-137 to UAT-150)
+  # ----------------------------------------------------------------------------
+  - id: "UAT-137"
+    role: "salesperson"
+    region: "IN"
+    title: "Brand new user sees onboarding card at '0 of 4 completed'"
+    preconditions: "Fresh user created without prior events"
+    steps:
+      - "Log in and open Dashboard"
+    expected_result: "Card renders with '0 of 4 completed' badge, progress bar at 0%"
+    type: "auto"
+
+  - id: "UAT-138"
+    role: "salesperson"
+    region: "IN"
+    title: "Ending tour early with 'End tour' does not tick tour item"
+    preconditions: "Card showing tour item unticked"
+    steps:
+      - "Click 'Start Tour' and close tour after Step 1"
+      - "Re-inspect onboarding card"
+    expected_result: "Tour item remains unticked; counter does not increment"
+    type: "auto"
+
+  - id: "UAT-139"
+    role: "salesperson"
+    region: "IN"
+    title: "Finishing entire tour ticks tour item on server"
+    preconditions: "Tour started"
+    steps:
+      - "Step through to final tour step and click Finish"
+    expected_result: "Tour item ticks with line-through, counter updates to '1 of 4 completed'"
+    type: "auto"
+
+  - id: "UAT-140"
+    role: "salesperson"
+    region: "IN"
+    title: "Real actions update checklist counter (e.g. 3 of 4 completed)"
+    preconditions: "Tour, leads, and quote items performed"
+    steps:
+      - "Open leads and create quote"
+      - "Return to dashboard"
+    expected_result: "Counter reflects '3 of 4 completed', survives reload and re-render"
+    type: "auto"
+
+  - id: "UAT-141"
+    role: "salesperson"
+    region: "IN"
+    title: "Completing all 4 items shows 'All done!' then permanently removes card"
+    preconditions: "3 of 4 items completed"
+    steps:
+      - "Click final item (Tour Center)"
+    expected_result: "Banner displays 'All done! Getting Started checklist completed' for ~3s, then card disappears"
+    type: "auto"
+
+  - id: "UAT-142"
+    role: "salesperson"
+    region: "IN"
+    title: "Onboarding card stays absent after page reload"
+    preconditions: "Onboarding completed in UAT-141"
+    steps:
+      - "Reload browser page (F5)"
+    expected_result: "Card is absent from DOM; dashboard content shifts up with zero gap"
+    type: "auto"
+
+  - id: "UAT-143"
+    role: "salesperson"
+    region: "IN"
+    title: "Onboarding card stays absent after logout and login"
+    preconditions: "Onboarding completed"
+    steps:
+      - "Log out and log back in as same user"
+    expected_result: "Card is absent from DOM"
+    type: "auto"
+
+  - id: "UAT-144"
+    role: "salesperson"
+    region: "IN"
+    title: "Onboarding card stays absent in second browser context / device"
+    preconditions: "Onboarding completed"
+    steps:
+      - "Open fresh incognito browser context and log in"
+    expected_result: "Card is absent from DOM (latch verified on server)"
+    type: "auto"
+
+  - id: "UAT-145"
+    role: "salesperson"
+    region: "IN"
+    title: "Onboarding card stays absent after clearing localStorage and sessionStorage"
+    preconditions: "Onboarding completed"
+    steps:
+      - "Execute localStorage.clear() and sessionStorage.clear()"
+      - "Reload page"
+    expected_result: "Card remains absent because latch is enforced server-side"
+    type: "auto"
+
+  - id: "UAT-146"
+    role: "salesperson"
+    region: "IN"
+    title: "Onboarding card stays absent after switching language to Hindi"
+    preconditions: "Onboarding completed in English"
+    steps:
+      - "Switch interface language to Hindi"
+    expected_result: "Card remains absent"
+    type: "auto"
+
+  - id: "UAT-147"
+    role: "salesperson"
+    region: "IN"
+    title: "Deleting leads and quotes that ticked items still keeps card absent"
+    preconditions: "Onboarding completed"
+    steps:
+      - "Delete all leads and quotes created by user"
+      - "Refresh dashboard"
+    expected_result: "Card remains absent (one-way server latch is irrevocable)"
+    type: "auto"
+
+  - id: "UAT-148"
+    role: "salesperson"
+    region: "IN"
+    title: "Admin resetting product tour restarts tour but card stays absent"
+    preconditions: "Onboarding completed"
+    steps:
+      - "Admin executes tour reset on user"
+    expected_result: "Product tour can be replayed, but Getting Started onboarding card remains absent"
+    type: "auto"
+
+  - id: "UAT-149"
+    role: "salesperson"
+    region: "IN"
+    title: "Close X on new user hides card permanently across devices"
+    preconditions: "New user with active onboarding card"
+    steps:
+      - "Click Close (X) button on onboarding card"
+      - "Open new browser session"
+    expected_result: "Card vanishes immediately and stays absent in subsequent sessions"
+    type: "auto"
+
+  - id: "UAT-150"
+    role: "staff"
+    region: "ALL"
+    title: "Real staff verification: Onboarding card remains absent next working day"
+    preconditions: "Real user completes onboarding on Day 1"
+    steps:
+      - "Log in on next working day on primary office workstation"
+      - "Inspect Sales Overview dashboard"
+    expected_result: "Card has not reappeared, dashboard displays clean KPI metrics"
+    type: "manual"

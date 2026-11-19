@@ -23,6 +23,7 @@ from accounts.password_reset_views import PasswordResetConfirmView, PasswordRese
 from accounts.views import (
     LogoutView,
     MeView,
+    OnboardingStateView,
     PasswordChangeView,
     RolesMatrixView,
     SolarTokenObtainPairView,
@@ -144,6 +145,8 @@ urlpatterns = [
     # Current user & dashboard
     path('api/me/', MeView.as_view(), name='me'),
     path('api/me/tour/', TourStateView.as_view(), name='tour-state'),
+    path('api/me/onboarding/', OnboardingStateView.as_view(), name='onboarding-state'),
+    path('api/me/onboarding', OnboardingStateView.as_view(), name='onboarding-state-noslash'),
     path('api/dashboard/', DashboardView.as_view(), name='dashboard'),
     path('api/roles-matrix/', RolesMatrixView.as_view(), name='roles-matrix'),
 

@@ -643,6 +643,40 @@ export const resetTourState = async (): Promise<{ status: string }> => {
   return res.data;
 };
 
+export interface OnboardingState {
+  visible: boolean;
+  items: Array<{ id: string; label: string; done: boolean }>;
+  completed_at: string | null;
+  dismissed_at: string | null;
+  is_collapsed: boolean;
+  just_completed?: boolean;
+}
+
+export const fetchOnboardingState = async (): Promise<OnboardingState> => {
+  const res = await apiClient.get<OnboardingState>('/api/me/onboarding/');
+  return res.data;
+};
+
+export const recordOnboardingEvent = async (event: string): Promise<OnboardingState> => {
+  const res = await apiClient.post<OnboardingState>('/api/me/onboarding/', { action: 'event', event });
+  return res.data;
+};
+
+export const dismissOnboarding = async (): Promise<OnboardingState> => {
+  const res = await apiClient.post<OnboardingState>('/api/me/onboarding/', { action: 'dismiss' });
+  return res.data;
+};
+
+export const toggleCollapseOnboarding = async (is_collapsed?: boolean): Promise<{ is_collapsed: boolean }> => {
+  const res = await apiClient.post<{ is_collapsed: boolean }>('/api/me/onboarding/', { action: 'collapse', is_collapsed });
+  return res.data;
+};
+
+export const completeOnboarding = async (): Promise<OnboardingState> => {
+  const res = await apiClient.post<OnboardingState>('/api/me/onboarding/', { action: 'complete' });
+  return res.data;
+};
+
 export const askHelpbot = async (
   query: string,
   context?: Record<string, any>
