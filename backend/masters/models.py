@@ -7,6 +7,7 @@ class Outcome(models.Model):
         SURVEY = 'survey', 'Survey'
         QUOTE = 'quote', 'Quote'
 
+    code = models.CharField(max_length=50, blank=True, db_index=True, help_text="Stable machine code for cross-language logic.")
     stage = models.CharField(max_length=20, choices=Stage.choices)
     name = models.CharField(max_length=150)
     default_status = models.CharField(max_length=50)
@@ -16,6 +17,7 @@ class Outcome(models.Model):
     is_terminal = models.BooleanField(default=False)
     requires_lost_reason = models.BooleanField(default=False)
     requires_nurture_reason = models.BooleanField(default=False)
+    translations = models.JSONField(default=dict, blank=True, help_text="Localized labels e.g. {'hi': {'name': '...'}}")
     sort_order = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
 
@@ -29,7 +31,9 @@ class Outcome(models.Model):
 
 
 class LostReason(models.Model):
+    code = models.CharField(max_length=50, blank=True, db_index=True)
     name = models.CharField(max_length=150, unique=True)
+    translations = models.JSONField(default=dict, blank=True)
     is_active = models.BooleanField(default=True)
     sort_order = models.IntegerField(default=0)
 
@@ -43,7 +47,9 @@ class LostReason(models.Model):
 
 
 class NurtureReason(models.Model):
+    code = models.CharField(max_length=50, blank=True, db_index=True)
     name = models.CharField(max_length=150, unique=True)
+    translations = models.JSONField(default=dict, blank=True)
     is_active = models.BooleanField(default=True)
     sort_order = models.IntegerField(default=0)
 
@@ -57,7 +63,9 @@ class NurtureReason(models.Model):
 
 
 class LeadSource(models.Model):
+    code = models.CharField(max_length=50, blank=True, db_index=True)
     name = models.CharField(max_length=100, unique=True)
+    translations = models.JSONField(default=dict, blank=True)
     is_active = models.BooleanField(default=True)
     sort_order = models.IntegerField(default=0)
 
@@ -122,6 +130,7 @@ class Region(models.Model):
     currency = models.CharField(max_length=10, default='INR', help_text="ISO currency code e.g. INR, AUD")
     currency_symbol = models.CharField(max_length=10, default='₹', help_text="Display symbol e.g. ₹, A$")
     default_timezone = models.CharField(max_length=50, default='Asia/Kolkata')
+    default_language = models.CharField(max_length=15, default='en', help_text="Default communication language for region")
     phone_country_code = models.CharField(max_length=10, default='+91', help_text="Dialing prefix e.g. +91, +61")
     locale = models.CharField(max_length=20, default='en-IN', help_text="Intl locale e.g. en-IN, en-AU")
     tax_label = models.CharField(max_length=50, default='GST')
@@ -140,6 +149,7 @@ class Region(models.Model):
     opt_out_text = models.CharField(max_length=255, default='Reply STOP to opt out')
     privacy_notice_text = models.TextField(blank=True, default='')
     region_notes = models.TextField(blank=True, default='', help_text="Market context, incentives, feed-in tariffs, and rules for sales guidance and AI prompt.")
+    translations = models.JSONField(default=dict, blank=True, help_text="Localized labels and notices e.g. {'hi': {'tax_label': 'जीएसटी'}}")
     is_active = models.BooleanField(default=True)
     sort_order = models.IntegerField(default=0)
 
@@ -157,6 +167,7 @@ class State(models.Model):
     name = models.CharField(max_length=100)
     region = models.ForeignKey(Region, on_delete=models.CASCADE, related_name='states')
     default_timezone = models.CharField(max_length=50, default='Asia/Kolkata')
+    translations = models.JSONField(default=dict, blank=True)
     is_active = models.BooleanField(default=True)
     sort_order = models.IntegerField(default=0)
 
@@ -186,8 +197,10 @@ class PublicHoliday(models.Model):
 
 
 class RoofType(models.Model):
+    code = models.CharField(max_length=50, blank=True, db_index=True)
     region = models.ForeignKey(Region, on_delete=models.CASCADE, related_name='roof_types')
     name = models.CharField(max_length=100)
+    translations = models.JSONField(default=dict, blank=True)
     is_active = models.BooleanField(default=True)
     sort_order = models.IntegerField(default=0)
 
@@ -202,8 +215,10 @@ class RoofType(models.Model):
 
 
 class PropertyType(models.Model):
+    code = models.CharField(max_length=50, blank=True, db_index=True)
     region = models.ForeignKey(Region, on_delete=models.CASCADE, related_name='property_types')
     name = models.CharField(max_length=100)
+    translations = models.JSONField(default=dict, blank=True)
     is_active = models.BooleanField(default=True)
     sort_order = models.IntegerField(default=0)
 
@@ -215,3 +230,70 @@ class PropertyType(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name} ({self.region.code})"
+
+
+class Language(models.Model):
+    class Direction(models.TextChoices):
+        LTR = 'ltr', 'Left-to-Right'
+        RTL = 'rtl', 'Right-to-Left'
+
+    class ReviewStatus(models.TextChoices):
+        MISSING = 'missing', 'Missing'
+        MACHINE_DRAFT = 'machine_draft', 'Machine Draft'
+        REVIEWED = 'reviewed', 'Reviewed'
+
+    code = models.CharField(max_length=15, unique=True, help_text="BCP-47 code e.g. en, hi, en-AU, en-IN")
+    name = models.CharField(max_length=100)
+    native_name = models.CharField(max_length=100)
+    direction = models.CharField(max_length=3, choices=Direction.choices, default=Direction.LTR)
+    is_enabled = models.BooleanField(default=True)
+    numbering_system = models.CharField(max_length=10, default='latn')
+    week_start = models.PositiveSmallIntegerField(default=1)  # 0=Sunday, 1=Monday
+    font_family_key = models.CharField(max_length=50, default='sans')
+    completeness_pct = models.FloatField(default=100.0)
+    review_status = models.CharField(max_length=20, choices=ReviewStatus.choices, default=ReviewStatus.REVIEWED)
+    sort_order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['sort_order', 'code']
+        verbose_name = 'Language'
+        verbose_name_plural = 'Languages'
+
+    def __str__(self) -> str:
+        return f"{self.native_name} ({self.code})"
+
+
+class TranslationEntry(models.Model):
+    class Status(models.TextChoices):
+        MISSING = 'missing', 'Missing'
+        MACHINE_DRAFT = 'machine_draft', 'Machine Draft'
+        REVIEWED = 'reviewed', 'Reviewed'
+
+    language = models.CharField(max_length=15, db_index=True)
+    namespace = models.CharField(max_length=50, default='common', db_index=True)
+    key = models.CharField(max_length=255, db_index=True)
+    english_text = models.TextField()
+    translated_text = models.TextField(blank=True, default='')
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.MACHINE_DRAFT)
+    is_customer_facing = models.BooleanField(default=False)
+    updated_by = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['namespace', 'key']
+        unique_together = [('language', 'namespace', 'key')]
+        verbose_name = 'Translation Entry'
+        verbose_name_plural = 'Translation Entries'
+
+    def __str__(self) -> str:
+        return f"[{self.language}][{self.namespace}] {self.key}"

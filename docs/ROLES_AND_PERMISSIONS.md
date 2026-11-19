@@ -53,6 +53,8 @@ Every request is evaluated under a **Strict Default Deny** policy:
 | **System** | `user.manage` | all | none | none | none |
 | | `user.view_team` | all | region | none | none |
 | | `masters.manage` | all | read_only | none | none |
+| | `i18n.manage` | all | none | none | none |
+| | `i18n.view` | all | read_only | none | none |
 | | `privacy.manage` | all | none | none | none |
 | | `audit.view` | all | none | none | none |
 

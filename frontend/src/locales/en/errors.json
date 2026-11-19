@@ -1,0 +1,10 @@
+{
+  "generic": "Something went wrong. Please try again.",
+  "unauthorized": "You must be signed in to access this resource.",
+  "forbidden": "You do not have permission to perform this action.",
+  "not_found": "The requested item was not found.",
+  "network_error": "Network connection error. Please check your internet.",
+  "calling_hours_error": "Calls to this number are restricted outside local business hours ({{start}} to {{end}} {{tz}}).",
+  "dnc_restricted": "This customer is marked as Do Not Contact (DNC). Interaction blocked.",
+  "validation_error": "Please correct the errors in the form before submitting."
+}

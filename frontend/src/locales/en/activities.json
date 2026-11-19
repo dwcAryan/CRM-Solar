@@ -1,0 +1,17 @@
+{
+  "title": "Activities & Log",
+  "log_call": "Log Call Outcome",
+  "log_visit": "Log Site Visit",
+  "add_note": "Add Internal Note",
+  "fields": {
+    "outcome": "Call Outcome",
+    "notes": "Interaction Notes",
+    "remark": "Remark",
+    "next_action": "Next Action Plan",
+    "next_followup": "Next Follow-up At",
+    "status_after": "Resulting Status",
+    "created_by": "Logged By",
+    "created_at": "Logged At"
+  },
+  "golden_rule_reminder": "Golden Rule: Every customer interaction must be logged with an accurate outcome and scheduled follow-up."
+}

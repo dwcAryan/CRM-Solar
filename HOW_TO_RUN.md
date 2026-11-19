@@ -339,6 +339,27 @@ python backend/manage.py check_email --to name@example.com
 
 ---
 
+## Multi-Language Support & Localization (Phase 14L)
+
+### 1. Switching Languages
+* **Staff Interface Language**: Users can select their preferred interface language from the dropdown in the top header or on the Login screen. The selection instantly updates the UI, loads translated catalogs, and persists to the user's profile (`PATCH /api/me/`).
+* **Available Out-of-the-Box**: English (`en`), Hindi (`hi`), English (Australia) (`en-AU`), and English (India) (`en-IN`).
+* **Developer Pseudo-Locales**: `en-XA` (+40% length expansion for layout stress testing) and `ar-XB` (pseudo-RTL layout testing).
+
+### 2. Adding a New Language Without Code
+Adding any further language (e.g. Gujarati, Marathi, Tamil, Bengali, Arabic) is completely data-driven:
+1. Open Admin Panel -> **Languages & Translations** tab -> Click **"Add Language"**.
+2. Export the translation template (CSV or JSON).
+3. Populate translations or run automated draft generation:
+   ```bash
+   python backend/manage.py translate_missing --lang <lang_code>
+   ```
+4. Import the translated bundle through the Admin UI.
+5. Review, approve strings, and toggle the language to **Active**.
+For complete guidelines, glossary terms, and non-translatable tokens, see [`docs/TRANSLATION_GUIDE.md`](docs/TRANSLATION_GUIDE.md).
+
+---
+
 ## Troubleshooting Guide
 
 | Problem | Cause | Solution |

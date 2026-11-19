@@ -1,0 +1,27 @@
+{
+  "title": "साइट सर्वेक्षण",
+  "book_survey": "साइट सर्वे बुक करें",
+  "survey_details": "सर्वेक्षण विवरण",
+  "fields": {
+    "surveyor": "नियुक्त सर्वेयर",
+    "scheduled_at": "निर्धारित तिथि व समय",
+    "status": "सर्वेक्षण स्थिति",
+    "roof_type": "छत का निर्माण",
+    "panel_capacity": "अनुमानित सौर क्षमता (kW)",
+    "shading_notes": "छाया और अवरोध",
+    "meter_notes": "बिजली मीटर और मेन बोर्ड नोट्स",
+    "completed_at": "पूर्ण होने का समय"
+  },
+  "photos": {
+    "title": "साइट फ़ोटो और दस्तावेज़ीकरण",
+    "roof": "छत और लेआउट की फ़ोटो",
+    "meter": "मीटर बॉक्स और स्विचबोर्ड",
+    "inverter_location": "इन्वर्टर स्थापना स्थल",
+    "upload_btn": "सर्वे फ़ोटो अपलोड करें"
+  },
+  "status": {
+    "scheduled": "निर्धारित (Scheduled)",
+    "completed": "पूर्ण (Completed)",
+    "cancelled": "रद्द (Cancelled)"
+  }
+}

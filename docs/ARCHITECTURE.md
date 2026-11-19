@@ -170,3 +170,28 @@ Compliant with India's DPDP Act 2023 and Australia's Privacy Act 1988:
   - `HelpbotUnanswered`: Captures out-of-scope or low-confidence queries for administrator review and documentation planning.
   - Admin Insights Tab (`HelpbotInsightsTab.tsx`): Displays query volumes, refusal rates, helpful ratings, top queried topics, and a one-click "Rebuild Knowledge Index" trigger.
 
+---
+
+## 7. Multi-Language & Internationalization Architecture (Phase 14L)
+
+### 7.1 Separation of Concerns
+1. **Staff Interface Language** (`User.preferred_language`):
+   - Controls dashboard navigation, forms, alerts, and field labels.
+   - Synchronized via `AppLanguageMiddleware`, `X-App-Language` and `Accept-Language` headers, local storage, and `PATCH /api/me/`.
+2. **Customer Communication Language** (`Lead.preferred_language`):
+   - Determines the language of outgoing customer SMS, WhatsApp, and email templates.
+   - Template resolution follows a strict cascade: `(template_key, recipient_language)` -> `(template_key, region_default_language)` -> `(template_key, 'en')`. Unapproved templates in regulated regions (DLT in India) are strictly blocked from dispatch.
+
+### 7.2 Stable Machine Codes for Business Logic
+- All workflow transitions, status progressions, role checks, and outcome determinations evaluate invariant machine codes (`Outcome.code`, `LeadSource.code`, `LostReason.code`, `Lead.Status`), never display strings.
+- System history (AuditLog, LeadStatusHistory, Activity, Notification) records immutable `message_code` and JSON `params`, rendering localized messages dynamically at read-time via `history_renderer.py`.
+
+### 7.3 Data-Driven Language Expansion
+- Adding new languages (Gujarati, Marathi, Tamil, Punjabi, Bengali, Arabic, etc.) requires zero code changes:
+  1. Add record to `masters.Language`.
+  2. Import translations via `masters.TranslationEntry` (CSV/JSON upload or `translate_missing` command).
+  3. Approve strings (`status='approved'`).
+  4. Toggle `is_active=True` in Language Master.
+- Security & Sanitization: Translation uploads enforce strict 5MB/5,000-row limits, HTML tag whitelisting, and ICU placeholder parity checks. Zero customer PII is ever sent to external translation services.
+
+

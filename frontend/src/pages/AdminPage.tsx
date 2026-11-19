@@ -33,9 +33,11 @@ import {
   IconAlertTriangle,
   IconMail,
   IconSparkles,
+  IconWorld,
 } from '@tabler/icons-react';
 import { EmailSettingsTab } from '../components/admin/EmailSettingsTab';
 import { HelpbotInsightsTab } from '../components/admin/HelpbotInsightsTab';
+import { LanguagesAndTranslationsTab } from '../components/admin/LanguagesAndTranslationsTab';
 import {
   fetchUsers,
   fetchOutcomes,
@@ -201,6 +203,9 @@ export const AdminPage: React.FC = () => {
             </Tabs.Tab>
             <Tabs.Tab value="messaging" leftSection={<IconBrandWhatsapp size={16} />}>
               WhatsApp Templates
+            </Tabs.Tab>
+            <Tabs.Tab value="languages" leftSection={<IconWorld size={16} />}>
+              Languages & Translations
             </Tabs.Tab>
             <Tabs.Tab value="email" leftSection={<IconMail size={16} />}>
               Email Settings
@@ -570,6 +575,11 @@ export const AdminPage: React.FC = () => {
           {/* TAB 7: EMAIL (SMTP) SETTINGS */}
           <Tabs.Panel value="email" pt="md">
             <EmailSettingsTab />
+          </Tabs.Panel>
+
+          {/* TAB: LANGUAGES & TRANSLATIONS */}
+          <Tabs.Panel value="languages" pt="md">
+            <LanguagesAndTranslationsTab />
           </Tabs.Panel>
 
           {/* TAB 8: HELP ASSISTANT INSIGHTS */}

@@ -55,24 +55,68 @@ class ConsoleWhatsAppProvider(WhatsAppProvider):
             )
             return False
 
-        # Find region-specific template or global fallback
+        # Target language and fallback resolution
+        target_lang = getattr(lead, 'preferred_language', 'en') or 'en'
+        reg_lang = getattr(lead.region, 'default_language', 'en') if (lead and lead.region) else 'en'
+
+        # Fallback chain: lead language -> region default -> 'en'
+        lang_candidates = [target_lang]
+        if reg_lang not in lang_candidates:
+            lang_candidates.append(reg_lang)
+        if 'en' not in lang_candidates:
+            lang_candidates.append('en')
+
         template = None
-        if lead and lead.region:
-            template = MessageTemplate.objects.filter(
-                region=lead.region,
-                channel=MessageTemplate.Channel.WHATSAPP,
-                name=template_name,
-                is_active=True,
-            ).first()
-            if 'opt_out_line' not in params:
-                params['opt_out_line'] = lead.region.opt_out_text
+        for lang in lang_candidates:
+            if lead and lead.region:
+                template = MessageTemplate.objects.filter(
+                    region=lead.region,
+                    channel=MessageTemplate.Channel.WHATSAPP,
+                    name=template_name,
+                    language=lang,
+                    is_active=True,
+                ).first()
+            if not template:
+                template = MessageTemplate.objects.filter(
+                    region__isnull=True,
+                    channel=MessageTemplate.Channel.WHATSAPP,
+                    name=template_name,
+                    language=lang,
+                    is_active=True,
+                ).first()
+            if template:
+                break
 
         if not template:
             template = MessageTemplate.objects.filter(
-                name=template_name,
                 channel=MessageTemplate.Channel.WHATSAPP,
+                name=template_name,
                 is_active=True,
             ).first()
+
+        # Approval status check: block if pending
+        if template and template.approval_status == MessageTemplate.ApprovalStatus.PENDING:
+            reason = f"Template '{template_name}' ({template.language}) is pending regulatory approval and cannot be sent."
+            logger.warning(f"Blocked WhatsApp message to {phone}: {reason}")
+            MessageLog.objects.create(
+                channel=MessageLog.Channel.WHATSAPP,
+                phone=phone,
+                lead=lead,
+                template_name=template_name,
+                language=template.language,
+                params=params,
+                message_text=f"[BLOCKED] {reason}",
+                status=MessageLog.Status.BLOCKED,
+                error_message=reason,
+            )
+            return False
+
+        used_lang = template.language if template else target_lang
+
+        if lead and lead.region and 'opt_out_line' not in params:
+            reg_trans = getattr(lead.region, 'translations', {}) or {}
+            lang_trans = reg_trans.get(used_lang, {})
+            params['opt_out_line'] = lang_trans.get('opt_out_text') or lead.region.opt_out_text
 
         if template:
             message_text = template.render(params)
@@ -80,8 +124,8 @@ class ConsoleWhatsAppProvider(WhatsAppProvider):
             formatted_params = ", ".join(f"{k}={v}" for k, v in params.items())
             message_text = f"[{template_name}] {formatted_params}"
 
-        logger.info(f"[ConsoleWhatsAppProvider] Sent Template '{template_name}' to {phone}: {message_text}")
-        print(f"\n--- [WHATSAPP OUTBOUND ({template_name})] ---")
+        logger.info(f"[ConsoleWhatsAppProvider] Sent Template '{template_name}' ({used_lang}) to {phone}: {message_text}")
+        print(f"\n--- [WHATSAPP OUTBOUND ({template_name} - {used_lang})] ---")
         print(f"To: {phone}")
         print(f"Message: {message_text}")
         print("-------------------------------------------\n")
@@ -91,6 +135,7 @@ class ConsoleWhatsAppProvider(WhatsAppProvider):
             phone=phone,
             lead=lead,
             template_name=template_name,
+            language=used_lang,
             params=params,
             message_text=message_text,
             status=MessageLog.Status.SENT,
@@ -269,4 +314,57 @@ def get_sms_provider() -> SMSProvider:
     if provider_name == 'console':
         return ConsoleSMSProvider()
     return ConsoleSMSProvider()
+
+
+def resolve_template_for_recipient(
+    template_name: str,
+    lead: Optional[Lead] = None,
+    channel: str = 'whatsapp',
+) -> Optional[MessageTemplate]:
+    """
+    Resolves the appropriate template based on the fallback chain:
+    lead.preferred_language -> region.default_language -> 'en'.
+    Blocks templates pending regulatory approval.
+    """
+    target_lang = getattr(lead, 'preferred_language', 'en') or 'en'
+    reg_lang = getattr(lead.region, 'default_language', 'en') if (lead and lead.region) else 'en'
+
+    lang_candidates = [target_lang]
+    if reg_lang not in lang_candidates:
+        lang_candidates.append(reg_lang)
+    if 'en' not in lang_candidates:
+        lang_candidates.append('en')
+
+    template = None
+    for lang in lang_candidates:
+        if lead and lead.region:
+            template = MessageTemplate.objects.filter(
+                region=lead.region,
+                channel=channel,
+                name=template_name,
+                language=lang,
+                is_active=True,
+            ).first()
+        if not template:
+            template = MessageTemplate.objects.filter(
+                region__isnull=True,
+                channel=channel,
+                name=template_name,
+                language=lang,
+                is_active=True,
+            ).first()
+        if template:
+            break
+
+    if not template:
+        template = MessageTemplate.objects.filter(
+            channel=channel,
+            name=template_name,
+            is_active=True,
+        ).first()
+
+    if template and template.approval_status == MessageTemplate.ApprovalStatus.PENDING:
+        raise ValueError(f"Template '{template_name}' is pending approval and cannot be sent.")
+
+    return template
 

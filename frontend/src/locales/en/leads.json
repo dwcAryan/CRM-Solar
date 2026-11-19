@@ -1,0 +1,50 @@
+{
+  "title": "Leads",
+  "new_lead": "New Lead",
+  "create_lead": "Create Lead",
+  "fields": {
+    "name": "Customer Name",
+    "phone": "Phone Number",
+    "alt_phone": "Alternate Phone",
+    "email": "Email Address",
+    "address": "Address",
+    "city": "City",
+    "state": "State",
+    "postcode": "Pincode / Postcode",
+    "region": "Region",
+    "source": "Lead Source",
+    "assigned_to": "Assigned Rep",
+    "monthly_bill": "Monthly Electricity Bill",
+    "roof_type": "Roof Type",
+    "property_type": "Property Type",
+    "owner_or_tenant": "Owner or Tenant",
+    "status": "Lead Status",
+    "next_followup": "Next Follow-up",
+    "preferred_language": "Customer Communication Language",
+    "remark": "Remark",
+    "notes": "Notes"
+  },
+  "customer_lang": {
+    "en": "English",
+    "hi": "Hindi (हिन्दी)",
+    "help_text": "Preferred language for WhatsApp, SMS and customer emails"
+  },
+  "calling_hours": {
+    "allowed": "Calling permitted",
+    "restricted": "Calling restricted: outside allowed business hours for this region"
+  },
+  "tabs": {
+    "details": "Lead Details",
+    "activity": "Activity History",
+    "surveys": "Site Surveys",
+    "quotes": "Quotes & Proposals",
+    "timeline": "Timeline"
+  },
+  "actions": {
+    "call": "Call Customer",
+    "book_survey": "Book Site Survey",
+    "create_quote": "Generate Quote",
+    "mark_won": "Mark as Won",
+    "mark_lost": "Mark as Lost"
+  }
+}

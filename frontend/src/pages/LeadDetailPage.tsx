@@ -566,6 +566,9 @@ export const LeadDetailPage: React.FC = () => {
                   <Badge size="xs" color={lead.consent_status === 'consented' ? 'green' : 'gray'}>
                     Consent: {lead.consent_status || 'Unknown'}
                   </Badge>
+                  <Badge size="xs" color="indigo" variant="light">
+                    Customer Language: {lead.preferred_language === 'hi' ? 'हिन्दी (Hindi)' : 'English'}
+                  </Badge>
                   {lead.consent_source && (
                     <Badge size="xs" variant="outline" color="gray">
                       Source: {lead.consent_source}

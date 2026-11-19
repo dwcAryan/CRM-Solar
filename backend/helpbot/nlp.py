@@ -14,7 +14,13 @@ from rank_bm25 import BM25Okapi
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 
-from .prompts import DEFAULT_STARTER_QUESTIONS, REFUSAL_MESSAGE, SYSTEM_PROMPT
+from .prompts import (
+    DEFAULT_STARTER_QUESTIONS,
+    REFUSAL_MESSAGE,
+    REFUSAL_MESSAGES,
+    STARTER_QUESTIONS_BY_LANG,
+    SYSTEM_PROMPT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +33,18 @@ MODEL_FILE = DATA_DIR / 'intent_classifier.joblib'
 VECTORIZER_FILE = DATA_DIR / 'vectorizer.joblib'
 INDEX_FILE = DATA_DIR / 'knowledge_index.json'
 DYNAMIC_FACTS_FILE = DATA_DIR / 'dynamic_facts.json'
+
+import unicodedata
+
+NUKTA_MAP = {
+    'क़': 'क', 'ख़': 'ख', 'ग़': 'ग', 'ज़': 'ज',
+    'ड़': 'ड', 'ढ़': 'ढ', 'फ़': 'फ', 'य़': 'य',
+}
+DEVANAGARI_DIGITS = str.maketrans('०१२३४५६७८९', '0123456789')
+
+
+def is_devanagari(text: str) -> bool:
+    return bool(re.search(r'[\u0900-\u097F]', text or ''))
 
 HINGLISH_MAP = {
     'kya': 'what',
@@ -117,7 +135,13 @@ class Normalizer:
 
     @classmethod
     def normalize(cls, text: str) -> str:
-        """Lowercases, handles Hinglish slang/synonyms, cleans punctuation."""
+        """Lowercases, normalizes Devanagari (NFC, nukta, digits), handles Hinglish slang/synonyms, cleans punctuation."""
+        if not text:
+            return ""
+        text = unicodedata.normalize('NFC', text)
+        text = text.translate(DEVANAGARI_DIGITS)
+        for nukta_char, plain_char in NUKTA_MAP.items():
+            text = text.replace(nukta_char, plain_char)
         text = text.lower().strip()
         words = re.findall(r"\b[\w'-]+\b", text)
         translated = [HINGLISH_MAP.get(w, w) for w in words]
@@ -156,7 +180,12 @@ class IntentEngine:
                 texts.append(norm_ex)
                 labels.append(topic)
 
-        self.vectorizer = TfidfVectorizer(ngram_range=(1, 2), min_df=1, sublinear_tf=True)
+        self.vectorizer = TfidfVectorizer(
+            analyzer='char_wb',
+            ngram_range=(2, 5),
+            min_df=1,
+            sublinear_tf=True,
+        )
         X = self.vectorizer.fit_transform(texts)
         self.classifier = LogisticRegression(max_iter=500, C=3.0)
         self.classifier.fit(X, labels)
@@ -224,8 +253,10 @@ class KnowledgeRetriever:
 
                 # Chunk markdown by headings
                 sections = re.split(r'\n(?=#{1,3}\s)', body)
-                topic = meta.get('topic', md_path.stem)
+                topic = meta.get('topic', md_path.stem.replace('_hi', ''))
                 title = meta.get('title', md_path.stem.replace('_', ' ').title())
+                is_hi = meta.get('language') == 'hi' or md_path.stem.endswith('_hi')
+                doc_lang = 'hi' if is_hi else 'en'
 
                 for idx, sec in enumerate(sections):
                     sec_clean = sec.strip()
@@ -233,11 +264,12 @@ class KnowledgeRetriever:
                         continue
                     tokens = Normalizer.normalize(sec_clean).split()
                     docs.append({
-                        'id': f"{topic}_{idx}",
+                        'id': f"{topic}_{doc_lang}_{idx}",
                         'topic': topic,
                         'title': title,
                         'content': sec_clean,
                         'tokens': tokens,
+                        'language': doc_lang,
                         'roles': meta.get('roles', []),
                         'regions': meta.get('regions', []),
                     })
@@ -256,6 +288,7 @@ class KnowledgeRetriever:
                         'title': f_item.get('title', 'Live System Setting'),
                         'content': f_item.get('content', ''),
                         'tokens': tokens,
+                        'language': 'en',
                         'roles': f_item.get('roles', []),
                         'regions': f_item.get('regions', []),
                     })
@@ -271,26 +304,30 @@ class KnowledgeRetriever:
             self.bm25 = BM25Okapi(corpus)
         logger.info("Knowledge index built with %d passages.", len(docs))
 
-    def retrieve(self, query: str, top_k: int = 3, topic: Optional[str] = None) -> List[Dict[str, Any]]:
+    def retrieve(self, query: str, top_k: int = 3, topic: Optional[str] = None, language: Optional[str] = None) -> List[Dict[str, Any]]:
         if not self.bm25 or not self.documents:
             self.load_or_build()
         if not self.bm25:
             return []
 
+        if language is None:
+            language = 'hi' if is_devanagari(query) else 'en'
+
         tokens = Normalizer.normalize(query).split()
         scores = self.bm25.get_scores(tokens)
 
         scored_docs = list(zip(scores, self.documents))
-        if topic and topic != 'out_of_scope':
-            # Boost documents matching predicted topic
-            boosted = []
-            for score, doc in scored_docs:
-                b_score = score * 1.6 if doc['topic'] == topic else score
-                boosted.append((b_score, doc))
-            scored_docs = boosted
+        boosted = []
+        for score, doc in scored_docs:
+            b_score = score
+            if topic and topic != 'out_of_scope' and doc.get('topic') == topic:
+                b_score *= 1.8
+            if doc.get('language') == language:
+                b_score *= 1.5
+            boosted.append((b_score, doc))
 
-        scored_docs.sort(key=lambda x: x[0], reverse=True)
-        return [doc for score, doc in scored_docs[:top_k] if score > 0.05]
+        boosted.sort(key=lambda x: x[0], reverse=True)
+        return [doc for score, doc in boosted[:top_k] if score > 0.05]
 
 
 class HelpbotEngine:
@@ -300,15 +337,19 @@ class HelpbotEngine:
 
     def process_query(self, query: str, user_role: str = 'salesperson', user_region: str = 'IN') -> Dict[str, Any]:
         """Main entry point for Helpbot query processing."""
+        user_lang = 'hi' if is_devanagari(query) else 'en'
+        refusal_msg = REFUSAL_MESSAGES.get(user_lang, REFUSAL_MESSAGE)
+        starter_qs = STARTER_QUESTIONS_BY_LANG.get(user_lang, DEFAULT_STARTER_QUESTIONS)
+
         # 1. Prompt injection check
         clean_query, is_injection = Normalizer.sanitize_input(query)
         if is_injection:
             return {
-                'answer': REFUSAL_MESSAGE + "\n\nPlease ask questions related to operating the Solar CRM software.",
+                'answer': refusal_msg + ("\n\nकृपया सोलर सीआरएम सॉफ़्टवेयर के उपयोग से संबंधित प्रश्न पूछें।" if user_lang == 'hi' else "\n\nPlease ask questions related to operating the Solar CRM software."),
                 'topic': 'out_of_scope',
                 'confidence': 1.0,
                 'is_refusal': True,
-                'suggested_questions': DEFAULT_STARTER_QUESTIONS,
+                'suggested_questions': starter_qs,
                 'tour': None,
             }
 
@@ -321,16 +362,16 @@ class HelpbotEngine:
         # 4. Scope Gate
         if topic == 'out_of_scope':
             return {
-                'answer': REFUSAL_MESSAGE + "\n\nI can assist you with CRM workflows, call outcomes, quotes, surveys, policies, and system tours.",
+                'answer': refusal_msg + ("\n\nमैं सीआरएम वर्कफ़्लो, कॉल परिणाम, कोटेशन, सर्वे, नीतियों और टूर के बारे में आपकी सहायता कर सकता हूँ।" if user_lang == 'hi' else "\n\nI can assist you with CRM workflows, call outcomes, quotes, surveys, policies, and system tours."),
                 'topic': 'out_of_scope',
                 'confidence': confidence,
                 'is_refusal': True,
-                'suggested_questions': self.get_contextual_starters(user_role),
+                'suggested_questions': self.get_contextual_starters(user_role, language=user_lang),
                 'tour': None,
             }
 
         # 5. Retrieve Context
-        passages = self.retriever.retrieve(safe_query, top_k=3, topic=topic)
+        passages = self.retriever.retrieve(safe_query, top_k=3, topic=topic, language=user_lang)
 
         # 6. Check Provider: Anthropic or Local
         provider = getattr(settings, 'HELPBOT_PROVIDER', 'local').lower()
@@ -344,12 +385,12 @@ class HelpbotEngine:
                 answer_text = self._call_anthropic(safe_query, passages, user_role, user_region, api_key)
             except Exception as e:
                 logger.warning("Anthropic provider failed (%s), falling back to local: %s", provider, e)
-                answer_text = self._generate_local_answer(safe_query, topic, passages)
+                answer_text = self._generate_local_answer(safe_query, topic, passages, language=user_lang)
         else:
-            answer_text = self._generate_local_answer(safe_query, topic, passages)
+            answer_text = self._generate_local_answer(safe_query, topic, passages, language=user_lang)
 
         # Suggested follow-up questions
-        suggested = self.get_topic_suggestions(topic)
+        suggested = self.get_topic_suggestions(topic, language=user_lang)
 
         return {
             'answer': answer_text,
@@ -361,9 +402,14 @@ class HelpbotEngine:
             'passages_count': len(passages),
         }
 
-    def _generate_local_answer(self, query: str, topic: str, passages: List[Dict[str, Any]]) -> str:
+    def _generate_local_answer(self, query: str, topic: str, passages: List[Dict[str, Any]], language: str = 'en') -> str:
         """Deterministic, grounded extractive answer generator."""
         if not passages:
+            if language == 'hi':
+                return (
+                    "यहाँ **" + topic + "** के लिए मानक वर्कफ़्लो जानकारी दी गई है।\n\n"
+                    "कृपया नेविगेशन मेनू में संबंधित अनुभाग देखें या उत्पाद टूर (Tour) देखें।"
+                )
             return (
                 "Here is the standard workflow information for **" + topic.replace('_', ' ').title() + "**.\n\n"
                 "Please refer to the relevant section in the navigation menu or take a guided walkthrough."
@@ -383,12 +429,16 @@ class HelpbotEngine:
         if len(passages) > 1:
             sec_passage = passages[1]
             if sec_passage['topic'] == topic and sec_passage['title'] != primary['title']:
-                additional_notes.append(f"**Also see ({sec_passage['title']})**:\n{sec_passage['content'][:180]}...")
+                prefix = "**यह भी देखें**" if language == 'hi' else "**Also see**"
+                additional_notes.append(f"{prefix} ({sec_passage['title']}):\n{sec_passage['content'][:180]}...")
 
         tour_note = ""
         tour = TOUR_MAP.get(topic)
         if tour:
-            tour_note = f"\n\n*Tip: Click **Show me how** below to take the interactive **{tour['title']}**.*"
+            if language == 'hi':
+                tour_note = f"\n\n*सुझाव: इंटरैक्टिव **{tour['title']}** देखने के लिए नीचे दिए गए बटन पर क्लिक करें।*"
+            else:
+                tour_note = f"\n\n*Tip: Click **Show me how** below to take the interactive **{tour['title']}**.*"
 
         response = cleaned_body
         if additional_notes:
@@ -420,7 +470,33 @@ User Question: {query}
         )
         return response.content[0].text.strip()
 
-    def get_contextual_starters(self, role: str) -> List[str]:
+    def get_contextual_starters(self, role: str, language: str = 'en') -> List[str]:
+        if language == 'hi':
+            if role == 'surveyor':
+                return [
+                    "साइट सर्वेक्षण के दौरान कौन सी चेकलिस्ट आवश्यक है?",
+                    "छत और मीटर बॉक्स की फ़ोटो कैसे अपलोड करें?",
+                    "मुझे सौंपे गए सर्वेक्षण कहाँ दिखते हैं?",
+                ]
+            elif role == 'manager':
+                return [
+                    "सीएसवी से लीड्स कैसे आयात करें?",
+                    "लीड को विफल (Lost) चिह्नित करने की अनुमति किसे है?",
+                    "टीम प्रदर्शन और रूपांतरण दर कैसे देखें?",
+                ]
+            elif role == 'admin':
+                return [
+                    "एसएमटीपी ईमेल सेटिंग्स कैसे जोड़ें?",
+                    "भारत (IN) और ऑस्ट्रेलिया (AU) सेटिंग्स में क्या अंतर है?",
+                    "हेल्प असिस्टेंट विश्लेषण और अनुत्तरित प्रश्न कहाँ दिखते हैं?",
+                ]
+            else:  # salesperson
+                return [
+                    "सीआरएम का स्वर्णिम नियम क्या है?",
+                    "व्यस्त कॉलों के लिए रीट्राई लैडर कैसे काम करता है?",
+                    "कोटेशन कैसे बनाएं और पीडीएफ कैसे भेजें?",
+                ]
+
         if role == 'surveyor':
             return [
                 "What checklist items are required during a site survey?",
@@ -439,14 +515,75 @@ User Question: {query}
                 "How to switch between India (IN) and Australia (AU) settings?",
                 "Where can I see Help Assistant insights and unresolved questions?",
             ]
-        else: # salesperson
+        else:  # salesperson
             return [
                 "What is the CRM golden rule for logging calls?",
                 "How does the automated retry ladder work for busy calls?",
                 "How do I generate a solar quotation and send a PDF?",
             ]
 
-    def get_topic_suggestions(self, topic: str) -> List[str]:
+    def get_topic_suggestions(self, topic: str, language: str = 'en') -> List[str]:
+        if language == 'hi':
+            starters_hi = {
+                'golden_rule': [
+                    "कॉल के तुरंत बाद विवरण क्यों दर्ज करना चाहिए?",
+                    "किसी लीड को बिना अगले कदम के छोड़ने पर क्या होता है?",
+                ],
+                'call_outcomes': [
+                    "कॉलबैक का अनुरोध परिणाम का क्या कार्य है?",
+                    "साइट सर्वे अनुरोध परिणाम कब चुनें?",
+                ],
+                'retry_rules': [
+                    "अधिकतम कितने प्रयासों के बाद लीड अनरीचेबल होती है?",
+                    "व्यस्त या बंद फोन के लिए क्या अंतराल हैं?",
+                ],
+                'lost_rules': [
+                    "क्या विक्रेता बिना प्रबंधक के लीड Lost कर सकता है?",
+                    "विफल सौदों में प्रतियोगी का नाम क्यों जरूरी है?",
+                ],
+                'site_surveys': [
+                    "सर्वेयर फ़ोटो कैसे अपलोड करता है?",
+                    "सर्वे फॉर्म में छत के कौन से प्रकार होते हैं?",
+                ],
+                'quotes_proposals': [
+                    "सब्सिडी के साथ नेट देय राशि कैसे निकाली जाती है?",
+                    "कोटेशन पीडीएफ कैसे डाउनलोड करें?",
+                ],
+                'import_csv': [
+                    "लीड आयात के लिए कौन से कॉलम आवश्यक हैं?",
+                    "राउंड रॉबिन लीड आवंटन कैसे काम करता है?",
+                ],
+                'roles_permissions': [
+                    "क्या विक्रेता किसी अन्य को लीड सौंप सकता है?",
+                    "सर्वेयर के लिए कौन से फीचर प्रतिबंधित हैं?",
+                ],
+                'regions_compliance': [
+                    "भारत और ऑस्ट्रेलिया सेटिंग्स में क्या अंतर है?",
+                    "अनुमत कॉलिंग घंटे और डीएनसीआर नियम क्या हैं?",
+                ],
+                'notifications_app': [
+                    "डेस्कटॉप पुश अलर्ट कैसे चालू करें?",
+                    "लीड आवंटन की सूचना कब मिलती है?",
+                ],
+                'email_smtp': [
+                    "जीमेल या ब्रेवो एसएमटीपी सेटिंग्स कैसे जोड़ें?",
+                    "प्रातःकालीन दैनिक डाइजेस्ट किस समय आता है?",
+                ],
+                'ai_suggestions': [
+                    "लीड स्क्रीन पर एआई कैसे सुझाव देता है?",
+                    "क्या बिना एपीआई कुंजी के एआई काम करता है?",
+                ],
+                'tour_shortcuts': [
+                    "हेल्प असिस्टेंट का कीबोर्ड शॉर्टकट क्या है?",
+                    "ऑनबोर्डिंग टूर दोबारा कैसे देखें?",
+                ],
+                'security_privacy': [
+                    "ग्राहक संपर्क विवरण कौन देख सकता है?",
+                    "क्या लीड परिवर्तनों का ऑडिट लॉग रखा जाता है?",
+                ],
+            }
+            return starters_hi.get(topic, STARTER_QUESTIONS_BY_LANG['hi'][:2])
+
         starters = {
             'golden_rule': [
                 "Why must call outcomes be logged immediately?",

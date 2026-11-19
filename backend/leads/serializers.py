@@ -9,6 +9,8 @@ from .utils import find_duplicate_lead
 
 
 class AuditLogSerializer(serializers.ModelSerializer):
+    rendered_text = serializers.SerializerMethodField()
+
     class Meta:
         model = AuditLog
         fields = [
@@ -22,12 +24,22 @@ class AuditLogSerializer(serializers.ModelSerializer):
             'reason',
             'details',
             'ip_address',
+            'message_code',
+            'params',
+            'rendered_text',
         ]
         read_only_fields = ['id', 'timestamp']
+
+    def get_rendered_text(self, obj):
+        from .history_renderer import render_history_text
+        request = self.context.get('request')
+        lang = getattr(request, 'LANGUAGE_CODE', 'en') if request else 'en'
+        return render_history_text(obj.message_code, obj.params, language=lang, fallback_text=obj.details or obj.action or '')
 
 
 class LeadStatusHistorySerializer(serializers.ModelSerializer):
     changed_by_name = serializers.CharField(source='changed_by.get_full_name', read_only=True)
+    rendered_text = serializers.SerializerMethodField()
 
     class Meta:
         model = LeadStatusHistory
@@ -41,8 +53,17 @@ class LeadStatusHistorySerializer(serializers.ModelSerializer):
             'changed_at',
             'note',
             'remark',
+            'message_code',
+            'params',
+            'rendered_text',
         ]
         read_only_fields = ['id', 'changed_at']
+
+    def get_rendered_text(self, obj):
+        from .history_renderer import render_history_text
+        request = self.context.get('request')
+        lang = getattr(request, 'LANGUAGE_CODE', 'en') if request else 'en'
+        return render_history_text(obj.message_code, obj.params, language=lang, fallback_text=obj.note or obj.remark or '')
 
 
 class LeadSerializer(serializers.ModelSerializer):
@@ -120,6 +141,7 @@ class LeadSerializer(serializers.ModelSerializer):
             'lost_reason_name',
             'nurture_reason',
             'nurture_reason_name',
+            'preferred_language',
             'do_not_contact',
             'attempt_count',
             'won_at',

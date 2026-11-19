@@ -1,0 +1,31 @@
+{
+  "title": "कोटेशन और प्रस्ताव",
+  "new_quote": "नया कोटेशन तैयार करें",
+  "version": "संस्करण {{version}}",
+  "fields": {
+    "system_size": "सिस्टम का आकार (kW)",
+    "panel_brand": "सौर पैनल का ब्रांड",
+    "panel_count": "पैनलों की संख्या",
+    "inverter_brand": "इन्वर्टर का ब्रांड",
+    "inverter_capacity": "इन्वर्टर क्षमता (kW)",
+    "battery_capacity": "बैटरी स्टोरेज (kWh)",
+    "base_price": "मूल सिस्टम मूल्य",
+    "subsidy_amount": "सरकारी सब्सिडी / छूट",
+    "discount": "विशेष छूट",
+    "net_price": "अंतिम देय राशि",
+    "status": "कोटेशन की स्थिति",
+    "valid_until": "वैधता तिथि"
+  },
+  "actions": {
+    "download_pdf": "पीडीएफ प्रस्ताव डाउनलोड करें",
+    "send_email": "ग्राहक को ईमेल भेजें",
+    "send_whatsapp": "व्हाट्सएप पर भेजें",
+    "mark_won": "प्रस्ताव को सफल (Won) चिह्नित करें"
+  },
+  "status": {
+    "draft": "प्रारूप (Draft)",
+    "sent": "भेजा गया (Sent)",
+    "accepted": "स्वीकृत (Won)",
+    "rejected": "अस्वीकृत"
+  }
+}

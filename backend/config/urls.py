@@ -30,6 +30,7 @@ from leads.views import (
     LeadViewSet,
 )
 from masters.views import (
+    LanguageViewSet,
     LeadSourceViewSet,
     LostReasonViewSet,
     NurtureReasonViewSet,
@@ -40,6 +41,7 @@ from masters.views import (
     RegionViewSet,
     RoofTypeViewSet,
     StateViewSet,
+    TranslationViewSet,
 )
 from notifications.views import NotificationViewSet
 from quotes.views import QuoteViewSet
@@ -113,6 +115,8 @@ router.register(r'masters/lost-reasons', LostReasonViewSet, basename='lost-reaso
 router.register(r'masters/nurture-reasons', NurtureReasonViewSet, basename='nurture-reason')
 router.register(r'masters/lead-sources', LeadSourceViewSet, basename='lead-source')
 router.register(r'masters/policy-settings', PolicySettingsViewSet, basename='policy-settings')
+router.register(r'masters/languages', LanguageViewSet, basename='language')
+router.register(r'masters/translations', TranslationViewSet, basename='translation')
 router.register(r'leads', LeadViewSet, basename='lead')
 router.register(r'audit-logs', AuditLogViewSet, basename='audit-log')
 router.register(r'import-batches', ImportBatchViewSet, basename='import-batch')

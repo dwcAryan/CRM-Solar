@@ -1,0 +1,31 @@
+{
+  "title": "Administration & Settings",
+  "tabs": {
+    "users": "Users & Roles",
+    "regions": "Regions & Compliance",
+    "languages": "Languages & Translations",
+    "policies": "System Policies",
+    "email": "Email & SMTP",
+    "audit": "Audit Logs"
+  },
+  "languages": {
+    "title": "Configured Languages",
+    "add_language": "Add Language",
+    "code": "Code",
+    "name": "Language Name",
+    "native_name": "Native Name",
+    "direction": "Direction",
+    "status": "Review Status",
+    "completeness": "Completeness",
+    "enabled": "Enabled for Users",
+    "actions": "Actions",
+    "toggle_enable": "Toggle Enable",
+    "edit_translations": "Edit Translations",
+    "export_translations": "Export (JSON/CSV)",
+    "import_translations": "Import Translations",
+    "draft_missing": "Auto-Draft Missing Strings",
+    "filter_namespace": "All Namespaces",
+    "filter_status": "All Statuses",
+    "search_keys": "Search keys or phrases..."
+  }
+}

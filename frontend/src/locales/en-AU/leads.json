@@ -1,0 +1,10 @@
+{
+  "fields": {
+    "postcode": "Postcode",
+    "monthly_bill": "Monthly Power Bill"
+  },
+  "actions": {
+    "book_survey": "Book Site Inspection",
+    "create_quote": "Generate Proposal"
+  }
+}

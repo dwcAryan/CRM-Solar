@@ -1,0 +1,17 @@
+{
+  "center_title": "Product Tours & Interactive Guides",
+  "center_subtitle": "Select any walkthrough to learn features step-by-step",
+  "start_tour": "Start Walkthrough",
+  "replay_tour": "Replay",
+  "step": "Step {{current}} of {{total}}",
+  "skip": "Skip Tour",
+  "next": "Next Step",
+  "back": "Previous",
+  "finish": "Got it, finish!",
+  "first_time_banner": {
+    "title": "Welcome to Solar CRM!",
+    "body": "Take a quick 2-minute tour to see how to manage leads, book site surveys, and generate proposals.",
+    "cta": "Start Quick Tour",
+    "dismiss": "Maybe later"
+  }
+}

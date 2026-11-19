@@ -1,0 +1,31 @@
+{
+  "title": "प्रशासन और सेटिंग्स",
+  "tabs": {
+    "users": "उपयोगकर्ता और भूमिकाएं",
+    "regions": "क्षेत्र और विनियामक अनुपालन",
+    "languages": "भाषाएँ और अनुवाद",
+    "policies": "सिस्टम नीतियां",
+    "email": "ईमेल और एसएमटीपी",
+    "audit": "ऑडिट लॉग"
+  },
+  "languages": {
+    "title": "कॉन्फ़िगर की गई भाषाएं",
+    "add_language": "नई भाषा जोड़ें",
+    "code": "कोड",
+    "name": "भाषा का नाम",
+    "native_name": "मूल नाम (Native Name)",
+    "direction": "दिशानिर्देश",
+    "status": "समीक्षा स्थिति",
+    "completeness": "पूर्णता प्रतिशत",
+    "enabled": "उपयोगकर्ताओं के लिए सक्षम",
+    "actions": "कार्रवाई",
+    "toggle_enable": "सक्षम / अक्षम करें",
+    "edit_translations": "अनुवाद संपादित करें",
+    "export_translations": "निर्यात (JSON/CSV)",
+    "import_translations": "अनुवाद आयात करें",
+    "draft_missing": "अनुपलब्ध अनुवाद का ड्राफ्ट बनाएं",
+    "filter_namespace": "सभी नेमस्पेस",
+    "filter_status": "सभी स्थितियां",
+    "search_keys": "कुंजी या वाक्यांश खोजें..."
+  }
+}

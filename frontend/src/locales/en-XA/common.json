@@ -1,0 +1,20 @@
+{
+  "app_name": "[!!! Ssoooolaaaar CCCRRMM !!!]",
+  "actions": {
+    "save": "[!!! Sssaaavvveee !!!]",
+    "cancel": "[!!! Cccaaannnccceeeelll !!!]",
+    "submit": "[!!! Sssuuubbbmmmiiittt !!!]",
+    "delete": "[!!! Dddeeellleeettteee !!!]",
+    "edit": "[!!! Eeedddiiittt !!!]",
+    "search": "[!!! Ssseeeaaarrrccchhh !!!]",
+    "loading": "[!!! Llloooaaadddiiinnnggg... !!!]"
+  },
+  "nav": {
+    "dashboard": "[!!! Dddaaassshhhbbboooaaarrrddd !!!]",
+    "leads": "[!!! Llleeeaaadddsss !!!]",
+    "pipeline": "[!!! Pppiiipppeeellliiinnneee !!!]",
+    "surveys": "[!!! Sssuuurrrvvveeeyyysss !!!]",
+    "quotes": "[!!! Qqquuuooottteeesss !!!]",
+    "activities": "[!!! Aaacctttiiivvviiitttiiieeesss !!!]"
+  }
+}

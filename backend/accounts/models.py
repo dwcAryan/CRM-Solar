@@ -47,6 +47,11 @@ class User(AbstractUser):
         default=False,
         help_text="Requires the user to change their password on next login.",
     )
+    preferred_language = models.CharField(
+        max_length=15,
+        default='en',
+        help_text="User's preferred staff interface language (e.g. en, hi, en-AU, en-IN).",
+    )
 
     def __str__(self) -> str:
         full_name = self.get_full_name()

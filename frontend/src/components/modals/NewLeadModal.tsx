@@ -61,6 +61,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
   const [assignedToId, setAssignedToId] = useState<string | null>(null);
   const [consentStatus, setConsentStatus] = useState<string>('consented');
   const [consentSource, setConsentSource] = useState<string>('Website Form');
+  const [preferredLanguage, setPreferredLanguage] = useState<string>('en');
   const [remark, setRemark] = useState('');
 
   const [duplicateLead, setDuplicateLead] = useState<any | null>(null);
@@ -131,6 +132,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
     setAssignedToId(null);
     setConsentStatus('consented');
     setConsentSource('Website Form');
+    setPreferredLanguage('en');
     setRemark('');
     setDuplicateLead(null);
     setErrorMsg(null);
@@ -160,6 +162,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
         owner_or_tenant: ownerOrTenant || 'owner',
         consent_status: consentStatus,
         consent_source: consentSource,
+        preferred_language: preferredLanguage,
         remark: remark.trim() || undefined,
       };
       if (assignedToId) {
@@ -489,15 +492,14 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
               onChange={(val) => setConsentStatus(val || 'consented')}
             />
             <Select
-              label="Consent Channel / Source"
+              label="Customer Communication Language"
+              description="For WhatsApp, SMS, and emails"
               data={[
-                { value: 'Website Form', label: 'Direct Website Form' },
-                { value: 'Phone Inquiry', label: 'Inbound Phone Inquiry' },
-                { value: 'Exhibition / Display', label: 'Exhibition / Mall Kiosk' },
-                { value: 'Channel Partner', label: 'Approved Referral Partner' },
+                { value: 'en', label: 'English' },
+                { value: 'hi', label: 'हिन्दी (Hindi)' },
               ]}
-              value={consentSource}
-              onChange={(val) => setConsentSource(val || 'Website Form')}
+              value={preferredLanguage}
+              onChange={(val) => setPreferredLanguage(val || 'en')}
             />
           </Group>
 

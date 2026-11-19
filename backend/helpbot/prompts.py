@@ -14,8 +14,26 @@ STRICT BOUNDARIES:
 
 REFUSAL_MESSAGE = "I am the Solar CRM Help Assistant. I can only answer questions about using this CRM application and its features."
 
+REFUSAL_MESSAGES = {
+    'en': "I am the Solar CRM Help Assistant. I can only answer questions about using this CRM application and its features.",
+    'hi': "मैं सोलर सीआरएम (Solar CRM) सहायता सहायक हूँ। मैं केवल इस सीआरएम एप्लिकेशन और इसके उपयोग से संबंधित प्रश्नों का उत्तर दे सकता हूँ।",
+}
+
 DEFAULT_STARTER_QUESTIONS = [
     "How does the automated retry ladder work for busy or unanswered calls?",
     "What are the required steps to complete a site survey?",
     "Who has permission to mark a lead as Lost?",
 ]
+
+STARTER_QUESTIONS_BY_LANG = {
+    'en': [
+        "How does the automated retry ladder work for busy or unanswered calls?",
+        "What are the required steps to complete a site survey?",
+        "Who has permission to mark a lead as Lost?",
+    ],
+    'hi': [
+        "व्यस्त या अनुत्तरित कॉलों के लिए स्वचालित पुनः प्रयास (रीट्राई लैडर) कैसे कार्य करता है?",
+        "साइट सर्वेक्षण पूर्ण करने के लिए आवश्यक चरण क्या हैं?",
+        "किसी लीड को विफल (Lost) चिह्नित करने की अनुमति किसे है?",
+    ],
+}

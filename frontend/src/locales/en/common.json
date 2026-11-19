@@ -1,0 +1,71 @@
+{
+  "app_name": "Solar CRM",
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "submit": "Submit",
+    "delete": "Delete",
+    "edit": "Edit",
+    "update": "Update",
+    "create": "Create",
+    "add": "Add",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "import": "Import",
+    "download": "Download",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "confirm": "Confirm",
+    "refresh": "Refresh",
+    "view": "View",
+    "select": "Select",
+    "all": "All",
+    "none": "None",
+    "yes": "Yes",
+    "no": "No",
+    "loading": "Loading...",
+    "retry": "Retry"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "leads": "Leads",
+    "pipeline": "Pipeline",
+    "surveys": "Surveys",
+    "quotes": "Quotes",
+    "activities": "Activities",
+    "admin": "Admin",
+    "settings": "Settings",
+    "profile": "Profile",
+    "tour": "Take Tour",
+    "help": "Help Assistant",
+    "logout": "Logout"
+  },
+  "statuses": {
+    "new": "New",
+    "attempting_contact": "Attempting Contact",
+    "contacted": "Contacted",
+    "survey_booked": "Survey Booked",
+    "survey_completed": "Survey Completed",
+    "quote_sent": "Quote Sent",
+    "negotiation": "Negotiation",
+    "won": "Won",
+    "lost": "Lost",
+    "nurture": "Nurture",
+    "unreachable": "Unreachable"
+  },
+  "pwa": {
+    "install_desktop": "Download for desktop",
+    "install_mobile": "Install app",
+    "installed": "Installed",
+    "new_version": "New version available, click to update"
+  },
+  "language": {
+    "selector_label": "Language",
+    "switch_prompt": "Switch interface language to {{language}}?",
+    "switch_confirm": "Switch",
+    "switch_dismiss": "Keep current"
+  }
+}

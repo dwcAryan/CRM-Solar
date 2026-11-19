@@ -259,6 +259,18 @@ PERMISSION_MATRIX: Dict[str, Dict[str, str]] = {
         "salesperson": "own",
         "surveyor": "own",
     },
+    "i18n.manage": {
+        "admin": "all",
+        "manager": "none",
+        "salesperson": "none",
+        "surveyor": "none",
+    },
+    "i18n.view": {
+        "admin": "all",
+        "manager": "all",
+        "salesperson": "none",
+        "surveyor": "none",
+    },
 }
 
 

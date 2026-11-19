@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Container,
   Paper,
@@ -18,8 +19,10 @@ import {
 import { IconSun, IconAlertCircle, IconLockCheck } from '@tabler/icons-react';
 import { useAuth } from '../context/AuthContext';
 import { changePassword } from '../api/client';
+import { LanguageSelector } from '../components/common/LanguageSelector';
 
 export const LoginPage: React.FC = () => {
+  const { t } = useTranslation(['auth', 'common']);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -82,21 +85,25 @@ export const LoginPage: React.FC = () => {
 
   return (
     <Container size={420} my={40}>
+      <Group justify="flex-end" mb="xs">
+        <LanguageSelector variant="subtle" size="xs" />
+      </Group>
+
       <Paper withBorder shadow="md" p={30} radius="md">
         <Stack align="center" mb="lg">
           <ThemeIcon size={56} radius="xl" color="yellow" variant="filled">
             <IconSun size={34} />
           </ThemeIcon>
           <Title order={2} ta="center">
-            Solar CRM
+            {t('common:app_name', 'Solar CRM')}
           </Title>
           <Text c="dimmed" size="xs" ta="center">
-            Sign in to access your leads, surveys, and quotations
+            {t('auth:login_subtitle', 'Sign in to access your leads, surveys, and quotations')}
           </Text>
         </Stack>
 
         {error && (
-          <Alert icon={<IconAlertCircle size={16} />} title="Authentication Failed" color="red" mb="md">
+          <Alert icon={<IconAlertCircle size={16} />} title={t('common:actions.retry', 'Authentication Failed')} color="red" mb="md">
             {error}
           </Alert>
         )}
@@ -104,26 +111,26 @@ export const LoginPage: React.FC = () => {
         <form onSubmit={handleSubmit}>
           <Stack gap="md">
             <TextInput
-              label="Username"
-              placeholder="Username"
+              label={t('auth:username', 'Username')}
+              placeholder={t('auth:username', 'Username')}
               value={username}
               onChange={(e) => setUsername(e.currentTarget.value)}
               required
             />
             <PasswordInput
-              label="Password"
-              placeholder="Password"
+              label={t('auth:password', 'Password')}
+              placeholder={t('auth:password', 'Password')}
               value={password}
               onChange={(e) => setPassword(e.currentTarget.value)}
               required
             />
             <Group justify="flex-end" mt={-4}>
               <Anchor component={Link} to="/reset-password" size="xs" c="dimmed">
-                Forgot password?
+                {t('auth:forgot_password', 'Forgot password?')}
               </Anchor>
             </Group>
             <Button type="submit" color="yellow" fullWidth loading={loading} mt="sm">
-              Sign In
+              {t('auth:sign_in', 'Sign In')}
             </Button>
           </Stack>
         </form>

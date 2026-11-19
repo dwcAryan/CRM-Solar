@@ -23,6 +23,8 @@ class Activity(models.Model):
         related_name='activities',
     )
     notes = models.TextField(blank=True)
+    message_code = models.CharField(max_length=100, blank=True, default='')
+    params = models.JSONField(default=dict, blank=True)
     remark = models.CharField(max_length=500, blank=True, default='')
     status_after = models.CharField(max_length=50)
     next_action = models.CharField(max_length=255, blank=True)

@@ -1,0 +1,151 @@
+# Solar CRM - Shared Translation Glossary
+# Standard product terms and their agreed translations across shipped languages.
+# Source of truth for interface strings, machine translation and human review.
+
+do_not_translate:
+  - "Solar CRM"
+  - "kW"
+  - "kWh"
+  - "kWp"
+  - "W"
+  - "GST"
+  - "STC"
+  - "DISCOM"
+  - "E.164"
+  - "PDF"
+  - "CSV"
+  - "XLSX"
+  - "API"
+  - "WhatsApp"
+  - "SMS"
+  - "RCC"
+  - "Colorbond"
+  - "Mono PERC"
+  - "PM Surya Ghar"
+
+terms:
+  lead:
+    en: "Lead"
+    en-AU: "Lead"
+    en-IN: "Lead"
+    hi: "लीड (संभावित ग्राहक)"
+  leads:
+    en: "Leads"
+    en-AU: "Leads"
+    en-IN: "Leads"
+    hi: "लीड्स (संभावित ग्राहक)"
+  customer:
+    en: "Customer"
+    en-AU: "Customer"
+    en-IN: "Customer"
+    hi: "ग्राहक"
+  pipeline:
+    en: "Pipeline"
+    en-AU: "Pipeline"
+    en-IN: "Pipeline"
+    hi: "पाइपलाइन"
+  dashboard:
+    en: "Dashboard"
+    en-AU: "Dashboard"
+    en-IN: "Dashboard"
+    hi: "डैशबोर्ड"
+  follow_up:
+    en: "Follow-up"
+    en-AU: "Follow-up"
+    en-IN: "Follow-up"
+    hi: "फॉलो-अप"
+  survey:
+    en: "Survey"
+    en-AU: "Site Survey"
+    en-IN: "Survey"
+    hi: "सर्वेक्षण (साइट सर्वे)"
+  quote:
+    en: "Quote"
+    en-AU: "Quote"
+    en-IN: "Quote"
+    hi: "कोटेशन (प्रस्ताव)"
+  proposal:
+    en: "Proposal"
+    en-AU: "Proposal"
+    en-IN: "Proposal"
+    hi: "प्रस्ताव"
+  outcome:
+    en: "Outcome"
+    en-AU: "Outcome"
+    en-IN: "Outcome"
+    hi: "परिणाम"
+  status:
+    en: "Status"
+    en-AU: "Status"
+    en-IN: "Status"
+    hi: "स्थिति"
+  nurture:
+    en: "Nurture"
+    en-AU: "Nurture"
+    en-IN: "Nurture"
+    hi: "पोषण (नर्चर)"
+  won:
+    en: "Won"
+    en-AU: "Won"
+    en-IN: "Won"
+    hi: "सफल (जीता)"
+  lost:
+    en: "Lost"
+    en-AU: "Lost"
+    en-IN: "Lost"
+    hi: "विफल (खोया)"
+  unreachable:
+    en: "Unreachable"
+    en-AU: "Unreachable"
+    en-IN: "Unreachable"
+    hi: "संपर्क रहित"
+  interested:
+    en: "Interested"
+    en-AU: "Interested"
+    en-IN: "Interested"
+    hi: "रुचि है"
+  attempting_contact:
+    en: "Attempting contact"
+    en-AU: "Attempting contact"
+    en-IN: "Attempting contact"
+    hi: "संपर्क का प्रयास"
+  callback_scheduled:
+    en: "Callback scheduled"
+    en-AU: "Callback scheduled"
+    en-IN: "Callback scheduled"
+    hi: "पुनः कॉल निर्धारित"
+  salesperson:
+    en: "Salesperson"
+    en-AU: "Sales Representative"
+    en-IN: "Salesperson"
+    hi: "विक्रेता"
+  surveyor:
+    en: "Surveyor"
+    en-AU: "Surveyor"
+    en-IN: "Surveyor"
+    hi: "सर्वेयर"
+  manager:
+    en: "Manager"
+    en-AU: "Manager"
+    en-IN: "Manager"
+    hi: "प्रबंधक"
+  admin:
+    en: "Administrator"
+    en-AU: "Administrator"
+    en-IN: "Administrator"
+    hi: "व्यवस्थापक (एडमिन)"
+  electricity_bill:
+    en: "Electricity Bill"
+    en-AU: "Power Bill"
+    en-IN: "Electricity Bill"
+    hi: "बिजली का बिल"
+  incentive:
+    en: "Incentive"
+    en-AU: "Government incentive (STCs and rebates)"
+    en-IN: "Subsidy"
+    hi: "सब्सिडी (सरकारी प्रोत्साहन)"
+  electricity_provider:
+    en: "Electricity Provider"
+    en-AU: "Electricity Retailer"
+    en-IN: "DISCOM"
+    hi: "बिजली वितरण कंपनी (डिस्कॉम / रिटेलर)"

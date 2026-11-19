@@ -57,6 +57,11 @@ apiClient.interceptors.request.use(
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    const currentLang = localStorage.getItem('solar_crm_lang') || 'en';
+    if (config.headers) {
+      config.headers['X-App-Language'] = currentLang;
+      config.headers['Accept-Language'] = currentLang;
+    }
     return config;
   },
   (error) => Promise.reject(error)

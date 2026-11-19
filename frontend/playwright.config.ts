@@ -17,6 +17,12 @@ export default defineConfig({
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',
   },
+  webServer: {
+    command: 'npm run dev',
+    url: 'http://localhost:5173',
+    reuseExistingServer: true,
+    timeout: 30000,
+  },
   projects: [
     {
       name: 'setup',
@@ -24,7 +30,7 @@ export default defineConfig({
     },
     {
       name: 'unauthenticated',
-      testMatch: /.*login_clean\.spec\.ts/,
+      testMatch: /.*(login_clean|language_option)\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
       },
@@ -32,7 +38,7 @@ export default defineConfig({
     {
       name: 'smoke',
       testMatch: /.*\.spec\.ts/,
-      testIgnore: /.*login_clean\.spec\.ts/,
+      testIgnore: /.*(login_clean|language_option)\.spec\.ts/,
       dependencies: ['setup'],
       use: {
         ...devices['Desktop Chrome'],

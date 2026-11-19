@@ -1,0 +1,27 @@
+{
+  "title": "Site Surveys",
+  "book_survey": "Book Site Survey",
+  "survey_details": "Survey Details",
+  "fields": {
+    "surveyor": "Assigned Surveyor",
+    "scheduled_at": "Scheduled Date & Time",
+    "status": "Survey Status",
+    "roof_type": "Roof Construction",
+    "panel_capacity": "Estimated Panel Capacity (kW)",
+    "shading_notes": "Shading & Obstacles",
+    "meter_notes": "Electrical Meter & Main Board Notes",
+    "completed_at": "Completed At"
+  },
+  "photos": {
+    "title": "Site Photos & Documentation",
+    "roof": "Roof & Layout Photos",
+    "meter": "Meter Box & Switchboard",
+    "inverter_location": "Inverter Location",
+    "upload_btn": "Upload Survey Photo"
+  },
+  "status": {
+    "scheduled": "Scheduled",
+    "completed": "Completed",
+    "cancelled": "Cancelled"
+  }
+}

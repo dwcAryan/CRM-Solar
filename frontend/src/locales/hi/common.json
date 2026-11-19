@@ -1,0 +1,71 @@
+{
+  "app_name": "सोलर सीआरएम (Solar CRM)",
+  "actions": {
+    "save": "सुरक्षित करें",
+    "cancel": "रद्द करें",
+    "submit": "जमा करें",
+    "delete": "हटाएं",
+    "edit": "संपादित करें",
+    "update": "अपडेट करें",
+    "create": "बनाएं",
+    "add": "जोड़ें",
+    "search": "खोजें",
+    "filter": "फ़िल्टर करें",
+    "export": "निर्यात करें",
+    "import": "आयात करें",
+    "download": "डाउनलोड करें",
+    "close": "बंद करें",
+    "back": "वापस जाएं",
+    "next": "अगला",
+    "previous": "पिछला",
+    "confirm": "पुष्टि करें",
+    "refresh": "ताज़ा करें",
+    "view": "देखें",
+    "select": "चुनें",
+    "all": "सभी",
+    "none": "कोई नहीं",
+    "yes": "हाँ",
+    "no": "नहीं",
+    "loading": "लोड हो रहा है...",
+    "retry": "पुनः प्रयास करें"
+  },
+  "nav": {
+    "dashboard": "डैशबोर्ड",
+    "leads": "लीड्स",
+    "pipeline": "पाइपलाइन",
+    "surveys": "सर्वेक्षण",
+    "quotes": "कोटेशन",
+    "activities": "गतिविधियां",
+    "admin": "व्यवस्थापक",
+    "settings": "सेटिंग्स",
+    "profile": "प्रोफ़ाइल",
+    "tour": "उत्पाद टूर लें",
+    "help": "सहायता सहायक",
+    "logout": "लॉगआउट"
+  },
+  "statuses": {
+    "new": "नई (New)",
+    "attempting_contact": "संपर्क प्रयास",
+    "contacted": "संपर्क किया गया",
+    "survey_booked": "सर्वे निर्धारित",
+    "survey_completed": "सर्वे पूर्ण",
+    "quote_sent": "कोटेशन भेजा गया",
+    "negotiation": "बातचीत जारी",
+    "won": "सफल (Won)",
+    "lost": "विफल (Lost)",
+    "nurture": "नर्चर (Nurture)",
+    "unreachable": "संपर्क रहित"
+  },
+  "pwa": {
+    "install_desktop": "डेस्कटॉप ऐप डाउनलोड करें",
+    "install_mobile": "ऐप इंस्टॉल करें",
+    "installed": "इंस्टॉल किया गया",
+    "new_version": "नया संस्करण उपलब्ध है, अपडेट करने के लिए क्लिक करें"
+  },
+  "language": {
+    "selector_label": "भाषा",
+    "switch_prompt": "क्या आप भाषा बदलकर {{language}} करना चाहते हैं?",
+    "switch_confirm": "बदलें",
+    "switch_dismiss": "वर्तमान रखें"
+  }
+}

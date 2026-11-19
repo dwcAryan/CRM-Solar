@@ -1,0 +1,14 @@
+{
+  "title": "Help Assistant",
+  "subtitle": "Ask questions about CRM rules, surveys, quotes and features",
+  "input_placeholder": "Ask how to do something in Solar CRM...",
+  "send": "Ask",
+  "disclaimer": "Ground-truth guidance strictly for this Solar CRM application.",
+  "suggested_title": "Suggested Questions",
+  "take_tour": "Show me how in the app",
+  "feedback": {
+    "helpful": "Helpful",
+    "not_helpful": "Not helpful",
+    "thanks": "Thank you for your feedback!"
+  }
+}

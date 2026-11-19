@@ -7,6 +7,11 @@ class MessageTemplate(models.Model):
         SMS = 'sms', 'SMS'
         EMAIL = 'email', 'Email'
 
+    class ApprovalStatus(models.TextChoices):
+        NOT_REQUIRED = 'not_required', 'Not Required'
+        PENDING = 'pending', 'Pending Approval'
+        APPROVED = 'approved', 'Approved'
+
     name = models.CharField(max_length=100)
     region = models.ForeignKey(
         'masters.Region',
@@ -17,14 +22,21 @@ class MessageTemplate(models.Model):
         help_text="Target country/region. Null means global fallback.",
     )
     channel = models.CharField(max_length=20, choices=Channel.choices, default=Channel.WHATSAPP)
+    language = models.CharField(max_length=15, default='en', help_text="Template language code e.g. en, hi")
+    approval_status = models.CharField(
+        max_length=20,
+        choices=ApprovalStatus.choices,
+        default=ApprovalStatus.NOT_REQUIRED,
+        help_text="Regulatory template registration status (e.g. DLT India / WhatsApp Business).",
+    )
     description = models.CharField(max_length=255, blank=True)
     body = models.TextField(help_text="Message text with placeholder variables e.g. {customer_name}, {time}, {opt_out_line}")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['region', 'channel', 'name']
-        unique_together = [('region', 'name', 'channel')]
+        ordering = ['region', 'channel', 'language', 'name']
+        unique_together = [('region', 'name', 'channel', 'language')]
         verbose_name = 'Message Template'
         verbose_name_plural = 'Message Templates'
 
@@ -60,6 +72,7 @@ class MessageLog(models.Model):
         related_name='message_logs',
     )
     template_name = models.CharField(max_length=100, blank=True)
+    language = models.CharField(max_length=15, default='en', blank=True)
     params = models.JSONField(default=dict, blank=True)
     message_text = models.TextField()
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.SENT)

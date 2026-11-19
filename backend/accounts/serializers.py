@@ -24,6 +24,7 @@ class UserSerializer(serializers.ModelSerializer):
             'allowed_regions',
             'default_region',
             'default_timezone',
+            'preferred_language',
         ]
         read_only_fields = ['id', 'date_joined']
 
@@ -45,6 +46,7 @@ class UserCreateUpdateSerializer(serializers.ModelSerializer):
             'is_active',
             'password',
             'must_change_password',
+            'preferred_language',
         ]
 
     def create(self, validated_data):

@@ -84,6 +84,7 @@ export interface User {
   allowed_regions?: Region[] | string[];
   default_region?: string | null;
   default_timezone?: string;
+  preferred_language?: string;
   is_demo?: boolean;
   must_change_password?: boolean;
   permissions?: string[];
@@ -189,6 +190,7 @@ export interface Lead {
   next_followup_at?: string | null;
   next_followup_display?: string;
   user_next_followup_display?: string;
+  preferred_language?: string;
   lost_reason?: number | null;
   lost_reason_name?: string;
   lost_pending_reason?: number | null;

@@ -1,0 +1,12 @@
+{
+  "title": "Proposals",
+  "new_quote": "Generate New Proposal",
+  "fields": {
+    "subsidy_amount": "Government Rebate (STC)",
+    "net_price": "Net Out-of-Pocket"
+  },
+  "actions": {
+    "download_pdf": "Download Proposal PDF",
+    "mark_won": "Mark Proposal as Won"
+  }
+}

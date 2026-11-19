@@ -58,6 +58,11 @@ This document provides a comprehensive inventory of all technologies, libraries,
 | **axios** | `^1.21.1` | HTTP client with automatic JWT token refresh interceptors. | MIT |
 | **dayjs** | `^1.11.23` | Date formatting and manipulation library. | MIT |
 | **driver.js** | `^1.14.0` | Lightweight vanilla spotlight library powering the interactive Product Tour. | MIT |
+| **i18next** | `^27.2.1` | Core internationalization framework supporting multiple languages, namespaces, and interpolation. | MIT |
+| **react-i18next** | `^18.0.2` | React bindings for i18next providing the `useTranslation` hook and `<Trans>` component. | MIT |
+| **i18next-browser-languagedetector** | `^8.3.1` | Language detector for client browser preferences and local storage persistence. | MIT |
+| **@fontsource/noto-sans** | `^5.3.0` | Open-source Latin typography for clean multilingual rendering. | SIL OFL 1.1 |
+| **@fontsource/noto-sans-devanagari** | `^5.3.0` | High-quality Devanagari typography for clear Hindi text rendering. | SIL OFL 1.1 |
 
 ### Development & Tooling Dependencies
 | Package | Version | Purpose in Solar CRM | License |

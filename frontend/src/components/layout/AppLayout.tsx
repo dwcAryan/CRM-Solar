@@ -24,6 +24,7 @@ import {
   Kbd,
   Select,
   useMantineColorScheme,
+  Alert,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {
@@ -60,9 +61,13 @@ import { NotificationSettingsModal } from '../notifications/NotificationSettings
 import { TourCenterDrawer } from '../tour/TourCenterDrawer';
 import { HelpbotFab } from '../helpbot/HelpbotFab';
 import { startTour, isTourActive } from '../tour/ProductTourService';
+import { LanguageSelector } from '../common/LanguageSelector';
+import { changeAppLanguage } from '../../i18n/i18n';
+import { useTranslation } from 'react-i18next';
 import type { Notification } from '../../api/types';
 
 export const AppLayout: React.FC = () => {
+  const { t, i18n } = useTranslation('common');
   const [opened, { toggle, close }] = useDisclosure();
   const { user, logout, isAdminOrManager, can } = useAuth();
   const { selectedRegion, setSelectedRegion, activeRegion } = useRegion();
@@ -77,8 +82,19 @@ export const AppLayout: React.FC = () => {
 
   const [settingsOpened, setSettingsOpened] = useState(false);
   const [tourCenterOpened, setTourCenterOpened] = useState(false);
+  const [showLangSuggestion, setShowLangSuggestion] = useState(false);
   const shownNotifIds = useRef<Set<number>>(new Set());
   const tourTriggeredRef = useRef(false);
+
+  useEffect(() => {
+    const prompted = localStorage.getItem('solar_crm_lang_prompted');
+    if (!prompted && navigator.language && navigator.language.startsWith('hi')) {
+      const current = i18n.language || 'en';
+      if (!current.startsWith('hi')) {
+        setShowLangSuggestion(true);
+      }
+    }
+  }, [i18n.language]);
 
   // Automatic product tour: only runs on very first visit to the application
   useEffect(() => {
@@ -201,22 +217,22 @@ export const AppLayout: React.FC = () => {
   };
 
   const navItems = [
-    { label: 'Dashboard', icon: IconDashboard, path: '/' },
-    ...(can('lead.view') ? [{ label: "Today's Follow-ups", icon: IconCalendarEvent, path: '/today' }] : []),
-    ...(can('lead.view') ? [{ label: 'All Leads', icon: IconUsers, path: '/leads', dataTour: 'sidebar-leads' }] : []),
+    { label: t('nav.dashboard', 'Dashboard'), icon: IconDashboard, path: '/' },
+    ...(can('lead.view') ? [{ label: t('nav.today_followups', "Today's Follow-ups"), icon: IconCalendarEvent, path: '/today' }] : []),
+    ...(can('lead.view') ? [{ label: t('nav.leads', 'All Leads'), icon: IconUsers, path: '/leads', dataTour: 'sidebar-leads' }] : []),
     ...(can('lead.unassigned_queue') || can('lead.lost_approval')
       ? [{ label: 'Manager Attention', icon: IconAlertCircle, path: '/manager-attention' }]
       : []),
     ...(user?.role === 'surveyor'
       ? [{ label: 'My Site Surveys', icon: IconClipboardCheck, path: '/my-surveys', dataTour: 'sidebar-surveys' }]
       : can('survey.view')
-      ? [{ label: 'Site Surveys', icon: IconClipboardCheck, path: '/surveys', dataTour: 'sidebar-surveys' }]
+      ? [{ label: t('nav.surveys', 'Site Surveys'), icon: IconClipboardCheck, path: '/surveys', dataTour: 'sidebar-surveys' }]
       : []),
-    ...(can('quote.view') ? [{ label: 'Quotations', icon: IconFileText, path: '/quotes', dataTour: 'sidebar-quotes' }] : []),
+    ...(can('quote.view') ? [{ label: t('nav.quotes', 'Quotations'), icon: IconFileText, path: '/quotes', dataTour: 'sidebar-quotes' }] : []),
     ...(can('lead.import') ? [{ label: 'Import Leads', icon: IconFileSpreadsheet, path: '/import-leads' }] : []),
     ...(can('user.view_team') ? [{ label: 'Roles Matrix', icon: IconShieldCheck, path: '/roles-matrix' }] : []),
     ...(can('masters.manage') || user?.role === 'admin'
-      ? [{ label: 'Admin Hub', icon: IconSettings, path: '/admin', dataTour: 'sidebar-admin' }]
+      ? [{ label: t('nav.admin', 'Admin Hub'), icon: IconSettings, path: '/admin', dataTour: 'sidebar-admin' }]
       : []),
     ...(user?.role === 'admin' || user?.role === 'manager'
       ? [{ label: 'System Health', icon: IconHeartbeat, path: '/health' }]
@@ -326,6 +342,9 @@ export const AppLayout: React.FC = () => {
             >
               {isDark ? <IconSun size={20} /> : <IconMoon size={20} />}
             </ActionIcon>
+
+            {/* Language Selector */}
+            <LanguageSelector size="xs" variant="light" />
 
             {/* Notification Bell Menu */}
             <Box data-tour="header-notifications">
@@ -474,6 +493,49 @@ export const AppLayout: React.FC = () => {
       </AppShell.Navbar>
 
       <AppShell.Main>
+        {showLangSuggestion && (
+          <Box mb="md">
+            <Alert
+              color="blue"
+              withCloseButton
+              onClose={() => {
+                localStorage.setItem('solar_crm_lang_prompted', 'true');
+                setShowLangSuggestion(false);
+              }}
+              title={t('language.selector_label', 'Language Suggestion')}
+            >
+              <Group justify="space-between" wrap="wrap">
+                <Text size="sm">
+                  {t('language.switch_prompt', { language: 'हिन्दी (Hindi)', defaultValue: 'Switch interface language to हिन्दी (Hindi)?' })}
+                </Text>
+                <Group gap="xs">
+                  <Button
+                    size="xs"
+                    color="blue"
+                    onClick={async () => {
+                      await changeAppLanguage('hi');
+                      localStorage.setItem('solar_crm_lang_prompted', 'true');
+                      setShowLangSuggestion(false);
+                    }}
+                  >
+                    {t('language.switch_confirm', 'Switch to हिन्दी')}
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="subtle"
+                    color="gray"
+                    onClick={() => {
+                      localStorage.setItem('solar_crm_lang_prompted', 'true');
+                      setShowLangSuggestion(false);
+                    }}
+                  >
+                    {t('language.switch_dismiss', 'Keep English')}
+                  </Button>
+                </Group>
+              </Group>
+            </Alert>
+          </Box>
+        )}
         <Outlet />
       </AppShell.Main>
 

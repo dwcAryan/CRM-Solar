@@ -13,6 +13,8 @@ class Notification(models.Model):
         related_name='notifications',
     )
     message = models.TextField()
+    message_code = models.CharField(max_length=100, blank=True, default='')
+    params = models.JSONField(default=dict, blank=True)
     link = models.CharField(max_length=255, blank=True)
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

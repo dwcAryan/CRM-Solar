@@ -149,3 +149,21 @@ When operating a unified CRM serving both Indian and Australian customers:
 * **Recommended Infrastructure Setup:**
   * For enterprise deployments with strict residency requirements: use database partitioning by region (`region == 'IN'` vs `region == 'AU'`) or host database replicas in the primary operational hub with encrypted backups.
   * Enforce TLS 1.3 in transit and AES-256 at rest for all database volumes and object storage.
+
+---
+
+## 8. Multi-Language Messaging & Telecommunications Compliance (Phase 14L)
+
+### 8.1 Distinct Customer Language Settings
+- Customer notifications (WhatsApp, SMS, Email) are generated in the customer's preferred communication language (`Lead.preferred_language`), independent of the staff member's interface language.
+- Mandated statutory lines (such as Australian Spam Act unsubscribe text `"Reply STOP to opt out"` or Indian regulatory disclosures) are preserved across all language variants.
+
+### 8.2 Telecom Regulatory Approval (DLT in India)
+- Under TRAI TCCCPR regulations, customer-facing SMS and WhatsApp templates in India must be pre-registered and approved on telecom DLT (Distributed Ledger Technology) portals.
+- The messaging engine prevents dispatching unapproved customer-facing translations (`approval_status == 'pending'`), falling back to registered default templates or raising a clear delivery error.
+
+### 8.3 SMS Encoding & Segment Counting Transparency
+- **GSM-7 Standard (Latin / English)**: 160 characters for single segment, 153 characters per concatenated segment.
+- **UCS-2 Standard (Hindi / Devanagari / Unicode)**: 70 characters for single segment, 67 characters per concatenated segment.
+- Outbound SMS services dynamically evaluate encoding via `calculate_sms_segments()` to give real-time visibility into segment counts and avoid telecommunication surcharge surprises.
+

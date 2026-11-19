@@ -120,6 +120,7 @@ class Lead(models.Model):
     suburb = models.CharField(max_length=100, blank=True, help_text="Suburb for Australian leads.")
     pincode = models.CharField(max_length=20, blank=True, help_text="Indian 6-digit pincode or Australian 4-digit postcode.")
     postcode = models.CharField(max_length=20, blank=True, help_text="Australian 4-digit postcode.")
+    preferred_language = models.CharField(max_length=15, default='en', help_text="Lead preferred communication language (e.g. en, hi).")
     source = models.ForeignKey(
         'masters.LeadSource',
         on_delete=models.SET_NULL,
@@ -280,6 +281,8 @@ class LeadStatusHistory(models.Model):
         related_name='status_changes',
     )
     changed_at = models.DateTimeField(auto_now_add=True)
+    message_code = models.CharField(max_length=100, blank=True, default='')
+    params = models.JSONField(default=dict, blank=True)
     note = models.TextField(blank=True)
     remark = models.CharField(max_length=500, blank=True, default='')
 
@@ -351,6 +354,8 @@ class AuditLog(models.Model):
     )
     lead_id_recorded = models.IntegerField(null=True, blank=True)
     reason = models.TextField(blank=True)
+    message_code = models.CharField(max_length=100, blank=True, default='')
+    params = models.JSONField(default=dict, blank=True)
     details = models.JSONField(default=dict, blank=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
 

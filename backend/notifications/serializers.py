@@ -23,6 +23,8 @@ class EmailLogSerializer(serializers.ModelSerializer):
 
 
 class NotificationSerializer(serializers.ModelSerializer):
+    rendered_message = serializers.SerializerMethodField()
+
     class Meta:
         model = Notification
         fields = [
@@ -31,9 +33,18 @@ class NotificationSerializer(serializers.ModelSerializer):
             'message',
             'link',
             'is_read',
+            'message_code',
+            'params',
+            'rendered_message',
             'created_at',
         ]
         read_only_fields = ['id', 'user', 'created_at']
+
+    def get_rendered_message(self, obj):
+        from leads.history_renderer import render_history_text
+        request = self.context.get('request')
+        lang = getattr(request, 'LANGUAGE_CODE', 'en') if request else 'en'
+        return render_history_text(obj.message_code, obj.params, language=lang, fallback_text=obj.message or '')
 
 
 class NotificationPreferenceSerializer(serializers.ModelSerializer):

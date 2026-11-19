@@ -1,0 +1,31 @@
+{
+  "title": "Quotes & Proposals",
+  "new_quote": "Generate New Quote",
+  "version": "Version {{version}}",
+  "fields": {
+    "system_size": "System Size (kW)",
+    "panel_brand": "Panel Brand",
+    "panel_count": "Panel Count",
+    "inverter_brand": "Inverter Brand",
+    "inverter_capacity": "Inverter Capacity (kW)",
+    "battery_capacity": "Battery Storage (kWh)",
+    "base_price": "Base System Price",
+    "subsidy_amount": "Government Subsidy / Rebate",
+    "discount": "Special Discount",
+    "net_price": "Net Payable Price",
+    "status": "Quote Status",
+    "valid_until": "Valid Until"
+  },
+  "actions": {
+    "download_pdf": "Download PDF Proposal",
+    "send_email": "Email to Customer",
+    "send_whatsapp": "Send on WhatsApp",
+    "mark_won": "Mark Proposal as Won"
+  },
+  "status": {
+    "draft": "Draft",
+    "sent": "Sent",
+    "accepted": "Accepted (Won)",
+    "rejected": "Rejected"
+  }
+}
