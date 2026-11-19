@@ -11,6 +11,7 @@ import {
   Badge,
 } from '@mantine/core';
 import { IconNotes, IconAlertCircle } from '@tabler/icons-react';
+import { useTranslation } from 'react-i18next';
 import { addRemark } from '../../api/client';
 import type { Lead } from '../../api/types';
 
@@ -27,6 +28,7 @@ export const AddRemarkModal: React.FC<AddRemarkModalProps> = ({
   lead,
   onSuccess,
 }) => {
+  const { t } = useTranslation(['leads', 'common']);
   const queryClient = useQueryClient();
   const [remarkText, setRemarkText] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -70,7 +72,7 @@ export const AddRemarkModal: React.FC<AddRemarkModalProps> = ({
       title={
         <Group gap="xs">
           <IconNotes size={18} />
-          <Text fw={600}>Add Internal Remark</Text>
+          <Text fw={600}>{t('actions.add_remark', 'Add Internal Remark')}</Text>
           {lead && <Badge color="yellow">{lead.name}</Badge>}
         </Group>
       }
@@ -90,7 +92,7 @@ export const AddRemarkModal: React.FC<AddRemarkModalProps> = ({
 
           <div>
             <Textarea
-              label="Remark / Note"
+              label={t('fields.remark', 'Remark / Note')}
               placeholder="e.g. Customer preferred morning WhatsApp communication, key with caretaker."
               rows={4}
               maxLength={500}
@@ -105,10 +107,10 @@ export const AddRemarkModal: React.FC<AddRemarkModalProps> = ({
 
           <Group justify="flex-end" mt="md">
             <Button variant="default" onClick={onClose}>
-              Cancel
+              {t('common:actions.cancel', 'Cancel')}
             </Button>
             <Button type="submit" color="yellow" loading={addRemarkMutation.isPending}>
-              Save Remark
+              {t('common:actions.save', 'Save Remark')}
             </Button>
           </Group>
         </Stack>

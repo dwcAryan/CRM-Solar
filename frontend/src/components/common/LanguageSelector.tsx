@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Menu, Button, Group, Text, Badge, rem } from '@mantine/core';
 import { IconWorld, IconCheck, IconChevronDown } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import { SUPPORTED_LANGUAGES, changeAppLanguage } from '../../i18n/i18n';
 
 interface LanguageSelectorProps {
@@ -15,6 +16,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   size = 'sm',
   compact = false,
 }) => {
+  const queryClient = useQueryClient();
   const { i18n, t } = useTranslation('common');
   const [currentLang, setCurrentLang] = useState(i18n.language || 'en');
 
@@ -36,6 +38,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   const handleSelect = async (code: string) => {
     await changeAppLanguage(code);
     setCurrentLang(code);
+    queryClient.invalidateQueries();
   };
 
   return (

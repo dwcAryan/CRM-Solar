@@ -38,6 +38,8 @@ export interface RoofType {
   id: number;
   region: string;
   name: string;
+  code?: string;
+  display_name?: string;
   is_active: boolean;
   sort_order: number;
 }
@@ -46,6 +48,8 @@ export interface PropertyType {
   id: number;
   region: string;
   name: string;
+  code?: string;
+  display_name?: string;
   is_active: boolean;
   sort_order: number;
 }
@@ -99,6 +103,9 @@ export interface Outcome {
   id: number;
   stage: 'call' | 'survey' | 'quote';
   name: string;
+  code?: string;
+  display_name?: string;
+  display_next_action?: string;
   default_status: string;
   default_next_action: string;
   default_followup_days: number | null;
@@ -113,6 +120,8 @@ export interface Outcome {
 export interface LostReason {
   id: number;
   name: string;
+  code?: string;
+  display_name?: string;
   sort_order: number;
   is_active: boolean;
 }
@@ -120,6 +129,8 @@ export interface LostReason {
 export interface NurtureReason {
   id: number;
   name: string;
+  code?: string;
+  display_name?: string;
   sort_order: number;
   is_active: boolean;
 }
@@ -127,6 +138,8 @@ export interface NurtureReason {
 export interface LeadSource {
   id: number;
   name: string;
+  code?: string;
+  display_name?: string;
   sort_order: number;
   is_active: boolean;
 }

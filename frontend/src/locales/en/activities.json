@@ -1,15 +1,29 @@
 {
   "title": "Activities & Log",
   "log_call": "Log Call Outcome",
+  "log_outcome": "Log Customer Interaction",
   "log_visit": "Log Site Visit",
   "add_note": "Add Internal Note",
+  "add_remark": "Add Remark",
+  "empty": "No activity history recorded yet.",
+  "types": {
+    "call": "Phone Call",
+    "whatsapp": "WhatsApp Message",
+    "sms": "SMS",
+    "visit": "Site Visit",
+    "note": "Internal Note",
+    "system": "System Event"
+  },
   "fields": {
+    "type": "Interaction Type",
     "outcome": "Call Outcome",
     "notes": "Interaction Notes",
-    "remark": "Remark",
+    "remark": "Sales Remark",
     "next_action": "Next Action Plan",
     "next_followup": "Next Follow-up At",
     "status_after": "Resulting Status",
+    "lost_reason": "Lost Reason",
+    "nurture_reason": "Nurture Reason",
     "created_by": "Logged By",
     "created_at": "Logged At"
   },

@@ -1,31 +1,54 @@
 {
-  "title": "कोटेशन और प्रस्ताव",
+  "title": "कोटेशन और प्रस्ताव (Quotes & Proposals)",
+  "subtitle": "सोलर मूल्य प्रस्ताव, सब्सिडी, ग्राहक बातचीत और स्वीकृत सौदे ट्रैक करें",
   "new_quote": "नया कोटेशन तैयार करें",
   "version": "संस्करण {{version}}",
+  "empty": "वर्तमान मापदंडों के अनुसार कोई कोटेशन नहीं मिला।",
+  "showing_count": "{{count}} कोटेशन प्रदर्शित",
+  "table": {
+    "version": "संस्करण",
+    "customer": "ग्राहक व लीड",
+    "lead": "लीड",
+    "system_specs": "सिस्टम विनिर्देश",
+    "system_size": "सिस्टम क्षमता",
+    "equipment": "उपकरण विनिर्देश",
+    "pricing": "मूल्य व सब्सिडी",
+    "pricing_incentive": "मूल्य एवं प्रोत्साहन",
+    "status": "स्थिति",
+    "actions": "कार्रवाइयां"
+  },
   "fields": {
-    "system_size": "सिस्टम का आकार (kW)",
-    "panel_brand": "सौर पैनल का ब्रांड",
+    "system_size": "सिस्टम आकार (kW)",
+    "panel_brand": "पैनल ब्रांड",
     "panel_count": "पैनलों की संख्या",
-    "inverter_brand": "इन्वर्टर का ब्रांड",
+    "inverter_brand": "इन्वर्टर ब्रांड",
     "inverter_capacity": "इन्वर्टर क्षमता (kW)",
     "battery_capacity": "बैटरी स्टोरेज (kWh)",
-    "base_price": "मूल सिस्टम मूल्य",
+    "base_price": "आधार सिस्टम मूल्य",
     "subsidy_amount": "सरकारी सब्सिडी / छूट",
     "discount": "विशेष छूट",
-    "net_price": "अंतिम देय राशि",
-    "status": "कोटेशन की स्थिति",
-    "valid_until": "वैधता तिथि"
+    "net_price": "शुद्ध देय राशि",
+    "status": "कोटेशन स्थिति",
+    "valid_until": "वैधता तिथि",
+    "notes": "कोटेशन नोट्स",
+    "created_by": "तैयारकर्ता"
   },
   "actions": {
     "download_pdf": "पीडीएफ प्रस्ताव डाउनलोड करें",
     "send_email": "ग्राहक को ईमेल भेजें",
     "send_whatsapp": "व्हाट्सएप पर भेजें",
-    "mark_won": "प्रस्ताव को सफल (Won) चिह्नित करें"
+    "mark_sent": "भेजा गया चिह्नित करें",
+    "revise": "संशोधित करें",
+    "accept": "स्वीकार करें (Won)",
+    "reject": "अस्वीकार करें",
+    "mark_won": "प्रस्ताव जीता चिह्नित करें"
   },
   "status": {
+    "all": "सभी",
     "draft": "प्रारूप (Draft)",
-    "sent": "भेजा गया (Sent)",
+    "sent": "भेजा गया",
     "accepted": "स्वीकृत (Won)",
-    "rejected": "अस्वीकृत"
+    "rejected": "अस्वीकृत",
+    "revised": "संशोधित"
   }
 }

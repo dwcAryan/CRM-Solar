@@ -63,6 +63,7 @@ import { HelpbotFab } from '../helpbot/HelpbotFab';
 import { startTour, isTourActive } from '../tour/ProductTourService';
 import { LanguageSelector } from '../common/LanguageSelector';
 import { changeAppLanguage } from '../../i18n/i18n';
+import { translateRole } from '../../i18n/formatters';
 import { useTranslation } from 'react-i18next';
 import type { Notification } from '../../api/types';
 
@@ -221,21 +222,21 @@ export const AppLayout: React.FC = () => {
     ...(can('lead.view') ? [{ label: t('nav.today_followups', "Today's Follow-ups"), icon: IconCalendarEvent, path: '/today' }] : []),
     ...(can('lead.view') ? [{ label: t('nav.leads', 'All Leads'), icon: IconUsers, path: '/leads', dataTour: 'sidebar-leads' }] : []),
     ...(can('lead.unassigned_queue') || can('lead.lost_approval')
-      ? [{ label: 'Manager Attention', icon: IconAlertCircle, path: '/manager-attention' }]
+      ? [{ label: t('nav.manager_attention', 'Manager Attention'), icon: IconAlertCircle, path: '/manager-attention' }]
       : []),
     ...(user?.role === 'surveyor'
-      ? [{ label: 'My Site Surveys', icon: IconClipboardCheck, path: '/my-surveys', dataTour: 'sidebar-surveys' }]
+      ? [{ label: t('nav.my_surveys', 'My Site Surveys'), icon: IconClipboardCheck, path: '/my-surveys', dataTour: 'sidebar-surveys' }]
       : can('survey.view')
       ? [{ label: t('nav.surveys', 'Site Surveys'), icon: IconClipboardCheck, path: '/surveys', dataTour: 'sidebar-surveys' }]
       : []),
     ...(can('quote.view') ? [{ label: t('nav.quotes', 'Quotations'), icon: IconFileText, path: '/quotes', dataTour: 'sidebar-quotes' }] : []),
-    ...(can('lead.import') ? [{ label: 'Import Leads', icon: IconFileSpreadsheet, path: '/import-leads' }] : []),
-    ...(can('user.view_team') ? [{ label: 'Roles Matrix', icon: IconShieldCheck, path: '/roles-matrix' }] : []),
+    ...(can('lead.import') ? [{ label: t('nav.import_leads', 'Import Leads'), icon: IconFileSpreadsheet, path: '/import-leads' }] : []),
+    ...(can('user.view_team') ? [{ label: t('nav.roles_matrix', 'Roles Matrix'), icon: IconShieldCheck, path: '/roles-matrix' }] : []),
     ...(can('masters.manage') || user?.role === 'admin'
       ? [{ label: t('nav.admin', 'Admin Hub'), icon: IconSettings, path: '/admin', dataTour: 'sidebar-admin' }]
       : []),
     ...(user?.role === 'admin' || user?.role === 'manager'
-      ? [{ label: 'System Health', icon: IconHeartbeat, path: '/health' }]
+      ? [{ label: t('nav.system_health', 'System Health'), icon: IconHeartbeat, path: '/health' }]
       : []),
   ];
 
@@ -261,10 +262,10 @@ export const AppLayout: React.FC = () => {
               </ThemeIcon>
               <div>
                 <Title order={4} style={{ lineHeight: 1.1 }}>
-                  Solar CRM
+                  {t('app_name', 'Solar CRM')}
                 </Title>
                 <Text size="10px" c="dimmed">
-                  Residential & Commercial
+                  {t('subtitle', 'Residential & Commercial')}
                 </Text>
               </div>
             </Group>
@@ -275,7 +276,7 @@ export const AppLayout: React.FC = () => {
             <form onSubmit={handleSearchSubmit}>
               <TextInput
                 ref={searchInputRef}
-                placeholder="Search leads by name, phone, city... (Press '/' to focus)"
+                placeholder={t('search_placeholder', "Search leads by name, phone, city... (Press '/' to focus)")}
                 leftSection={<IconSearch size={16} />}
                 rightSection={<Kbd size="xs">/</Kbd>}
                 value={searchTerm}
@@ -293,7 +294,7 @@ export const AppLayout: React.FC = () => {
                 <Select
                   size="xs"
                   radius="md"
-                  w={145}
+                  w={155}
                   leftSection={<IconWorld size={14} />}
                   value={selectedRegion}
                   onChange={(val) => {
@@ -301,9 +302,9 @@ export const AppLayout: React.FC = () => {
                     queryClient.invalidateQueries();
                   }}
                   data={[
-                    { value: '', label: '🌐 All Regions' },
-                    { value: 'IN', label: '🇮🇳 India (IN)' },
-                    { value: 'AU', label: '🇦🇺 Australia (AU)' },
+                    { value: '', label: t('regions.all', '🌐 All Regions') },
+                    { value: 'IN', label: t('regions.in', '🇮🇳 India (IN)') },
+                    { value: 'AU', label: t('regions.au', '🇦🇺 Australia (AU)') },
                   ]}
                 />
               ) : (
@@ -313,7 +314,7 @@ export const AppLayout: React.FC = () => {
                   color={activeRegion === 'AU' ? 'blue' : 'green'}
                   leftSection={<IconWorld size={12} />}
                 >
-                  {activeRegion === 'AU' ? '🇦🇺 Australia' : '🇮🇳 India'}
+                  {activeRegion === 'AU' ? t('regions.au', '🇦🇺 Australia') : t('regions.in', '🇮🇳 India')}
                 </Badge>
               )}
             </Box>
@@ -325,7 +326,7 @@ export const AppLayout: React.FC = () => {
               radius="md"
               color="blue"
               onClick={() => setTourCenterOpened(true)}
-              title="Product Tour Center & Guided Walkthroughs"
+              title={t('user_menu.tour_center', 'Product Tour Center & Guided Walkthroughs')}
               data-tour="header-help"
             >
               <IconCompass size={20} />
@@ -338,7 +339,7 @@ export const AppLayout: React.FC = () => {
               radius="md"
               color={isDark ? 'yellow' : 'gray'}
               onClick={() => toggleColorScheme()}
-              title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={isDark ? t('actions.switch_light', 'Switch to light mode') : t('actions.switch_dark', 'Switch to dark mode')}
             >
               {isDark ? <IconSun size={20} /> : <IconMoon size={20} />}
             </ActionIcon>
@@ -366,7 +367,7 @@ export const AppLayout: React.FC = () => {
               <Menu.Dropdown>
                 <Group justify="space-between" p="xs">
                   <Text size="sm" fw={600}>
-                    Notifications
+                    {t('notifications.title', 'Notifications')}
                   </Text>
                   {unreadCount > 0 && (
                     <Button
@@ -375,7 +376,7 @@ export const AppLayout: React.FC = () => {
                       onClick={() => markAllReadMutation.mutate()}
                       loading={markAllReadMutation.isPending}
                     >
-                      Mark all read
+                      {t('notifications.mark_all_read', 'Mark all read')}
                     </Button>
                   )}
                 </Group>
@@ -384,7 +385,7 @@ export const AppLayout: React.FC = () => {
                 <ScrollArea.Autosize mah={320}>
                   {notifications.length === 0 ? (
                     <Text size="xs" c="dimmed" p="md" ta="center">
-                      No notifications yet
+                      {t('notifications.empty', 'No notifications yet')}
                     </Text>
                   ) : (
                     notifications.map((notif) => (
@@ -407,7 +408,7 @@ export const AppLayout: React.FC = () => {
                             </Text>
                             {!notif.is_read && (
                               <Badge size="xs" color="yellow" variant="dot">
-                                New
+                                {t('notifications.new', 'New')}
                               </Badge>
                             )}
                           </Group>
@@ -435,26 +436,26 @@ export const AppLayout: React.FC = () => {
                       {user?.first_name ? `${user.first_name} ${user.last_name}` : user?.username}
                     </Text>
                     <Badge size="xs" variant="light" color={user?.role === 'admin' ? 'red' : (user?.role === 'manager' ? 'blue' : 'green')}>
-                      {user?.role}
+                      {translateRole(user?.role, i18n.language)}
                     </Badge>
                   </Box>
                 </Group>
               </Menu.Target>
 
               <Menu.Dropdown>
-                <Menu.Label>Signed in as {user?.username}</Menu.Label>
+                <Menu.Label>{t('user_menu.signed_in_as', { name: user?.username, defaultValue: `Signed in as ${user?.username}` })}</Menu.Label>
                 <Menu.Item leftSection={<IconCompass size={14} />} onClick={() => setTourCenterOpened(true)}>
-                  Product Tour Center
+                  {t('user_menu.tour_center', 'Product Tour Center')}
                 </Menu.Item>
                 <Menu.Item leftSection={<IconBell size={14} />} onClick={() => setSettingsOpened(true)}>
-                  Notification Settings
+                  {t('user_menu.notif_settings', 'Notification Settings')}
                 </Menu.Item>
                 <Menu.Item leftSection={<IconHeartbeat size={14} />} onClick={() => navigate('/health')}>
-                  System Health
+                  {t('user_menu.health', 'System Health')}
                 </Menu.Item>
                 <Divider />
                 <Menu.Item color="red" leftSection={<IconLogout size={14} />} onClick={logout}>
-                  Logout
+                  {t('user_menu.logout', 'Sign Out')}
                 </Menu.Item>
               </Menu.Dropdown>
             </Menu>

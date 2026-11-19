@@ -32,12 +32,15 @@ import {
   IconNotes,
 } from '@tabler/icons-react';
 import { fetchTodayLeads } from '../api/client';
+import { useTranslation } from 'react-i18next';
+import { translateStatus, translateRoofType, translatePropertyType } from '../i18n/formatters';
 import { useRegion } from '../context/RegionContext';
 import { LogOutcomeModal } from '../components/modals/LogOutcomeModal';
 import { AddRemarkModal } from '../components/modals/AddRemarkModal';
 import type { Lead } from '../api/types';
 
 export const TodayPage: React.FC = () => {
+  const { t, i18n } = useTranslation(['today', 'leads', 'common']);
   const navigate = useNavigate();
   const { selectedRegion } = useRegion();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -104,7 +107,7 @@ export const TodayPage: React.FC = () => {
                 </Badge>
                 {lead.is_within_calling_hours === false && (
                   <Badge size="xs" color="red" variant="dot" title={lead.calling_hours_reason || 'Outside permitted hours'}>
-                    Outside Hours
+                    {t('leads:outside_call_hours', 'Outside Hours')}
                   </Badge>
                 )}
                 {lead.do_not_contact && (
@@ -117,14 +120,14 @@ export const TodayPage: React.FC = () => {
                 {isAU
                   ? `${lead.suburb || lead.city}, ${lead.state || ''} ${lead.postcode || ''}`
                   : `${lead.city}, ${lead.state || ''} ${lead.pincode || ''}`}{' '}
-                • {lead.property_type || 'Residential'} • {lead.roof_type || 'Standard'}
+                • {translatePropertyType(lead.property_type, i18n.language) || 'Residential'} • {translateRoofType(lead.roof_type, i18n.language) || 'Standard'}
               </Text>
               <Text size="xs" fw={500} c="dark.3">
                 📞 {lead.phone_display || lead.phone_e164 || lead.phone}
               </Text>
             </div>
             <Badge color={isOverdue ? 'red' : 'yellow'} variant="light">
-              {lead.status}
+              {translateStatus(lead.status, i18n.language)}
             </Badge>
           </Group>
 
@@ -132,7 +135,7 @@ export const TodayPage: React.FC = () => {
             <Group gap="xs">
               <IconClock size={16} color={isOverdue ? 'red' : '#fab005'} />
               <Text size="xs" fw={600} c={isOverdue ? 'red.9' : 'yellow.9'}>
-                {isOverdue ? 'Overdue Follow-up' : 'Scheduled Follow-up'}:{' '}
+                {isOverdue ? t('overdue_followup', 'Overdue Follow-up') : t('scheduled_followup', 'Scheduled Follow-up')}:{' '}
                 {lead.user_next_followup_display ||
                   (lead.next_followup_at
                     ? new Date(lead.next_followup_at).toLocaleString([], {
@@ -144,7 +147,7 @@ export const TodayPage: React.FC = () => {
             </Group>
             {lead.next_action && (
               <Text size="xs" mt={2} c="dimmed">
-                <strong>Next Action:</strong> {lead.next_action}
+                <strong>{t('next_action_label', 'Next Action:')}</strong> {lead.next_action}
               </Text>
             )}
           </Paper>
@@ -160,7 +163,7 @@ export const TodayPage: React.FC = () => {
                   color="blue"
                   leftSection={<IconPhone size={14} />}
                 >
-                  Call
+                  {t('actions.call', 'Call')}
                 </Button>
               ) : (
                 <Tooltip label={lead.do_not_contact ? 'Do Not Contact active' : 'Call opted out'}>
@@ -172,7 +175,7 @@ export const TodayPage: React.FC = () => {
                       disabled
                       leftSection={<IconPhone size={14} />}
                     >
-                      Call
+                      {t('actions.call', 'Call')}
                     </Button>
                   </span>
                 </Tooltip>
@@ -195,7 +198,7 @@ export const TodayPage: React.FC = () => {
                     color="green"
                     leftSection={<IconBrandWhatsapp size={14} />}
                   >
-                    WhatsApp
+                    {t('actions.whatsapp', 'WhatsApp')}
                   </Button>
                 ) : (
                   <Tooltip label={lead.do_not_contact ? 'Do Not Contact active' : 'WhatsApp opted out'}>
@@ -207,7 +210,7 @@ export const TodayPage: React.FC = () => {
                         disabled
                         leftSection={<IconBrandWhatsapp size={14} />}
                       >
-                        WhatsApp
+                        {t('actions.whatsapp', 'WhatsApp')}
                       </Button>
                     </span>
                   </Tooltip>
@@ -225,7 +228,7 @@ export const TodayPage: React.FC = () => {
                     color="cyan"
                     leftSection={<IconMessage size={14} />}
                   >
-                    SMS
+                    {t('actions.sms', 'SMS')}
                   </Button>
                 ) : (
                   <Tooltip label={lead.do_not_contact ? 'Do Not Contact active' : 'SMS opted out'}>
@@ -237,7 +240,7 @@ export const TodayPage: React.FC = () => {
                         disabled
                         leftSection={<IconMessage size={14} />}
                       >
-                        SMS
+                        {t('actions.sms', 'SMS')}
                       </Button>
                     </span>
                   </Tooltip>
@@ -256,7 +259,7 @@ export const TodayPage: React.FC = () => {
                   setRemarkModalOpen(true);
                 }}
               >
-                Remark
+                {t('actions.remark', 'Remark')}
               </Button>
               <Button
                 size="xs"
@@ -264,13 +267,13 @@ export const TodayPage: React.FC = () => {
                 leftSection={<IconClipboardCheck size={14} />}
                 onClick={() => handleOpenOutcome(lead)}
               >
-                Log Outcome
+                {t('actions.log_outcome', 'Log Outcome')}
               </Button>
               <ActionIcon
                 variant="subtle"
                 color="gray"
                 onClick={() => navigate(`/leads/${lead.id}`)}
-                title="View full lead"
+                title={t('actions.view_full_lead', 'View full lead')}
               >
                 <IconArrowRight size={16} />
               </ActionIcon>
@@ -291,15 +294,15 @@ export const TodayPage: React.FC = () => {
                 <IconCalendarEvent size={22} />
               </ThemeIcon>
               <div>
-                <Title order={3}>Today's Follow-up Queue</Title>
+                <Title order={3}>{t('title', "Today's Follow-up Queue")}</Title>
                 <Text size="xs" c="dimmed">
-                  Calls, meetings, and surveys due today and overdue for follow-up
+                  {t('subtitle', 'Calls, meetings, and surveys due today and overdue for follow-up')}
                 </Text>
               </div>
             </Group>
           </div>
           <Badge size="lg" color="yellow" variant="filled">
-            {leads.length} Total Due
+            {t('total_due', { count: leads.length, defaultValue: `${leads.length} Total Due` })}
           </Badge>
         </Group>
 
@@ -317,13 +320,13 @@ export const TodayPage: React.FC = () => {
               <IconCheck size={28} />
             </ThemeIcon>
             <Title order={4} mb="xs">
-              All caught up for today!
+              {t('all_caught_up', 'All caught up for today!')}
             </Title>
             <Text size="sm" c="dimmed" mb="md">
-              You have no pending or overdue follow-ups right now.
+              {t('no_pending', 'You have no pending or overdue follow-ups right now.')}
             </Text>
             <Button variant="light" color="yellow" onClick={() => navigate('/leads')}>
-              Browse All Leads
+              {t('browse_leads', 'Browse All Leads')}
             </Button>
           </Paper>
         ) : (
@@ -332,10 +335,10 @@ export const TodayPage: React.FC = () => {
               <div>
                 <Group gap="xs" mb="sm">
                   <Badge color="red" size="md">
-                    {overdueLeads.length} OVERDUE
+                    {t('overdue_badge', { count: overdueLeads.length, defaultValue: `${overdueLeads.length} OVERDUE` })}
                   </Badge>
                   <Text size="xs" c="dimmed">
-                    Immediate action recommended
+                    {t('immediate_action', 'Immediate action recommended')}
                   </Text>
                 </Group>
                 <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
@@ -348,10 +351,10 @@ export const TodayPage: React.FC = () => {
               <div>
                 <Group gap="xs" mb="sm">
                   <Badge color="yellow" size="md">
-                    {dueTodayLeads.length} DUE TODAY
+                    {t('due_today_badge', { count: dueTodayLeads.length, defaultValue: `${dueTodayLeads.length} DUE TODAY` })}
                   </Badge>
                   <Text size="xs" c="dimmed">
-                    Scheduled for today
+                    {t('scheduled_today', 'Scheduled for today')}
                   </Text>
                 </Group>
                 <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">

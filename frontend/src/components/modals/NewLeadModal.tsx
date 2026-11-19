@@ -24,6 +24,8 @@ import {
   fetchRoofTypes,
   fetchPropertyTypes,
 } from '../../api/client';
+import { useTranslation } from 'react-i18next';
+import { translateRole } from '../../i18n/formatters';
 import { useAuth } from '../../context/AuthContext';
 import { useRegion } from '../../context/RegionContext';
 import type { LeadSource, User, State, RoofType, PropertyType } from '../../api/types';
@@ -35,6 +37,7 @@ interface NewLeadModalProps {
 }
 
 export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onLeadCreated }) => {
+  const { t, i18n } = useTranslation(['leads', 'common']);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, isAdminOrManager } = useAuth();
@@ -277,7 +280,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
           {/* Country / Region selector */}
           <div>
             <Text size="xs" fw={600} mb={4}>
-              Target Country / Market
+              {t('fields.region', 'Target Country / Market')}
             </Text>
             <SegmentedControl
               fullWidth
@@ -299,14 +302,14 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
 
           <Group grow>
             <TextInput
-              label="Customer Name"
+              label={t('fields.name', 'Customer Name')}
               placeholder={isAU ? 'e.g. Lachlan Smith' : 'e.g. Ramesh Patel'}
               value={name}
               onChange={(e) => setName(e.currentTarget.value)}
               required
             />
             <TextInput
-              label={`Phone Number (${isAU ? '+61' : '+91'})`}
+              label={`${t('fields.phone', 'Phone Number')} (${isAU ? '+61' : '+91'})`}
               placeholder={isAU ? 'e.g. 0412 345 678' : 'e.g. 98250 12345'}
               description={isAU ? 'Australian 10-digit mobile or landline' : 'Indian 10-digit mobile number'}
               value={phone}
@@ -317,13 +320,13 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
 
           <Group grow>
             <TextInput
-              label="Alt Phone (Optional)"
+              label={`${t('fields.alt_phone', 'Alt Phone')} (${t('common:actions.optional', 'Optional')})`}
               placeholder={isAU ? 'e.g. 03 9876 5432' : 'e.g. 98250 98765'}
               value={altPhone}
               onChange={(e) => setAltPhone(e.currentTarget.value)}
             />
             <TextInput
-              label="Email (Optional)"
+              label={`${t('fields.email', 'Email')} (${t('common:actions.optional', 'Optional')})`}
               placeholder={isAU ? 'e.g. lachlan@example.com.au' : 'e.g. ramesh@example.com'}
               type="email"
               value={email}
@@ -333,7 +336,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
 
           <Group grow>
             <Select
-              label="State / Territory"
+              label={t('fields.state', 'State / Territory')}
               placeholder="Select state"
               data={states.map((s) => ({ value: s.code, label: `${s.name} (${s.code})` }))}
               value={stateVal}
@@ -342,7 +345,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
               clearable
             />
             <TextInput
-              label={isAU ? 'City / Town' : 'City'}
+              label={isAU ? t('fields.city', 'City / Town') : t('fields.city', 'City')}
               placeholder={isAU ? 'e.g. Melbourne, Geelong' : 'e.g. Ahmedabad, Surat'}
               value={city}
               onChange={(e) => setCity(e.currentTarget.value)}
@@ -354,13 +357,13 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
             {isAU ? (
               <>
                 <TextInput
-                  label="Suburb"
+                  label={t('fields.suburb', 'Suburb')}
                   placeholder="e.g. Richmond, Hawthorn"
                   value={suburb}
                   onChange={(e) => setSuburb(e.currentTarget.value)}
                 />
                 <TextInput
-                  label="Postcode (4 digits)"
+                  label={t('fields.postcode', 'Postcode (4 digits)')}
                   placeholder="e.g. 3121"
                   maxLength={4}
                   value={postcode}
@@ -369,7 +372,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
               </>
             ) : (
               <TextInput
-                label="Pincode (6 digits)"
+                label={t('fields.postcode', 'Pincode (6 digits)')}
                 placeholder="e.g. 380015"
                 maxLength={6}
                 value={pincode}
@@ -379,7 +382,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
           </Group>
 
           <TextInput
-            label="Street Address / Building"
+            label={t('fields.address', 'Street Address / Building')}
             placeholder={isAU ? 'e.g. 42 Bridge Road' : 'e.g. 12 Shantivan Bungalows, Bodakdev'}
             value={address}
             onChange={(e) => setAddress(e.currentTarget.value)}
@@ -387,19 +390,19 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
 
           <Group grow>
             <Select
-              label="Lead Source"
+              label={t('fields.source', 'Lead Source')}
               placeholder="Select source"
-              data={sources.map((s) => ({ value: String(s.id), label: s.name }))}
+              data={sources.map((s) => ({ value: String(s.id), label: s.display_name || s.name }))}
               value={sourceId}
               onChange={setSourceId}
               searchable
               clearable
             />
             <Select
-              label="Property Type"
+              label={t('fields.property_type', 'Property Type')}
               data={
                 propertyTypes.length > 0
-                  ? propertyTypes.map((p) => ({ value: p.name.toLowerCase(), label: p.name }))
+                  ? propertyTypes.map((p) => ({ value: p.name.toLowerCase(), label: p.display_name || p.name }))
                   : [
                       { value: 'residential', label: 'Residential' },
                       { value: 'commercial', label: 'Commercial' },
@@ -415,14 +418,14 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
 
           <Group grow>
             <NumberInput
-              label={`Bill Amount (${currencySymbol})`}
+              label={`${t('fields.bill_amount', 'Bill Amount')} (${currencySymbol})`}
               placeholder={isAU ? 'e.g. 650' : 'e.g. 4500'}
               value={billAmount}
               onChange={setBillAmount}
               min={0}
             />
             <Select
-              label="Billing Cycle"
+              label={t('fields.bill_period', 'Billing Cycle')}
               data={[
                 { value: 'monthly', label: 'Monthly' },
                 { value: 'two_monthly', label: 'Bi-Monthly (2 months)' },
@@ -436,17 +439,17 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
 
           <Group grow>
             <TextInput
-              label={isAU ? 'Electricity Retailer' : 'DISCOM / Power Provider'}
+              label={isAU ? t('fields.electricity_provider', 'Electricity Retailer') : t('fields.electricity_provider', 'DISCOM / Power Provider')}
               placeholder={isAU ? 'e.g. AGL, Origin, EnergyAustralia' : 'e.g. Torrent Power, UGVCL, BESCOM'}
               value={electricityProvider}
               onChange={(e) => setElectricityProvider(e.currentTarget.value)}
             />
             <Select
-              label="Roof Type"
+              label={t('fields.roof_type', 'Roof Type')}
               placeholder="Select roof profile"
               data={
                 roofTypes.length > 0
-                  ? roofTypes.map((r) => ({ value: r.name, label: r.name }))
+                  ? roofTypes.map((r) => ({ value: r.name, label: r.display_name || r.name }))
                   : isAU
                   ? [
                       { value: 'Colorbond / Metal', label: 'Colorbond / Corrugated Iron' },
@@ -468,7 +471,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
               clearable
             />
             <Select
-              label="Occupancy"
+              label={t('fields.owner_or_tenant', 'Occupancy')}
               data={[
                 { value: 'owner', label: 'Owner-Occupier' },
                 { value: 'tenant', label: 'Tenant' },
@@ -483,7 +486,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
           {/* Privacy & Consent */}
           <Group grow>
             <Select
-              label="Consent Status"
+              label={t('fields.consent_status', 'Consent Status')}
               data={[
                 { value: 'consented', label: 'Consented (Express / Direct Opt-in)' },
                 { value: 'unknown', label: 'Inferred / Public Inquiry' },
@@ -492,8 +495,8 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
               onChange={(val) => setConsentStatus(val || 'consented')}
             />
             <Select
-              label="Customer Communication Language"
-              description="For WhatsApp, SMS, and emails"
+              label={t('fields.preferred_language', 'Customer Communication Language')}
+              description={t('customer_lang.help_text', 'For WhatsApp, SMS, and emails')}
               data={[
                 { value: 'en', label: 'English' },
                 { value: 'hi', label: 'हिन्दी (Hindi)' },
@@ -505,13 +508,13 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
 
           {isAdminOrManager && (
             <Select
-              label="Assign To Salesperson"
+              label={t('fields.assigned_to', 'Assign To Salesperson')}
               placeholder="Select team member"
               data={users
                 .filter((u) => u.role === 'salesperson' || u.role === 'manager')
                 .map((u) => ({
                   value: String(u.id),
-                  label: `${u.first_name || u.username} (${u.role})`,
+                  label: `${u.first_name || u.username} (${translateRole(u.role, i18n.language)})`,
                 }))}
               value={assignedToId}
               onChange={setAssignedToId}
@@ -521,7 +524,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
           )}
 
           <TextInput
-            label="Initial Remark / Note (max 500 chars)"
+            label={t('fields.remark', 'Initial Remark / Note (max 500 chars)')}
             placeholder={isAU ? 'e.g. Customer inquired about 6.6 kW system with 10 kWh battery' : 'e.g. Lead generated at mall solar canopy display'}
             maxLength={500}
             value={remark}
@@ -530,10 +533,10 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ opened, onClose, onL
 
           <Group justify="flex-end" mt="md">
             <Button variant="default" onClick={onClose}>
-              Cancel
+              {t('common:actions.cancel', 'Cancel')}
             </Button>
             <Button type="submit" color={isAU ? 'teal' : 'yellow'} loading={createMutation.isPending}>
-              Create Lead
+              {t('create_lead', 'Create Lead')}
             </Button>
           </Group>
         </Stack>

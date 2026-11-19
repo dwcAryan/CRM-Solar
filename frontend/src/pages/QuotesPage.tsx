@@ -23,11 +23,14 @@ import {
   IconFileCertificate,
 } from '@tabler/icons-react';
 import { fetchQuotes, markQuoteSent, acceptQuote } from '../api/client';
+import { useTranslation } from 'react-i18next';
+import { translateStatus } from '../i18n/formatters';
 import { ReviseQuoteModal } from '../components/modals/ReviseQuoteModal';
 import { RejectQuoteModal } from '../components/modals/RejectQuoteModal';
 import type { Quote } from '../api/types';
 
 export const QuotesPage: React.FC = () => {
+  const { t, i18n } = useTranslation(['quotes', 'common', 'leads']);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -86,9 +89,9 @@ export const QuotesPage: React.FC = () => {
                 <IconFileCertificate size={22} />
               </ThemeIcon>
               <div>
-                <Title order={3}>Quotations & Proposals</Title>
+                <Title order={3}>{t('title', 'Quotations & Proposals')}</Title>
                 <Text size="xs" c="dimmed">
-                  Track solar proposals, versioning, customer negotiations, and closed deals
+                  {t('subtitle', 'Track solar proposals, versioning, customer negotiations, and closed deals')}
                 </Text>
               </div>
             </Group>
@@ -104,16 +107,16 @@ export const QuotesPage: React.FC = () => {
               color="yellow"
               size="xs"
               data={[
-                { label: 'All', value: 'all' },
-                { label: 'Draft', value: 'draft' },
-                { label: 'Sent', value: 'sent' },
-                { label: 'Revised', value: 'revised' },
-                { label: 'Accepted (Won)', value: 'accepted' },
-                { label: 'Rejected', value: 'rejected' },
+                { label: t('status.all', 'All'), value: 'all' },
+                { label: t('status.draft', 'Draft'), value: 'draft' },
+                { label: t('status.sent', 'Sent'), value: 'sent' },
+                { label: t('status.revised', 'Revised'), value: 'revised' },
+                { label: t('status.accepted', 'Accepted (Won)'), value: 'accepted' },
+                { label: t('status.rejected', 'Rejected'), value: 'rejected' },
               ]}
             />
             <Text size="xs" c="dimmed">
-              Showing {quotes.length} proposals
+              {t('showing_count', { count: quotes.length, defaultValue: `Showing ${quotes.length} proposals` })}
             </Text>
           </Group>
         </Paper>
@@ -126,7 +129,7 @@ export const QuotesPage: React.FC = () => {
         ) : quotes.length === 0 ? (
           <Paper p="xl" withBorder radius="md" ta="center">
             <Text size="sm" c="dimmed">
-              No quotations found matching the selected filter.
+              {t('empty', 'No quotations found matching the selected filter.')}
             </Text>
           </Paper>
         ) : (
@@ -134,13 +137,13 @@ export const QuotesPage: React.FC = () => {
             <Table highlightOnHover verticalSpacing="sm">
               <Table.Thead bg="var(--mantine-color-gray-0)">
                 <Table.Tr>
-                  <Table.Th>Proposal / Lead</Table.Th>
-                  <Table.Th>Version</Table.Th>
-                  <Table.Th>System Size</Table.Th>
-                  <Table.Th>Brand & Specs</Table.Th>
-                  <Table.Th>Price Breakdown</Table.Th>
-                  <Table.Th>Status</Table.Th>
-                  <Table.Th ta="right">Actions</Table.Th>
+                  <Table.Th>{t('table.lead', 'Proposal / Lead')}</Table.Th>
+                  <Table.Th>{t('table.version', 'Version')}</Table.Th>
+                  <Table.Th>{t('table.system_size', 'System Size')}</Table.Th>
+                  <Table.Th>{t('table.equipment', 'Brand & Specs')}</Table.Th>
+                  <Table.Th>{t('table.pricing', 'Price Breakdown')}</Table.Th>
+                  <Table.Th>{t('table.status', 'Status')}</Table.Th>
+                  <Table.Th ta="right">{t('common:actions.actions', 'Actions')}</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -161,7 +164,7 @@ export const QuotesPage: React.FC = () => {
                           </Text>
                         </Group>
                         <Text size="10px" c="dimmed">
-                          Created {new Date(quote.created_at).toLocaleDateString()}
+                          {t('leads:fields.created_at', 'Created')}: {new Date(quote.created_at).toLocaleDateString()}
                         </Text>
                       </Table.Td>
 
@@ -192,7 +195,7 @@ export const QuotesPage: React.FC = () => {
                         </Text>
                         {quote.subsidy_amount ? (
                           <Text size="10px" c="green">
-                            Subsidy: -₹{quote.subsidy_amount.toLocaleString('en-IN')} (Net: ₹
+                            {t('fields.subsidy_amount', 'Subsidy')}: -₹{quote.subsidy_amount.toLocaleString('en-IN')} (Net: ₹
                             {net.toLocaleString('en-IN')})
                           </Text>
                         ) : null}
@@ -200,7 +203,7 @@ export const QuotesPage: React.FC = () => {
 
                       <Table.Td>
                         <Badge color={getStatusColor(quote.status)} variant="light">
-                          {quote.status.toUpperCase()}
+                          {translateStatus(quote.status, i18n.language).toUpperCase()}
                         </Badge>
                       </Table.Td>
 
@@ -212,7 +215,7 @@ export const QuotesPage: React.FC = () => {
                             color="gray"
                             onClick={() => navigate(`/leads/${quote.lead}`)}
                           >
-                            Lead
+                            {t('table.lead', 'Lead')}
                           </Button>
 
                           {quote.status === 'draft' && (
@@ -223,7 +226,7 @@ export const QuotesPage: React.FC = () => {
                               leftSection={<IconSend size={12} />}
                               onClick={() => sendMutation.mutate(quote.id)}
                             >
-                              Send
+                              {t('actions.mark_sent', 'Send')}
                             </Button>
                           )}
 
@@ -236,7 +239,7 @@ export const QuotesPage: React.FC = () => {
                                 leftSection={<IconCheck size={12} />}
                                 onClick={() => acceptMutation.mutate(quote.id)}
                               >
-                                Accept
+                                {t('actions.accept', 'Accept')}
                               </Button>
                               <Button
                                 size="xs"
@@ -248,7 +251,7 @@ export const QuotesPage: React.FC = () => {
                                   setReviseModalOpen(true);
                                 }}
                               >
-                                Revise
+                                {t('actions.revise', 'Revise')}
                               </Button>
                               <Button
                                 size="xs"
@@ -259,7 +262,7 @@ export const QuotesPage: React.FC = () => {
                                   setRejectModalOpen(true);
                                 }}
                               >
-                                Reject
+                                {t('actions.reject', 'Reject')}
                               </Button>
                             </>
                           )}

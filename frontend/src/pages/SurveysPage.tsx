@@ -26,12 +26,15 @@ import {
   IconCalendarTime,
 } from '@tabler/icons-react';
 import { fetchSurveys, markSurveyMissed } from '../api/client';
+import { useTranslation } from 'react-i18next';
+import { translateStatus } from '../i18n/formatters';
 import { useAuth } from '../context/AuthContext';
 import { RescheduleSurveyModal } from '../components/modals/RescheduleSurveyModal';
 import { MarkDoneSurveyModal } from '../components/modals/MarkDoneSurveyModal';
 import type { Survey } from '../api/types';
 
 export const SurveysPage: React.FC = () => {
+  const { t, i18n } = useTranslation(['surveys', 'common', 'leads']);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, isSurveyor } = useAuth();
@@ -87,9 +90,9 @@ export const SurveysPage: React.FC = () => {
                 <IconClipboardCheck size={22} />
               </ThemeIcon>
               <div>
-                <Title order={3}>Site Surveys Hub</Title>
+                <Title order={3}>{t('title', 'Site Surveys Hub')}</Title>
                 <Text size="xs" c="dimmed">
-                  Manage technical site assessments, scheduling, and roof suitability reports
+                  {t('subtitle', 'Manage technical site assessments, scheduling, and roof suitability reports')}
                 </Text>
               </div>
             </Group>
@@ -97,7 +100,7 @@ export const SurveysPage: React.FC = () => {
 
           <Group gap="md">
             <Switch
-              label="My Surveys Only"
+              label={t('my_surveys_only', 'My Surveys Only')}
               checked={mySurveysOnly}
               onChange={(e) => setMySurveysOnly(e.currentTarget.checked)}
               color="teal"
@@ -114,16 +117,16 @@ export const SurveysPage: React.FC = () => {
               color="teal"
               size="xs"
               data={[
-                { label: 'All', value: 'all' },
-                { label: 'Booked', value: 'booked' },
-                { label: 'Rescheduled', value: 'rescheduled' },
-                { label: 'Done', value: 'done' },
-                { label: 'Missed', value: 'missed' },
-                { label: 'Cancelled', value: 'cancelled' },
+                { label: t('status.all', 'All'), value: 'all' },
+                { label: t('status.booked', 'Booked'), value: 'booked' },
+                { label: t('status.rescheduled', 'Rescheduled'), value: 'rescheduled' },
+                { label: t('status.done', 'Done'), value: 'done' },
+                { label: t('status.missed', 'Missed'), value: 'missed' },
+                { label: t('status.cancelled', 'Cancelled'), value: 'cancelled' },
               ]}
             />
             <Text size="xs" c="dimmed">
-              Showing {surveys.length} surveys
+              {t('showing_count', { count: surveys.length, defaultValue: `Showing ${surveys.length} surveys` })}
             </Text>
           </Group>
         </Paper>
@@ -136,7 +139,7 @@ export const SurveysPage: React.FC = () => {
         ) : surveys.length === 0 ? (
           <Paper p="xl" withBorder radius="md" ta="center">
             <Text size="sm" c="dimmed">
-              No site surveys found matching current criteria.
+              {t('empty', 'No site surveys found matching current criteria.')}
             </Text>
           </Paper>
         ) : (
@@ -171,12 +174,12 @@ export const SurveysPage: React.FC = () => {
                           </Badge>
                         </Group>
                         <Text size="xs" c="dimmed">
-                          Surveyor: <strong>{survey.surveyor_name || 'Unassigned'}</strong>
+                          {t('fields.surveyor', 'Surveyor')}: <strong>{survey.surveyor_name || t('common:fields.unassigned', 'Unassigned')}</strong>
                         </Text>
                       </div>
 
                       <Badge color={getStatusColor(survey.status)} variant="filled">
-                        {survey.status.toUpperCase()}
+                        {translateStatus(survey.status, i18n.language).toUpperCase()}
                       </Badge>
                     </Group>
 
@@ -184,21 +187,26 @@ export const SurveysPage: React.FC = () => {
                       <Group gap="xs">
                         <IconCalendar size={16} color="teal" />
                         <Text size="xs" fw={600}>
-                          Scheduled for:{' '}
-                          {new Date(survey.scheduled_at).toLocaleString([], {
-                            dateStyle: 'medium',
-                            timeStyle: 'short',
+                          {t('scheduled_for', {
+                            date: new Date(survey.scheduled_at).toLocaleString([], {
+                              dateStyle: 'medium',
+                              timeStyle: 'short',
+                            }),
+                            defaultValue: `Scheduled for: ${new Date(survey.scheduled_at).toLocaleString([], {
+                              dateStyle: 'medium',
+                              timeStyle: 'short',
+                            })}`
                           })}
                         </Text>
                       </Group>
                       {survey.reschedule_count > 0 && (
                         <Text size="10px" c="orange" mt={2}>
-                          Rescheduled {survey.reschedule_count} times
+                          {t('rescheduled_times', { count: survey.reschedule_count, defaultValue: `Rescheduled ${survey.reschedule_count} times` })}
                         </Text>
                       )}
                       {survey.notes && (
                         <Text size="xs" c="dimmed" mt={4}>
-                          <strong>Notes:</strong> {survey.notes}
+                          <strong>{t('fields.notes', 'Notes')}:</strong> {survey.notes}
                         </Text>
                       )}
                     </Paper>
@@ -206,15 +214,15 @@ export const SurveysPage: React.FC = () => {
                     {survey.status === 'done' && (
                       <Group gap="xs">
                         <Text size="xs" fw={500}>
-                          Roof Suitability:
+                          {t('fields.site_suitable', 'Roof Suitability')}:
                         </Text>
                         {survey.site_suitable ? (
                           <Badge color="green" size="sm">
-                            Suitable for Solar
+                            {t('fields.yes', 'Suitable for Solar')}
                           </Badge>
                         ) : (
                           <Badge color="red" size="sm">
-                            Unsuitable (Lead Closed)
+                            {t('fields.no', 'Unsuitable (Lead Closed)')}
                           </Badge>
                         )}
                       </Group>
@@ -229,7 +237,7 @@ export const SurveysPage: React.FC = () => {
                         color="gray"
                         onClick={() => navigate(`/leads/${survey.lead}`)}
                       >
-                        View Lead Details
+                        {t('leads:actions.details', 'View Lead Details')}
                       </Button>
 
                       {(survey.status === 'booked' || survey.status === 'rescheduled') && (
@@ -244,7 +252,7 @@ export const SurveysPage: React.FC = () => {
                               setMarkDoneModalOpen(true);
                             }}
                           >
-                            Mark Done
+                            {t('actions.mark_done', 'Mark Done')}
                           </Button>
                           <Button
                             size="xs"
@@ -256,7 +264,7 @@ export const SurveysPage: React.FC = () => {
                               setRescheduleModalOpen(true);
                             }}
                           >
-                            Reschedule
+                            {t('actions.reschedule', 'Reschedule')}
                           </Button>
                           <Button
                             size="xs"
@@ -264,7 +272,7 @@ export const SurveysPage: React.FC = () => {
                             variant="subtle"
                             onClick={() => missedMutation.mutate(survey.id)}
                           >
-                            Missed
+                            {t('actions.mark_missed', 'Missed')}
                           </Button>
                         </Group>
                       )}

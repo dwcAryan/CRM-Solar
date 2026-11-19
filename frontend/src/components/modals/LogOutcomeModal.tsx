@@ -20,6 +20,8 @@ import {
   fetchNurtureReasons,
   logActivity,
 } from '../../api/client';
+import { useTranslation } from 'react-i18next';
+import { translateStatus, translateStage } from '../../i18n/formatters';
 import { ConfirmActionModal } from './ConfirmActionModal';
 import { useAuth } from '../../context/AuthContext';
 import type { Lead, Outcome, LostReason, NurtureReason } from '../../api/types';
@@ -43,6 +45,7 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
   defaultStage = 'call',
   initialOutcomeName,
 }) => {
+  const { t, i18n } = useTranslation(['leads', 'common']);
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [stage, setStage] = useState<'call' | 'survey' | 'quote'>(defaultStage);
@@ -226,8 +229,8 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
       opened={opened}
       onClose={onClose}
       title={
-        <Group gap="xs">
-          <Text fw={600}>Log Interaction Outcome</Text>
+        <Group gap="xs"> 
+          <Text fw={600}>{t('actions.log_outcome', 'Log Interaction Outcome')}</Text>
           {lead && <Badge color="yellow">{lead.name}</Badge>}
         </Group>
       }
@@ -246,7 +249,7 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
 
           <div>
             <Text size="xs" fw={600} mb={4}>
-              Interaction Stage
+              {t('common:stages.call', 'Interaction Stage')}
             </Text>
             <SegmentedControl
               fullWidth
@@ -257,9 +260,9 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
                 setOutcomeId(null);
               }}
               data={[
-                { label: 'Call', value: 'call' },
-                { label: 'Site Survey', value: 'survey' },
-                { label: 'Quotation', value: 'quote' },
+                { label: translateStage('call', i18n.language), value: 'call' },
+                { label: translateStage('survey', i18n.language), value: 'survey' },
+                { label: translateStage('quote', i18n.language), value: 'quote' },
               ]}
             />
           </div>
@@ -281,9 +284,9 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
           )}
 
           {stage === 'call' && lead && lead.is_within_calling_hours === false && (
-            <Alert icon={<IconAlertCircle size={16} />} title="Outside Permitted Calling Hours" color="orange" variant="light">
+            <Alert icon={<IconAlertCircle size={16} />} title={t('alerts.outside_hours_title', 'Outside Permitted Calling Hours')} color="orange" variant="light">
               <Text size="xs">
-                {lead.calling_hours_reason || 'Outside standard calling hours for lead local timezone.'}
+                {lead.calling_hours_reason || t('alerts.outside_hours_message', 'Outside standard calling hours for lead local timezone.')}
                 <br />
                 Under telemarketing regulations, logging calls outside standard hours requires an explicit justification (e.g. customer pre-agreed time). This reason will be recorded immutably in the compliance Audit Log.
               </Text>
@@ -305,7 +308,7 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
             placeholder="Select the call/meeting result"
             data={outcomes.map((o) => ({
               value: String(o.id),
-              label: `${o.name}  →  [${o.default_status}]`,
+              label: `${o.display_name || o.name}  →  [${translateStatus(o.default_status, i18n.language)}]`,
             }))}
             value={outcomeId}
             onChange={handleOutcomeChange}
@@ -315,13 +318,13 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
 
           <Group grow>
             <TextInput
-              label="Resulting Status"
+              label={t('fields.status', 'Resulting Status')}
               value={statusVal}
               onChange={(e) => setStatusVal(e.currentTarget.value)}
               required
             />
             <TextInput
-              label="Next Action"
+              label={t('fields.next_action', 'Next Action')}
               value={nextAction}
               onChange={(e) => setNextAction(e.currentTarget.value)}
               required={!isTerminal}
@@ -330,7 +333,7 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
 
           {!isTerminal && (
             <TextInput
-              label="Next Follow-up Date & Time"
+              label={t('fields.next_followup', 'Next Follow-up Date & Time')}
               description="Required for all non-terminal leads"
               type="datetime-local"
               value={nextFollowupAt}
@@ -344,7 +347,7 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
             <Select
               label="Lost Reason"
               placeholder="Select why the lead was lost"
-              data={lostReasons.map((r) => ({ value: String(r.id), label: r.name }))}
+              data={lostReasons.map((r) => ({ value: String(r.id), label: r.display_name || r.name }))}
               value={lostReasonId}
               onChange={setLostReasonId}
               required
@@ -355,7 +358,7 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
             <Select
               label="Nurture Reason"
               placeholder="Select why the lead wants to wait"
-              data={nurtureReasons.map((r) => ({ value: String(r.id), label: r.name }))}
+              data={nurtureReasons.map((r) => ({ value: String(r.id), label: r.display_name || r.name }))}
               value={nurtureReasonId}
               onChange={setNurtureReasonId}
               required
@@ -363,7 +366,7 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
           )}
 
           <Textarea
-            label="Interaction Notes"
+            label={t('fields.notes', 'Interaction Notes')}
             placeholder="Customer remarks, roof dimensions mentioned, family concerns, etc."
             rows={2}
             value={notes}
@@ -372,7 +375,7 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
 
           <div>
             <TextInput
-              label="Optional Remark (max 500 chars)"
+              label={t('fields.remark', 'Optional Remark (max 500 chars)')}
               placeholder="e.g. Call back on Friday after 6 PM"
               maxLength={500}
               value={remark}
@@ -387,10 +390,10 @@ export const LogOutcomeModal: React.FC<LogOutcomeModalProps> = ({
 
           <Group justify="flex-end" mt="md">
             <Button variant="default" onClick={onClose}>
-              Cancel
+              {t('common:actions.cancel', 'Cancel')}
             </Button>
             <Button type="submit" color="yellow" loading={logActivityMutation.isPending}>
-              Save Outcome
+              {t('common:actions.save', 'Save Outcome')}
             </Button>
           </Group>
         </Stack>

@@ -1,0 +1,30 @@
+{
+  "title": "Sales Overview",
+  "subtitle": "Real-time pipeline metrics & conversion status",
+  "loading": "Loading sales dashboard...",
+  "error_title": "Error loading dashboard",
+  "retry": "Retry",
+  "overdue_btn": "{{count}} Overdue Follow-ups",
+  "kpi": {
+    "active_leads": "Active Leads",
+    "surveys_pending": "Site Surveys Pending",
+    "quotes_awaiting": "Quotes Awaiting Decision",
+    "won_deals": "Won Deals",
+    "won_value": "Won Value"
+  },
+  "funnel": {
+    "title": "Conversion Funnel",
+    "subtitle": "Lead progression from first touch to deal closed",
+    "stage_breakdown": "Stage Breakdown",
+    "new_leads": "New Leads",
+    "interested": "Interested / In Talks",
+    "surveys_done": "Surveys Done",
+    "quotes_delivered": "Quotes Delivered",
+    "won_deals": "Won Deals"
+  },
+  "priority_leads": {
+    "title": "Recent High Priority Leads",
+    "view_all": "View All",
+    "empty": "No leads currently in pipeline."
+  }
+}

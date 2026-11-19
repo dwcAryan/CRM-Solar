@@ -40,9 +40,12 @@ import {
   fetchUsers,
   fetchLeads,
 } from '../api/client';
+import { useTranslation } from 'react-i18next';
+import { translateStatus } from '../i18n/formatters';
 import type { Lead, Survey, User } from '../api/types';
 
 export const ManagerAttentionPage: React.FC = () => {
+  const { t, i18n } = useTranslation(['common', 'leads', 'surveys']);
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<string | null>('unassigned');
 
@@ -165,7 +168,7 @@ export const ManagerAttentionPage: React.FC = () => {
     <Container size="xl" py="md">
       <Group justify="space-between" mb="lg">
         <div>
-          <Title order={2}>Manager Attention Queue</Title>
+          <Title order={2}>{t('common:nav.manager_attention', 'Manager Attention Queue')}</Title>
           <Text size="sm" c="dimmed">
             Centralized hub for unassigned leads, pending Lost approvals, and staffing bottlenecks.
           </Text>
@@ -189,25 +192,25 @@ export const ManagerAttentionPage: React.FC = () => {
             value="unassigned"
             rightSection={<Badge size="xs" color="yellow">{unassignedList.length}</Badge>}
           >
-            Unassigned Leads
+            {t('leads:filters.no_followup', 'Unassigned Leads')}
           </Tabs.Tab>
           <Tabs.Tab
             value="lost-approvals"
             rightSection={<Badge size="xs" color="red">{lostList.length}</Badge>}
           >
-            Lost Approvals Pending
+            {translateStatus('Lost approval pending', i18n.language)}
           </Tabs.Tab>
           <Tabs.Tab
             value="unassigned-surveys"
             rightSection={<Badge size="xs" color="blue">{unassignedSurveys.length}</Badge>}
           >
-            Surveys Without Surveyor
+            {t('surveys:title', 'Surveys Without Surveyor')}
           </Tabs.Tab>
           <Tabs.Tab
             value="overdue"
             rightSection={<Badge size="xs" color="orange">{overdueList.length}</Badge>}
           >
-            Overdue Follow-ups
+            {t('leads:filters.overdue', 'Overdue Follow-ups')}
           </Tabs.Tab>
         </Tabs.List>
 

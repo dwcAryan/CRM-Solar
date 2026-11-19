@@ -1,0 +1,24 @@
+{
+  "title": "Today's Follow-up Queue",
+  "subtitle": "Calls, meetings, and surveys due today and overdue for follow-up",
+  "total_due": "{{count}} Total Due",
+  "all_caught_up": "All caught up for today!",
+  "no_pending": "You have no pending or overdue follow-ups right now.",
+  "browse_leads": "Browse All Leads",
+  "overdue_badge": "{{count}} OVERDUE",
+  "immediate_action": "Immediate action recommended",
+  "due_today_badge": "{{count}} DUE TODAY",
+  "scheduled_today": "Scheduled for today",
+  "overdue_followup": "Overdue Follow-up",
+  "scheduled_followup": "Scheduled Follow-up",
+  "next_action_label": "Next Action:",
+  "actions": {
+    "call": "Call",
+    "whatsapp": "WhatsApp",
+    "sms": "SMS",
+    "remark": "Remark",
+    "log_outcome": "Log Outcome",
+    "view_lead": "View Details",
+    "view_full_lead": "View full lead"
+  }
+}

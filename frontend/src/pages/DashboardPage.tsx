@@ -31,8 +31,11 @@ import type { DashboardData } from '../api/types';
 import { useRegion } from '../context/RegionContext';
 import { useAuth } from '../context/AuthContext';
 import { GetStartedChecklist } from '../components/tour/GetStartedChecklist';
+import { useTranslation } from 'react-i18next';
+import { translateStatus } from '../i18n/formatters';
 
 export const DashboardPage: React.FC = () => {
+  const { t, i18n } = useTranslation(['dashboard', 'common']);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { selectedRegion, formatMoney } = useRegion();
@@ -49,7 +52,7 @@ export const DashboardPage: React.FC = () => {
         <Group justify="center" p="xl">
           <Loader size="lg" color="yellow" />
           <Text size="sm" c="dimmed">
-            Loading sales dashboard...
+            {t('loading', 'Loading sales dashboard...')}
           </Text>
         </Group>
       </Container>
@@ -59,10 +62,10 @@ export const DashboardPage: React.FC = () => {
   if (error || !data) {
     return (
       <Container size="xl" py="xl">
-        <Alert icon={<IconAlertTriangle size={16} />} title="Error loading dashboard" color="red">
+        <Alert icon={<IconAlertTriangle size={16} />} title={t('error_title', 'Error loading dashboard')} color="red">
           {(error as Error)?.message || 'Failed to load metrics.'}
           <Button size="xs" variant="light" color="red" mt="xs" onClick={() => refetch()}>
-            Retry
+            {t('retry', 'Retry')}
           </Button>
         </Alert>
       </Container>
@@ -90,9 +93,9 @@ export const DashboardPage: React.FC = () => {
 
         <Group justify="space-between" align="center">
           <div>
-            <Title order={2}>Sales Overview</Title>
+            <Title order={2}>{t('title', 'Sales Overview')}</Title>
             <Text size="xs" c="dimmed">
-              Real-time pipeline metrics & conversion status
+              {t('subtitle', 'Real-time pipeline metrics & conversion status')}
             </Text>
           </div>
           <Button
@@ -101,7 +104,7 @@ export const DashboardPage: React.FC = () => {
             variant={data.overdue_followups > 0 ? 'filled' : 'light'}
             onClick={() => navigate('/today')}
           >
-            {data.overdue_followups} Overdue Follow-ups
+            {t('overdue_btn', { count: data.overdue_followups, defaultValue: `${data.overdue_followups} Overdue Follow-ups` })}
           </Button>
         </Group>
 
@@ -111,7 +114,7 @@ export const DashboardPage: React.FC = () => {
             <Group justify="space-between">
               <div>
                 <Text size="xs" c="dimmed" fw={600} tt="uppercase">
-                  Active Leads
+                  {t('kpi.active_leads', 'Active Leads')}
                 </Text>
                 <Title order={3} mt={4}>
                   {data.total_active_leads}
@@ -122,7 +125,7 @@ export const DashboardPage: React.FC = () => {
               </ThemeIcon>
             </Group>
             <Text size="xs" c="dimmed" mt="xs">
-              Excluding terminal statuses
+              {t('common:statuses.active_only', 'Excluding terminal statuses')}
             </Text>
           </Paper>
 
@@ -130,7 +133,7 @@ export const DashboardPage: React.FC = () => {
             <Group justify="space-between">
               <div>
                 <Text size="xs" c="dimmed" fw={600} tt="uppercase">
-                  Overdue Follow-ups
+                  {t('overdue_btn', { count: data.overdue_followups, defaultValue: 'Overdue Follow-ups' })}
                 </Text>
                 <Title order={3} mt={4} c={data.overdue_followups > 0 ? 'red' : 'green'}>
                   {data.overdue_followups}
@@ -141,7 +144,7 @@ export const DashboardPage: React.FC = () => {
               </ThemeIcon>
             </Group>
             <Text size="xs" c="dimmed" mt="xs">
-              Action urgently required
+              {t('common:actions.urgent', 'Action urgently required')}
             </Text>
           </Paper>
 
@@ -149,7 +152,7 @@ export const DashboardPage: React.FC = () => {
             <Group justify="space-between">
               <div>
                 <Text size="xs" c="dimmed" fw={600} tt="uppercase">
-                  Deals Won This Month
+                  {t('kpi.won_deals', 'Deals Won This Month')}
                 </Text>
                 <Title order={3} mt={4} c="teal">
                   {data.won_this_month}
@@ -160,7 +163,7 @@ export const DashboardPage: React.FC = () => {
               </ThemeIcon>
             </Group>
             <Text size="xs" c="dimmed" mt="xs">
-              Agreed proposals
+              {t('common:statuses.agreed', 'Agreed proposals')}
             </Text>
           </Paper>
 
@@ -168,7 +171,7 @@ export const DashboardPage: React.FC = () => {
             <Group justify="space-between">
               <div>
                 <Text size="xs" c="dimmed" fw={600} tt="uppercase">
-                  Quotes in Negotiation
+                  {t('kpi.quotes_awaiting', 'Quotes in Negotiation')}
                 </Text>
                 <Title order={3} mt={4} c="blue">
                   {data.funnel.quote_sent}
@@ -179,7 +182,7 @@ export const DashboardPage: React.FC = () => {
               </ThemeIcon>
             </Group>
             <Text size="xs" c="dimmed" mt="xs">
-              Quote sent / Revising / Neg.
+              {t('common:statuses.quote_sent', 'Quote sent')} / {t('common:statuses.negotiation', 'Negotiation')}
             </Text>
           </Paper>
         </SimpleGrid>
@@ -245,12 +248,12 @@ export const DashboardPage: React.FC = () => {
             <Table highlightOnHover withTableBorder={false} verticalSpacing="xs">
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th style={{ fontSize: '12px' }}>Customer</Table.Th>
-                  <Table.Th style={{ fontSize: '12px' }}>City</Table.Th>
-                  <Table.Th style={{ fontSize: '12px' }}>Current Status</Table.Th>
-                  <Table.Th style={{ fontSize: '12px' }}>Risk Factor</Table.Th>
-                  <Table.Th style={{ fontSize: '12px' }}>Assigned Rep</Table.Th>
-                  <Table.Th style={{ fontSize: '12px', textAlign: 'right' }}>Action</Table.Th>
+                  <Table.Th style={{ fontSize: '12px' }}>{t('common:fields.customer_name', 'Customer')}</Table.Th>
+                  <Table.Th style={{ fontSize: '12px' }}>{t('common:fields.city', 'City')}</Table.Th>
+                  <Table.Th style={{ fontSize: '12px' }}>{t('common:fields.status', 'Current Status')}</Table.Th>
+                  <Table.Th style={{ fontSize: '12px' }}>{t('priority_leads.risk_factor', 'Risk Factor')}</Table.Th>
+                  <Table.Th style={{ fontSize: '12px' }}>{t('common:fields.assigned_rep', 'Assigned Rep')}</Table.Th>
+                  <Table.Th style={{ fontSize: '12px', textAlign: 'right' }}>{t('common:fields.actions', 'Action')}</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -269,7 +272,7 @@ export const DashboardPage: React.FC = () => {
                     </Table.Td>
                     <Table.Td>
                       <Badge size="xs" variant="light" color={leadItem.status === 'Won' ? 'teal' : leadItem.status === 'Lost' ? 'gray' : 'yellow'}>
-                        {leadItem.status}
+                        {translateStatus(leadItem.status, i18n.language)}
                       </Badge>
                     </Table.Td>
                     <Table.Td>
@@ -288,7 +291,7 @@ export const DashboardPage: React.FC = () => {
                     </Table.Td>
                     <Table.Td>
                       <Text size="xs" c="dimmed">
-                        {leadItem.assigned_to_name || 'Unassigned'}
+                        {leadItem.assigned_to_name || t('common:statuses.unassigned', 'Unassigned')}
                       </Text>
                     </Table.Td>
                     <Table.Td style={{ textAlign: 'right' }}>
@@ -312,16 +315,16 @@ export const DashboardPage: React.FC = () => {
         {/* Conversion Funnel */}
         <Paper withBorder p="md" radius="md">
           <Title order={4} mb="xs">
-            Solar Sales Funnel
+            {t('funnel.title', 'Solar Sales Funnel')}
           </Title>
           <Text size="xs" c="dimmed" mb="md">
-            Pipeline progress from first inquiry to contract Won
+            {t('funnel.subtitle', 'Pipeline progress from first inquiry to contract Won')}
           </Text>
 
           <SimpleGrid cols={{ base: 1, sm: 5 }} spacing="sm">
             <Card withBorder padding="xs" radius="sm">
               <Text size="xs" c="dimmed">
-                1. New Leads
+                1. {t('funnel.new_leads', 'New Leads')}
               </Text>
               <Title order={3}>{data.funnel.new}</Title>
               <Progress value={(data.funnel.new / funnelTotal) * 100} color="gray" size="sm" mt="xs" />
@@ -329,7 +332,7 @@ export const DashboardPage: React.FC = () => {
 
             <Card withBorder padding="xs" radius="sm">
               <Text size="xs" c="dimmed">
-                2. Interested
+                2. {t('funnel.interested', 'Interested')}
               </Text>
               <Title order={3}>{data.funnel.interested}</Title>
               <Progress value={(data.funnel.interested / funnelTotal) * 100} color="yellow" size="sm" mt="xs" />
@@ -337,7 +340,7 @@ export const DashboardPage: React.FC = () => {
 
             <Card withBorder padding="xs" radius="sm">
               <Text size="xs" c="dimmed">
-                3. Site Survey
+                3. {t('funnel.surveys_done', 'Site Survey')}
               </Text>
               <Title order={3}>{data.funnel.survey}</Title>
               <Progress value={(data.funnel.survey / funnelTotal) * 100} color="indigo" size="sm" mt="xs" />
@@ -345,7 +348,7 @@ export const DashboardPage: React.FC = () => {
 
             <Card withBorder padding="xs" radius="sm">
               <Text size="xs" c="dimmed">
-                4. Quote Sent
+                4. {t('funnel.quotes_delivered', 'Quote Sent')}
               </Text>
               <Title order={3}>{data.funnel.quote_sent}</Title>
               <Progress value={(data.funnel.quote_sent / funnelTotal) * 100} color="blue" size="sm" mt="xs" />
@@ -353,7 +356,7 @@ export const DashboardPage: React.FC = () => {
 
             <Card withBorder padding="xs" radius="sm" style={{ backgroundColor: 'var(--mantine-color-teal-0)' }}>
               <Text size="xs" c="teal" fw={600}>
-                5. Won 🎉
+                5. {t('funnel.won_deals', 'Won 🎉')}
               </Text>
               <Title order={3} c="teal">
                 {data.funnel.won}
@@ -368,13 +371,13 @@ export const DashboardPage: React.FC = () => {
           {/* Status Breakdown */}
           <Paper withBorder p="md" radius="md">
             <Title order={4} mb="md">
-              Lead Status Distribution
+              {t('common:statuses.distribution_title', 'Lead Status Distribution')}
             </Title>
             <Stack gap="xs">
               {Object.entries(data.status_counts).map(([statusName, count]) => (
                 <Group key={statusName} justify="space-between">
                   <Badge variant="light" color={statusName === 'Won' ? 'teal' : statusName === 'Lost' ? 'gray' : 'yellow'}>
-                    {statusName}
+                    {translateStatus(statusName, i18n.language)}
                   </Badge>
                   <Text size="sm" fw={600}>
                     {count}
@@ -387,7 +390,7 @@ export const DashboardPage: React.FC = () => {
           {/* Lead Sources Breakdown */}
           <Paper withBorder p="md" radius="md">
             <Title order={4} mb="md">
-              Leads by Marketing Source
+              {t('common:fields.source_distribution', 'Leads by Marketing Source')}
             </Title>
             <Stack gap="xs">
               {data.leads_per_source.map((s) => (

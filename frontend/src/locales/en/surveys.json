@@ -1,7 +1,14 @@
 {
-  "title": "Site Surveys",
+  "title": "Site Surveys Hub",
+  "subtitle": "Manage technical site assessments, scheduling, and roof suitability reports",
+  "my_surveys_only": "My Surveys Only",
   "book_survey": "Book Site Survey",
+  "book_new": "Book New Survey",
   "survey_details": "Survey Details",
+  "empty": "No site surveys found matching current criteria.",
+  "showing_count": "Showing {{count}} surveys",
+  "scheduled_for": "Scheduled for: {{date}}",
+  "rescheduled_times": "Rescheduled {{count}} times",
   "fields": {
     "surveyor": "Assigned Surveyor",
     "scheduled_at": "Scheduled Date & Time",
@@ -10,7 +17,18 @@
     "panel_capacity": "Estimated Panel Capacity (kW)",
     "shading_notes": "Shading & Obstacles",
     "meter_notes": "Electrical Meter & Main Board Notes",
-    "completed_at": "Completed At"
+    "completed_at": "Completed At",
+    "notes": "Surveyor Notes",
+    "site_suitable": "Site Suitable for Solar",
+    "pending": "Pending",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "actions": {
+    "reschedule": "Reschedule",
+    "mark_done": "Mark Done",
+    "mark_missed": "Missed",
+    "cancel": "Cancel Survey"
   },
   "photos": {
     "title": "Site Photos & Documentation",
@@ -20,8 +38,13 @@
     "upload_btn": "Upload Survey Photo"
   },
   "status": {
+    "all": "All",
+    "booked": "Booked",
     "scheduled": "Scheduled",
+    "done": "Done",
     "completed": "Completed",
+    "rescheduled": "Rescheduled",
+    "missed": "Missed",
     "cancelled": "Cancelled"
   }
 }

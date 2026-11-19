@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Modal, Button, Stack, TextInput, Select, Textarea, Alert, Group, Text } from '@mantine/core';
 import { IconCalendarPlus, IconAlertCircle } from '@tabler/icons-react';
 import { bookSurvey, fetchUsers } from '../../api/client';
+import { useTranslation } from 'react-i18next';
+import { translateRole } from '../../i18n/formatters';
 import { useAuth } from '../../context/AuthContext';
 import type { Lead, User } from '../../api/types';
 
@@ -14,6 +16,7 @@ interface BookSurveyModalProps {
 }
 
 export const BookSurveyModal: React.FC<BookSurveyModalProps> = ({ opened, onClose, lead, onSuccess }) => {
+  const { t, i18n } = useTranslation(['surveys', 'common', 'leads']);
   const queryClient = useQueryClient();
   const { can } = useAuth();
   const [scheduledAt, setScheduledAt] = useState('');
@@ -83,7 +86,7 @@ export const BookSurveyModal: React.FC<BookSurveyModalProps> = ({ opened, onClos
       title={
         <Group gap="xs">
           <IconCalendarPlus size={18} />
-          <Text fw={600}>Book Site Survey</Text>
+          <Text fw={600}>{t('book_survey', 'Book Site Survey')}</Text>
         </Group>
       }
       radius="md"
@@ -99,7 +102,7 @@ export const BookSurveyModal: React.FC<BookSurveyModalProps> = ({ opened, onClos
           )}
 
           <TextInput
-            label="Survey Scheduled At"
+            label={t('fields.scheduled_at', 'Survey Scheduled At')}
             type="datetime-local"
             value={scheduledAt}
             onChange={(e) => setScheduledAt(e.currentTarget.value)}
@@ -109,11 +112,11 @@ export const BookSurveyModal: React.FC<BookSurveyModalProps> = ({ opened, onClos
 
           {can('survey.assign') ? (
             <Select
-              label="Assign Surveyor"
+              label={t('fields.surveyor', 'Assign Surveyor')}
               placeholder="Select solar technical surveyor"
               data={surveyors.map((s) => ({
                 value: String(s.id),
-                label: `${s.first_name || s.username} (${s.role})`,
+                label: `${s.first_name || s.username} (${translateRole(s.role, i18n.language)})`,
               }))}
               value={surveyorId}
               onChange={setSurveyorId}
@@ -127,7 +130,7 @@ export const BookSurveyModal: React.FC<BookSurveyModalProps> = ({ opened, onClos
           )}
 
           <Textarea
-            label="Survey Instructions / Site Notes"
+            label={t('fields.notes', 'Survey Instructions / Site Notes')}
             placeholder="e.g. Call before arriving, key with neighbor, check roof shadow from adjacent water tank"
             rows={2}
             value={notes}
@@ -135,7 +138,7 @@ export const BookSurveyModal: React.FC<BookSurveyModalProps> = ({ opened, onClos
           />
 
           <TextInput
-            label="Optional Remark (max 500 chars)"
+            label={t('leads:fields.remark', 'Optional Remark (max 500 chars)')}
             placeholder="e.g. Call customer at 9 AM to confirm gate entry"
             maxLength={500}
             value={remark}
@@ -144,10 +147,10 @@ export const BookSurveyModal: React.FC<BookSurveyModalProps> = ({ opened, onClos
 
           <Group justify="flex-end" mt="md">
             <Button variant="default" onClick={onClose}>
-              Cancel
+              {t('common:actions.cancel', 'Cancel')}
             </Button>
             <Button type="submit" color="yellow" loading={bookMutation.isPending}>
-              Confirm Booking
+              {t('common:actions.confirm', 'Confirm Booking')}
             </Button>
           </Group>
         </Stack>

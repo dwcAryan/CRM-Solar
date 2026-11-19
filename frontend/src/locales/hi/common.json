@@ -1,7 +1,9 @@
 {
   "app_name": "सोलर सीआरएम (Solar CRM)",
+  "subtitle": "आवासीय एवं व्यावसायिक सोलर",
+  "search_placeholder": "नाम, फ़ोन, शहर द्वारा खोजें... (फोकस हेतु '/' दबाएं)",
   "actions": {
-    "save": "सुरक्षित करें",
+    "save": "सहेजें",
     "cancel": "रद्द करें",
     "submit": "जमा करें",
     "delete": "हटाएं",
@@ -11,8 +13,8 @@
     "add": "जोड़ें",
     "search": "खोजें",
     "filter": "फ़िल्टर करें",
-    "export": "निर्यात करें",
-    "import": "आयात करें",
+    "export": "सीएसवी निर्यात",
+    "import": "सीएसवी आयात",
     "download": "डाउनलोड करें",
     "close": "बंद करें",
     "back": "वापस जाएं",
@@ -27,34 +29,107 @@
     "yes": "हाँ",
     "no": "नहीं",
     "loading": "लोड हो रहा है...",
-    "retry": "पुनः प्रयास करें"
+    "retry": "पुनः प्रयास करें",
+    "clear": "साफ़ करें"
   },
   "nav": {
     "dashboard": "डैशबोर्ड",
-    "leads": "लीड्स",
-    "pipeline": "पाइपलाइन",
-    "surveys": "सर्वेक्षण",
-    "quotes": "कोटेशन",
-    "activities": "गतिविधियां",
-    "admin": "व्यवस्थापक",
+    "today_followups": "आज के फ़ॉलो-अप",
+    "leads": "सभी लीड्स",
+    "pipeline": "बिक्री पाइपलाइन",
+    "manager_attention": "प्रबंधक ध्यान कतार",
+    "surveys": "साइट सर्वेक्षण",
+    "my_surveys": "मेरे साइट सर्वेक्षण",
+    "quotes": "कोटेशन और प्रस्ताव",
+    "import_leads": "लीड्स आयात करें",
+    "roles_matrix": "भूमिकाएं और अनुमतियां",
+    "admin": "प्रशासन हब",
+    "system_health": "सिस्टम स्वास्थ्य स्थिति",
     "settings": "सेटिंग्स",
     "profile": "प्रोफ़ाइल",
     "tour": "उत्पाद टूर लें",
     "help": "सहायता सहायक",
     "logout": "लॉगआउट"
   },
+  "regions": {
+    "all": "🌐 सभी क्षेत्र (All)",
+    "in": "🇮🇳 भारत (IN)",
+    "au": "🇦🇺 ऑस्ट्रेलिया (AU)"
+  },
+  "roles": {
+    "admin": "व्यवस्थापक (Admin)",
+    "manager": "प्रबंधक (Manager)",
+    "salesperson": "बिक्री प्रतिनिधि (Sales)",
+    "surveyor": "सर्वेक्षक (Surveyor)"
+  },
+  "stages": {
+    "call": "कॉल (Call)",
+    "survey": "साइट सर्वे (Survey)",
+    "quote": "कोटेशन (Quote)"
+  },
+  "user_menu": {
+    "signed_in_as": "{{name}} के रूप में साइन इन",
+    "tour_center": "उत्पाद टूर केंद्र",
+    "notif_settings": "सूचना सेटिंग्स",
+    "roles_matrix": "भूमिकाएं और अनुमतियां",
+    "health": "सिस्टम स्वास्थ्य स्थिति",
+    "logout": "साइन आउट करें"
+  },
+  "notifications": {
+    "title": "सूचनाएं",
+    "mark_all_read": "सभी को पढ़ा हुआ चिह्नित करें",
+    "empty": "कोई नई सूचना नहीं है",
+    "new": "नई"
+  },
+  "fields": {
+    "customer_name": "ग्राहक का नाम",
+    "phone": "फ़ोन / संपर्क",
+    "alt_phone": "वैकल्पिक फ़ोन",
+    "email": "ईमेल पता",
+    "address": "पता",
+    "city": "शहर",
+    "state": "राज्य",
+    "postcode": "पिनकोड / पोस्टकोड",
+    "region": "क्षेत्र",
+    "source": "लीड का स्रोत",
+    "assigned_rep": "नियुक्त प्रतिनिधि",
+    "status": "स्थिति",
+    "next_action": "अगली कार्रवाई",
+    "next_followup": "अगला फ़ॉलो-अप",
+    "actions": "कार्रवाई",
+    "notes": "नोट्स",
+    "remark": "टिप्पणी",
+    "system_size": "सिस्टम आकार (किलोवाट)",
+    "price": "कीमत",
+    "subsidy": "सरकारी सब्सिडी / अनुदान",
+    "brand": "ब्रांड / विनिर्देश",
+    "battery": "बैटरी स्टोरेज (kWh)",
+    "date": "दिनांक",
+    "created_at": "सृजन तिथि"
+  },
   "statuses": {
     "new": "नई (New)",
     "attempting_contact": "संपर्क प्रयास",
-    "contacted": "संपर्क किया गया",
-    "survey_booked": "सर्वे निर्धारित",
-    "survey_completed": "सर्वे पूर्ण",
+    "callback_scheduled": "कॉल-बैक निर्धारित",
+    "invalid_contact": "अमान्य संपर्क",
+    "followup": "फ़ॉलो-अप",
+    "interested": "रुचि व्यक्त की",
+    "survey_to_schedule": "सर्वेक्षण तय करना है",
+    "survey_scheduled": "सर्वेक्षण निर्धारित",
+    "survey_rescheduled": "सर्वेक्षण पुनर्निर्धारित",
+    "survey_missed": "सर्वेक्षण छूटा",
+    "design_pending": "डिजाइन लंबित",
+    "alternative": "वैकल्पिक समाधान",
     "quote_sent": "कोटेशन भेजा गया",
+    "revising_quote": "कोटेशन संशोधन",
     "negotiation": "बातचीत जारी",
-    "won": "सफल (Won)",
+    "won": "सफल सौदा (Won)",
     "lost": "विफल (Lost)",
-    "nurture": "नर्चर (Nurture)",
-    "unreachable": "संपर्क रहित"
+    "nurture": "नर्चर (दीर्घकालिक)",
+    "unreachable": "संपर्क रहित",
+    "do_not_contact": "संपर्क न करें (DNC)",
+    "merged": "मर्ज किया गया",
+    "lost_approval_pending": "विफलता स्वीकृति लंबित"
   },
   "pwa": {
     "install_desktop": "डेस्कटॉप ऐप डाउनलोड करें",
@@ -63,9 +138,9 @@
     "new_version": "नया संस्करण उपलब्ध है, अपडेट करने के लिए क्लिक करें"
   },
   "language": {
-    "selector_label": "भाषा",
-    "switch_prompt": "क्या आप भाषा बदलकर {{language}} करना चाहते हैं?",
+    "selector_label": "भाषा (Language)",
+    "switch_prompt": "इंटरफ़ेस भाषा {{language}} में बदलें?",
     "switch_confirm": "बदलें",
-    "switch_dismiss": "वर्तमान रखें"
+    "switch_dismiss": "यही रखें"
   }
 }

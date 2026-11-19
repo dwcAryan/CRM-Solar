@@ -14,6 +14,7 @@ import {
   Badge,
 } from '@mantine/core';
 import { IconFilePlus, IconAlertCircle } from '@tabler/icons-react';
+import { useTranslation } from 'react-i18next';
 import { createQuote } from '../../api/client';
 import type { Lead } from '../../api/types';
 
@@ -30,6 +31,7 @@ export const CreateQuoteModal: React.FC<CreateQuoteModalProps> = ({
   lead,
   onSuccess,
 }) => {
+  const { t } = useTranslation(['quotes', 'common', 'leads']);
   const queryClient = useQueryClient();
   const isAU = lead?.region_code === 'AU' || lead?.region === 'AU';
   const currencySymbol = lead?.currency_symbol || (isAU ? 'A$' : '₹');
@@ -121,7 +123,7 @@ export const CreateQuoteModal: React.FC<CreateQuoteModalProps> = ({
       title={
         <Group gap="xs">
           <IconFilePlus size={18} />
-          <Text fw={600}>Create Solar Quotation</Text>
+          <Text fw={600}>{t('new_quote', 'Create Solar Quotation')}</Text>
           <Badge color={isAU ? 'teal' : 'orange'} variant="light">
             {lead?.region_code || 'IN'} ({currencySymbol})
           </Badge>
@@ -142,7 +144,7 @@ export const CreateQuoteModal: React.FC<CreateQuoteModalProps> = ({
 
           <Group grow>
             <NumberInput
-              label="System Size (kW)"
+              label={t('fields.system_size', 'System Size (kW)')}
               placeholder={isAU ? 'e.g. 6.6, 10' : 'e.g. 3.3, 5'}
               value={systemSizeKw}
               onChange={setSystemSizeKw}
@@ -151,7 +153,7 @@ export const CreateQuoteModal: React.FC<CreateQuoteModalProps> = ({
               required
             />
             <NumberInput
-              label="Battery Storage (kWh) [Optional]"
+              label={t('fields.battery_capacity', 'Battery Storage (kWh)')}
               placeholder={isAU ? 'e.g. 9.6, 13.5' : 'Optional (e.g. 5)'}
               value={batteryKwh}
               onChange={setBatteryKwh}
@@ -161,7 +163,7 @@ export const CreateQuoteModal: React.FC<CreateQuoteModalProps> = ({
           </Group>
 
           <TextInput
-            label="Equipment Brand & Specification"
+            label={t('table.equipment', 'Equipment Brand & Specification')}
             placeholder={
               isAU
                 ? 'e.g. Trina Vertex S+ 440W, Fronius Primo 5kW inverter'
@@ -174,7 +176,7 @@ export const CreateQuoteModal: React.FC<CreateQuoteModalProps> = ({
 
           <Group grow>
             <NumberInput
-              label={`Total Gross Price (${currencySymbol})`}
+              label={`${t('fields.base_price', 'Total Gross Price')} (${currencySymbol})`}
               placeholder={isAU ? 'e.g. 8900' : 'e.g. 195000'}
               value={price}
               onChange={setPrice}
@@ -194,7 +196,7 @@ export const CreateQuoteModal: React.FC<CreateQuoteModalProps> = ({
             <Group justify="space-between">
               <div>
                 <Text size="xs" fw={500}>
-                  Customer Estimated Net Out-of-Pocket:
+                  {t('fields.net_price', 'Customer Estimated Net Out-of-Pocket:')}
                 </Text>
                 <Text size="11px" c="dimmed">
                   {isAU
@@ -214,7 +216,7 @@ export const CreateQuoteModal: React.FC<CreateQuoteModalProps> = ({
           </Paper>
 
           <Textarea
-            label="Proposal Notes / Inclusions"
+            label={t('fields.notes', 'Proposal Notes / Inclusions')}
             placeholder={
               isAU
                 ? 'e.g. CEC-accredited design, smart meter installation, DNSP grid pre-approval included'
@@ -226,7 +228,7 @@ export const CreateQuoteModal: React.FC<CreateQuoteModalProps> = ({
           />
 
           <TextInput
-            label="Optional Remark (max 500 chars)"
+            label={t('leads:fields.remark', 'Optional Remark (max 500 chars)')}
             placeholder="e.g. Discount given for same-day agreement"
             maxLength={500}
             value={remark}
@@ -235,10 +237,10 @@ export const CreateQuoteModal: React.FC<CreateQuoteModalProps> = ({
 
           <Group justify="flex-end" mt="md">
             <Button variant="default" onClick={onClose}>
-              Cancel
+              {t('common:actions.cancel', 'Cancel')}
             </Button>
             <Button type="submit" color={isAU ? 'teal' : 'yellow'} loading={createMutation.isPending}>
-              Generate Quotation
+              {t('new_quote', 'Generate Quotation')}
             </Button>
           </Group>
         </Stack>

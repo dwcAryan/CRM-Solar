@@ -57,6 +57,8 @@ import {
   checkLeadDncr,
   softDeleteLead,
 } from '../api/client';
+import { useTranslation } from 'react-i18next';
+import { translateStatus, translateRoofType, translatePropertyType } from '../i18n/formatters';
 import { useAuth } from '../context/AuthContext';
 import { LogOutcomeModal } from '../components/modals/LogOutcomeModal';
 import { BookSurveyModal } from '../components/modals/BookSurveyModal';
@@ -73,6 +75,7 @@ import { AISuggestionsCard } from '../components/ai/AISuggestionsCard';
 import type { Lead, Activity, Survey, Quote, LeadStatusHistory } from '../api/types';
 
 export const LeadDetailPage: React.FC = () => {
+  const { t, i18n } = useTranslation(['leads', 'surveys', 'quotes', 'common']);
   const { id } = useParams<{ id: string }>();
   const leadId = Number(id);
   const navigate = useNavigate();
@@ -241,7 +244,7 @@ export const LeadDetailPage: React.FC = () => {
             leftSection={<IconArrowLeft size={16} />}
             onClick={() => navigate('/leads')}
           >
-            All Leads
+            {t('actions.back_to_leads', 'All Leads')}
           </Button>
 
           <Group gap="xs">
@@ -252,7 +255,7 @@ export const LeadDetailPage: React.FC = () => {
               leftSection={<IconNotes size={14} />}
               onClick={() => setAddRemarkOpen(true)}
             >
-              Add Remark
+              {t('actions.add_remark', 'Add Remark')}
             </Button>
             {can('lead.merge') && (
               <Button
@@ -262,7 +265,7 @@ export const LeadDetailPage: React.FC = () => {
                 leftSection={<IconGitMerge size={14} />}
                 onClick={() => setMergeModalOpen(true)}
               >
-                Merge Duplicate
+                {t('actions.merge', 'Merge Duplicate')}
               </Button>
             )}
             {can('survey.book') && (
@@ -273,7 +276,7 @@ export const LeadDetailPage: React.FC = () => {
                 leftSection={<IconCalendarPlus size={14} />}
                 onClick={() => setBookSurveyOpen(true)}
               >
-                Book Survey
+                {t('actions.book_survey', 'Book Survey')}
               </Button>
             )}
             {can('quote.create') && (
@@ -284,7 +287,7 @@ export const LeadDetailPage: React.FC = () => {
                 leftSection={<IconFilePlus size={14} />}
                 onClick={() => setCreateQuoteOpen(true)}
               >
-                Create Quote
+                {t('actions.create_quote', 'Create Quote')}
               </Button>
             )}
             {can('activity.log') && (
@@ -294,7 +297,7 @@ export const LeadDetailPage: React.FC = () => {
                 leftSection={<IconClipboardCheck size={14} />}
                 onClick={() => setOutcomeModalOpen(true)}
               >
-                Log Outcome
+                {t('actions.log_outcome', 'Log Outcome')}
               </Button>
             )}
             {can('lead.delete') && (
@@ -308,7 +311,7 @@ export const LeadDetailPage: React.FC = () => {
                   setDeleteModalOpen(true);
                 }}
               >
-                Delete Lead
+                {t('actions.soft_delete', 'Delete Lead')}
               </Button>
             )}
 
@@ -322,7 +325,7 @@ export const LeadDetailPage: React.FC = () => {
                   onClick={() => handleExportDossier('pdf')}
                   title="Download complete compliance and privacy data subject dossier"
                 >
-                  DSAR Dossier (PDF)
+                  {t('actions.privacy_export', 'DSAR Dossier (PDF)')}
                 </Button>
                 <Button
                   variant="light"
@@ -332,7 +335,7 @@ export const LeadDetailPage: React.FC = () => {
                   onClick={() => setCorrectModalOpen(true)}
                   title="Rectify customer personal records with mandatory audit justification"
                 >
-                  Correct Data
+                  {t('actions.correct_data', 'Correct Data')}
                 </Button>
                 <Button
                   variant="light"
@@ -341,7 +344,7 @@ export const LeadDetailPage: React.FC = () => {
                   onClick={() => setAnonymizeModalOpen(true)}
                   title="Irreversibly anonymize customer identifiers"
                 >
-                  Anonymize
+                  {t('actions.anonymize', 'Anonymize')}
                 </Button>
               </>
             )}
@@ -354,11 +357,11 @@ export const LeadDetailPage: React.FC = () => {
             icon={<IconAlertTriangle size={18} />}
             color="red"
             variant="filled"
-            title={`Out of Permitted Calling Hours (${lead.region || 'Region'})`}
+            title={`${t('alerts.outside_hours_title', 'Out of Permitted Calling Hours')} (${lead.region || 'Region'})`}
             styles={{ title: { fontWeight: 700 } }}
           >
             <Text size="xs">
-              {lead.calling_hours_reason || 'Outbound voice calls to this customer are currently restricted by local telemarketing regulations.'}
+              {lead.calling_hours_reason || t('alerts.outside_hours_message', 'Outbound voice calls to this customer are currently restricted by local telemarketing regulations.')}
             </Text>
           </Alert>
         )}
@@ -369,11 +372,11 @@ export const LeadDetailPage: React.FC = () => {
             icon={<IconAlertTriangle size={18} />}
             color="red"
             variant="filled"
-            title="Warning: No Next Follow-up Date Scheduled!"
+            title={t('alerts.no_followup_title', 'Warning: No Next Follow-up Date Scheduled!')}
             styles={{ title: { fontWeight: 700 } }}
           >
             <Text size="xs">
-              This lead is active in status <strong>{lead.status}</strong>, but has no scheduled next follow-up date. The CRM workflow requires every active lead to have a pending follow-up. Please click <strong>Log Outcome</strong> to schedule a follow-up date and time.
+              {t('alerts.no_followup_message', 'This lead is active, but has no scheduled next follow-up date. Please click Log Outcome to schedule a date.')}
             </Text>
           </Alert>
         )}
@@ -409,13 +412,13 @@ export const LeadDetailPage: React.FC = () => {
                   )}
                 </Group>
                 <Text size="xs" c="dimmed" mt={2}>
-                  Created {new Date(lead.created_at).toLocaleDateString([], { dateStyle: 'medium' })} • Source:{' '}
+                  {t('fields.created_at', 'Created')}: {new Date(lead.created_at).toLocaleDateString([], { dateStyle: 'medium' })} • {t('fields.source', 'Source')}:{' '}
                   {lead.source_name || 'Direct'}
                 </Text>
               </div>
 
               <Badge size="xl" color={getStatusColor(lead.status)} variant="filled">
-                {lead.status}
+                {translateStatus(lead.status, i18n.language)}
               </Badge>
             </Group>
 
@@ -424,14 +427,14 @@ export const LeadDetailPage: React.FC = () => {
             <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
               <Box>
                 <Text size="xs" c="dimmed">
-                  Contact Phone
+                  {t('fields.phone', 'Contact Phone')}
                 </Text>
                 <Text fw={600} size="sm">
                   {lead.phone_display || lead.phone_e164 || lead.phone}
                 </Text>
                 {lead.alt_phone && (
                   <Text size="xs" c="dimmed">
-                    Alt: {lead.alt_phone_display || lead.alt_phone_e164 || lead.alt_phone}
+                    {t('fields.alt_phone', 'Alt')}: {lead.alt_phone_display || lead.alt_phone_e164 || lead.alt_phone}
                   </Text>
                 )}
                 <Group gap="xs" mt={4}>
@@ -445,7 +448,7 @@ export const LeadDetailPage: React.FC = () => {
                     disabled={lead.do_not_contact || lead.opt_out_calls}
                     title={lead.opt_out_calls ? "Opted Out of Voice Calls" : undefined}
                   >
-                    Call
+                    {t('actions.call', 'Call')}
                   </Button>
                   <Button
                     component="a"
@@ -458,20 +461,20 @@ export const LeadDetailPage: React.FC = () => {
                     disabled={lead.do_not_contact || lead.opt_out_whatsapp}
                     title={lead.opt_out_whatsapp ? "Opted Out of WhatsApp" : undefined}
                   >
-                    WhatsApp
+                    {t('actions.whatsapp', 'WhatsApp')}
                   </Button>
                 </Group>
               </Box>
 
               <Box>
                 <Text size="xs" c="dimmed">
-                  Location & Timezone
+                  {t('cards.location_tz', 'Location & Timezone')}
                 </Text>
                 <Text fw={500} size="sm">
                   {lead.suburb ? `${lead.suburb}, ` : ''}{lead.city} {lead.postcode || lead.pincode ? `(${lead.postcode || lead.pincode})` : ''}
                 </Text>
                 <Text size="xs" c="dimmed">
-                  State: {lead.state || 'N/A'} • TZ: {lead.timezone || 'Asia/Kolkata'}
+                  {t('fields.state', 'State')}: {lead.state || 'N/A'} • TZ: {lead.timezone || 'Asia/Kolkata'}
                 </Text>
                 <Text size="xs" c="dimmed" lineClamp={2}>
                   {lead.address || 'Address not recorded'}
@@ -480,16 +483,16 @@ export const LeadDetailPage: React.FC = () => {
 
               <Box>
                 <Text size="xs" c="dimmed">
-                  Property & Consumption
+                  {t('cards.property_consumption', 'Property & Consumption')}
                 </Text>
                 <Text fw={500} size="sm">
-                  {lead.property_type || 'Residential'} • {lead.roof_type || 'RCC'}
+                  {translatePropertyType(lead.property_type, i18n.language) || 'Residential'} • {translateRoofType(lead.roof_type, i18n.language) || 'RCC'}
                 </Text>
                 <Text size="xs" c="dimmed">
-                  Provider: {lead.electricity_provider || 'Not recorded'}
+                  {t('fields.electricity_provider', 'Provider')}: {lead.electricity_provider || 'Not recorded'}
                 </Text>
                 <Text size="xs" c="dimmed">
-                  Bill: {lead.bill_amount ? `${lead.currency_symbol || '$'}${Number(lead.bill_amount).toLocaleString()} (${lead.bill_period || 'monthly'})` : (lead.monthly_bill ? `${lead.currency_symbol || '₹'}${lead.monthly_bill.toLocaleString()}` : '—')}
+                  {t('fields.bill_amount', 'Bill')}: {lead.bill_amount ? `${lead.currency_symbol || '$'}${Number(lead.bill_amount).toLocaleString()} (${lead.bill_period || 'monthly'})` : (lead.monthly_bill ? `${lead.currency_symbol || '₹'}${lead.monthly_bill.toLocaleString()}` : '—')}
                 </Text>
                 {lead.normalized_monthly_bill && (
                   <Text size="10px" c="teal" fw={600}>
@@ -497,13 +500,13 @@ export const LeadDetailPage: React.FC = () => {
                   </Text>
                 )}
                 <Text size="10px" c="dimmed">
-                  Occupancy: {lead.owner_or_tenant || 'Owner'}
+                  {t('fields.owner_or_tenant', 'Occupancy')}: {lead.owner_or_tenant || 'Owner'}
                 </Text>
               </Box>
 
               <Box>
                 <Text size="xs" c="dimmed">
-                  Next Step & Follow-up
+                  {t('cards.next_step', 'Next Step & Follow-up')}
                 </Text>
                 <Text fw={600} size="sm" c={hasNoFollowup ? 'red.9' : 'yellow.9'}>
                   {lead.next_action || 'No action pending'}
@@ -521,33 +524,33 @@ export const LeadDetailPage: React.FC = () => {
                 </Group>
                 {hasNoFollowup && (
                   <Badge color="red" size="xs" variant="filled" mt={4}>
-                    ⚠️ NO FOLLOW-UP DATE
+                    {t('no_followup_badge', '⚠️ NO FOLLOW-UP DATE')}
                   </Badge>
                 )}
                 <Text size="10px" c="dimmed" mt={2}>
-                  Assigned: {lead.assigned_to_name || 'Unassigned'} • Call Attempts: {lead.attempt_count}
+                  {t('fields.assigned_to', 'Assigned')}: {lead.assigned_to_name || t('unassigned', 'Unassigned')} • {t('fields.attempt_count', 'Call Attempts')}: {lead.attempt_count}
                 </Text>
               </Box>
             </SimpleGrid>
 
             {lead.status === 'Won' && lead.won_at && (
-              <Alert icon={<IconCheck size={16} />} color="green" title="Proposal Accepted & Won!">
+              <Alert icon={<IconCheck size={16} />} color="green" title={t('alerts.won_title', 'Proposal Accepted & Won!')}>
                 <Text size="xs">
-                  This lead successfully agreed to the solar proposal on{' '}
+                  {t('alerts.won_message', 'This lead successfully agreed to the solar proposal on ')}
                   {new Date(lead.won_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}.
                 </Text>
               </Alert>
             )}
 
             {lead.status === 'Lost' && (
-              <Alert icon={<IconX size={16} />} color="red" title="Lead Lost">
-                <Text size="xs">Reason: {lead.lost_reason_name || 'Not specified'}</Text>
+              <Alert icon={<IconX size={16} />} color="red" title={t('alerts.lost_title', 'Lead Lost')}>
+                <Text size="xs">{t('fields.remark', 'Reason')}: {lead.lost_reason_name || 'Not specified'}</Text>
               </Alert>
             )}
 
             {lead.status === 'Nurture' && (
-              <Alert icon={<IconClock size={16} />} color="orange" title="In Nurture Queue">
-                <Text size="xs">Reason: {lead.nurture_reason_name || 'Not specified'}</Text>
+              <Alert icon={<IconClock size={16} />} color="orange" title={t('alerts.nurture_title', 'In Nurture Queue')}>
+                <Text size="xs">{t('fields.remark', 'Reason')}: {lead.nurture_reason_name || 'Not specified'}</Text>
               </Alert>
             )}
           </Stack>
@@ -562,16 +565,16 @@ export const LeadDetailPage: React.FC = () => {
               </ThemeIcon>
               <div>
                 <Group gap="xs">
-                  <Text size="sm" fw={700}>Compliance & Consent Record</Text>
+                  <Text size="sm" fw={700}>{t('cards.compliance', 'Compliance & Consent Record')}</Text>
                   <Badge size="xs" color={lead.consent_status === 'consented' ? 'green' : 'gray'}>
                     Consent: {lead.consent_status || 'Unknown'}
                   </Badge>
                   <Badge size="xs" color="indigo" variant="light">
-                    Customer Language: {lead.preferred_language === 'hi' ? 'हिन्दी (Hindi)' : 'English'}
+                    {t('fields.preferred_language', 'Customer Language')}: {lead.preferred_language === 'hi' ? 'हिन्दी (Hindi)' : 'English'}
                   </Badge>
                   {lead.consent_source && (
                     <Badge size="xs" variant="outline" color="gray">
-                      Source: {lead.consent_source}
+                      {t('fields.consent_source', 'Source')}: {lead.consent_source}
                     </Badge>
                   )}
                 </Group>
@@ -609,13 +612,13 @@ export const LeadDetailPage: React.FC = () => {
         <Tabs defaultValue="timeline" color="yellow">
           <Tabs.List>
             <Tabs.Tab value="timeline" leftSection={<IconClock size={16} />}>
-              Timeline & History ({activities.length})
+              {t('tabs.timeline', 'Timeline & History')} ({activities.length})
             </Tabs.Tab>
             <Tabs.Tab value="surveys" leftSection={<IconClipboardCheck size={16} />}>
-              Site Surveys ({surveys.length})
+              {t('tabs.surveys', 'Site Surveys')} ({surveys.length})
             </Tabs.Tab>
             <Tabs.Tab value="quotes" leftSection={<IconBolt size={16} />}>
-              Quotations ({quotes.length})
+              {t('tabs.quotes', 'Quotations')} ({quotes.length})
             </Tabs.Tab>
           </Tabs.List>
 
@@ -747,7 +750,7 @@ export const LeadDetailPage: React.FC = () => {
             <Paper p="md" withBorder radius="md">
               <Group justify="space-between" mb="md">
                 <Text fw={600} size="sm">
-                  Site Technical Surveys
+                  {t('surveys:title', 'Site Technical Surveys')}
                 </Text>
                 <Button
                   size="xs"
@@ -755,24 +758,24 @@ export const LeadDetailPage: React.FC = () => {
                   leftSection={<IconCalendarPlus size={14} />}
                   onClick={() => setBookSurveyOpen(true)}
                 >
-                  Book New Survey
+                  {t('surveys:book_new', 'Book New Survey')}
                 </Button>
               </Group>
 
               {surveys.length === 0 ? (
                 <Text size="xs" c="dimmed" ta="center" py="xl">
-                  No site surveys booked for this lead yet.
+                  {t('surveys:empty', 'No site surveys booked for this lead yet.')}
                 </Text>
               ) : (
                 <Table highlightOnHover verticalSpacing="sm">
                   <Table.Thead bg="var(--mantine-color-gray-0)">
                     <Table.Tr>
-                      <Table.Th>Scheduled Date & Time</Table.Th>
-                      <Table.Th>Surveyor</Table.Th>
-                      <Table.Th>Status</Table.Th>
-                      <Table.Th>Site Suitable?</Table.Th>
-                      <Table.Th>Notes</Table.Th>
-                      <Table.Th ta="right">Actions</Table.Th>
+                      <Table.Th>{t('surveys:fields.scheduled_at', 'Scheduled Date & Time')}</Table.Th>
+                      <Table.Th>{t('surveys:fields.surveyor', 'Surveyor')}</Table.Th>
+                      <Table.Th>{t('surveys:fields.status', 'Status')}</Table.Th>
+                      <Table.Th>{t('surveys:fields.site_suitable', 'Site Suitable?')}</Table.Th>
+                      <Table.Th>{t('surveys:fields.notes', 'Notes')}</Table.Th>
+                      <Table.Th ta="right">{t('common:actions.actions', 'Actions')}</Table.Th>
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
@@ -787,12 +790,12 @@ export const LeadDetailPage: React.FC = () => {
                           </Text>
                           {survey.reschedule_count > 0 && (
                             <Badge size="xs" color="orange" variant="outline">
-                              Rescheduled {survey.reschedule_count}x
+                              {t('surveys:rescheduled_times', { count: survey.reschedule_count, defaultValue: `Rescheduled ${survey.reschedule_count}x` })}
                             </Badge>
                           )}
                         </Table.Td>
                         <Table.Td>
-                          <Text size="xs">{survey.surveyor_name || 'Unassigned'}</Text>
+                          <Text size="xs">{survey.surveyor_name || t('common:fields.unassigned', 'Unassigned')}</Text>
                         </Table.Td>
                         <Table.Td>
                           <Badge
@@ -807,21 +810,21 @@ export const LeadDetailPage: React.FC = () => {
                             }
                             variant="light"
                           >
-                            {survey.status.toUpperCase()}
+                            {translateStatus(survey.status, i18n.language).toUpperCase()}
                           </Badge>
                         </Table.Td>
                         <Table.Td>
                           {survey.site_suitable === true ? (
                             <Badge color="green" size="xs">
-                              Yes
+                              {t('surveys:fields.yes', 'Yes')}
                             </Badge>
                           ) : survey.site_suitable === false ? (
                             <Badge color="red" size="xs">
-                              No
+                              {t('surveys:fields.no', 'No')}
                             </Badge>
                           ) : (
                             <Text size="xs" c="dimmed">
-                              Pending
+                              {t('surveys:fields.pending', 'Pending')}
                             </Text>
                           )}
                         </Table.Td>
@@ -831,7 +834,7 @@ export const LeadDetailPage: React.FC = () => {
                           </Text>
                           {survey.remark && (
                             <Text size="10px" c="blue" mt={2}>
-                              💬 Remark: {survey.remark}
+                              💬 {t('leads:fields.remark', 'Remark')}: {survey.remark}
                             </Text>
                           )}
                         </Table.Td>
@@ -847,7 +850,7 @@ export const LeadDetailPage: React.FC = () => {
                                   setMarkDoneSurveyOpen(true);
                                 }}
                               >
-                                Mark Done
+                                {t('surveys:actions.mark_done', 'Mark Done')}
                               </Button>
                               <Button
                                 size="xs"
@@ -858,7 +861,7 @@ export const LeadDetailPage: React.FC = () => {
                                   setRescheduleSurveyOpen(true);
                                 }}
                               >
-                                Reschedule
+                                {t('surveys:actions.reschedule', 'Reschedule')}
                               </Button>
                               <Button
                                 size="xs"
@@ -866,12 +869,12 @@ export const LeadDetailPage: React.FC = () => {
                                 variant="subtle"
                                 onClick={() => missedSurveyMutation.mutate(survey.id)}
                               >
-                                Missed
+                                {t('surveys:actions.mark_missed', 'Missed')}
                               </Button>
                             </Group>
                           ) : (
                             <Text size="xs" c="dimmed">
-                              Completed
+                              {t('surveys:status.completed', 'Completed')}
                             </Text>
                           )}
                         </Table.Td>
@@ -888,7 +891,7 @@ export const LeadDetailPage: React.FC = () => {
             <Paper p="md" withBorder radius="md">
               <Group justify="space-between" mb="md">
                 <Text fw={600} size="sm">
-                  Quotation Versions & Proposals
+                  {t('quotes:title', 'Quotation Versions & Proposals')}
                 </Text>
                 <Button
                   size="xs"
@@ -896,24 +899,24 @@ export const LeadDetailPage: React.FC = () => {
                   leftSection={<IconFilePlus size={14} />}
                   onClick={() => setCreateQuoteOpen(true)}
                 >
-                  Create New Quote
+                  {t('quotes:new_quote', 'Create New Quote')}
                 </Button>
               </Group>
 
               {quotes.length === 0 ? (
                 <Text size="xs" c="dimmed" ta="center" py="xl">
-                  No quotes generated for this lead yet.
+                  {t('quotes:empty', 'No quotes generated for this lead yet.')}
                 </Text>
               ) : (
                 <Table highlightOnHover verticalSpacing="sm">
                   <Table.Thead bg="var(--mantine-color-gray-0)">
                     <Table.Tr>
-                      <Table.Th>Version</Table.Th>
-                      <Table.Th>System Size</Table.Th>
-                      <Table.Th>Equipment Specs</Table.Th>
-                      <Table.Th>Price & Subsidy</Table.Th>
-                      <Table.Th>Status</Table.Th>
-                      <Table.Th ta="right">Actions</Table.Th>
+                      <Table.Th>{t('quotes:table.version', 'Version')}</Table.Th>
+                      <Table.Th>{t('quotes:table.system_size', 'System Size')}</Table.Th>
+                      <Table.Th>{t('quotes:table.equipment', 'Equipment Specs')}</Table.Th>
+                      <Table.Th>{t('quotes:table.pricing', 'Price & Subsidy')}</Table.Th>
+                      <Table.Th>{t('quotes:table.status', 'Status')}</Table.Th>
+                      <Table.Th ta="right">{t('common:actions.actions', 'Actions')}</Table.Th>
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
@@ -985,7 +988,7 @@ export const LeadDetailPage: React.FC = () => {
                               }
                               variant="light"
                             >
-                              {quote.status.toUpperCase()}
+                              {translateStatus(quote.status, i18n.language).toUpperCase()}
                             </Badge>
                           </Table.Td>
                           <Table.Td ta="right">
@@ -998,7 +1001,7 @@ export const LeadDetailPage: React.FC = () => {
                                   leftSection={<IconSend size={12} />}
                                   onClick={() => sendQuoteMutation.mutate(quote.id)}
                                 >
-                                  Mark Sent
+                                  {t('quotes:actions.mark_sent', 'Mark Sent')}
                                 </Button>
                               )}
                               {(quote.status === 'draft' || quote.status === 'sent') && (
@@ -1009,7 +1012,7 @@ export const LeadDetailPage: React.FC = () => {
                                     variant="filled"
                                     onClick={() => setConfirmAcceptQuote(quote)}
                                   >
-                                    Accept (Won)
+                                    {t('quotes:actions.accept', 'Accept (Won)')}
                                   </Button>
                                   <Button
                                     size="xs"
@@ -1021,7 +1024,7 @@ export const LeadDetailPage: React.FC = () => {
                                       setReviseQuoteOpen(true);
                                     }}
                                   >
-                                    Revise
+                                    {t('quotes:actions.revise', 'Revise')}
                                   </Button>
                                   <Button
                                     size="xs"
@@ -1032,7 +1035,7 @@ export const LeadDetailPage: React.FC = () => {
                                       setRejectQuoteOpen(true);
                                     }}
                                   >
-                                    Reject
+                                    {t('quotes:actions.reject', 'Reject')}
                                   </Button>
                                 </>
                               )}

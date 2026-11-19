@@ -1,0 +1,24 @@
+{
+  "title": "आज की फ़ॉलो-अप कतार (Today's Follow-ups)",
+  "subtitle": "आज देय और अतिदेय कॉल, बैठकें एवं सर्वेक्षण",
+  "total_due": "{{count}} कुल देय",
+  "all_caught_up": "आज का सारा कार्य पूर्ण!",
+  "no_pending": "इस समय कोई लंबित या अतिदेय फ़ॉलो-अप नहीं है।",
+  "browse_leads": "सभी लीड्स देखें",
+  "overdue_badge": "{{count}} अतिदेय (OVERDUE)",
+  "immediate_action": "तत्काल कार्रवाई अनुशंसित",
+  "due_today_badge": "{{count}} आज देय (DUE TODAY)",
+  "scheduled_today": "आज के लिए निर्धारित",
+  "overdue_followup": "अतिदेय फ़ॉलो-अप",
+  "scheduled_followup": "निर्धारित फ़ॉलो-अप",
+  "next_action_label": "अगली कार्रवाई:",
+  "actions": {
+    "call": "कॉल करें",
+    "whatsapp": "व्हाट्सएप",
+    "sms": "एसएमएस",
+    "remark": "टिप्पणी",
+    "log_outcome": "परिणाम दर्ज करें",
+    "view_lead": "विवरण देखें",
+    "view_full_lead": "लीड का पूर्ण पृष्ठ देखें"
+  }
+}

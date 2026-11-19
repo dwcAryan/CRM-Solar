@@ -13,6 +13,8 @@ import enTour from '../locales/en/tour.json';
 import enHelpbot from '../locales/en/helpbot.json';
 import enAdmin from '../locales/en/admin.json';
 import enErrors from '../locales/en/errors.json';
+import enDashboard from '../locales/en/dashboard.json';
+import enToday from '../locales/en/today.json';
 
 // Hindi
 import hiCommon from '../locales/hi/common.json';
@@ -25,6 +27,8 @@ import hiTour from '../locales/hi/tour.json';
 import hiHelpbot from '../locales/hi/helpbot.json';
 import hiAdmin from '../locales/hi/admin.json';
 import hiErrors from '../locales/hi/errors.json';
+import hiDashboard from '../locales/hi/dashboard.json';
+import hiToday from '../locales/hi/today.json';
 
 // Regional Variants & Pseudo-locales
 import auQuotes from '../locales/en-AU/quotes.json';
@@ -54,6 +58,8 @@ export const resources = {
     helpbot: enHelpbot,
     admin: enAdmin,
     errors: enErrors,
+    dashboard: enDashboard,
+    today: enToday,
   },
   hi: {
     common: hiCommon,
@@ -66,14 +72,16 @@ export const resources = {
     helpbot: hiHelpbot,
     admin: hiAdmin,
     errors: hiErrors,
+    dashboard: hiDashboard,
+    today: hiToday,
   },
   'en-AU': {
-    ...enCommon,
+    common: enCommon,
     quotes: { ...enQuotes, ...auQuotes },
     leads: { ...enLeads, ...auLeads },
   },
   'en-IN': {
-    ...enCommon,
+    common: enCommon,
     leads: { ...enLeads, ...inLeads },
   },
   'en-XA': {
@@ -98,7 +106,7 @@ i18n
     fallbackLng: 'en',
     supportedLngs: ['en', 'hi', 'en-AU', 'en-IN', 'en-XA', 'ar-XB'],
     defaultNS: 'common',
-    ns: ['common', 'auth', 'leads', 'surveys', 'quotes', 'activities', 'tour', 'helpbot', 'admin', 'errors'],
+    ns: ['common', 'auth', 'leads', 'surveys', 'quotes', 'activities', 'tour', 'helpbot', 'admin', 'errors', 'dashboard', 'today'],
     detection: detectorOptions,
     interpolation: {
       escapeValue: false, // React already escapes values
