@@ -70,6 +70,8 @@
   "user_menu": {
     "signed_in_as": "Signed in as {{name}}",
     "tour_center": "Product Tour Center",
+    "user_manual": "User Manual (PDF)",
+    "about": "About Solar CRM",
     "notif_settings": "Notification Settings",
     "roles_matrix": "Roles Matrix",
     "health": "System Health",

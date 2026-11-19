@@ -25,6 +25,8 @@ import {
   Select,
   useMantineColorScheme,
   Alert,
+  Modal,
+  Paper,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {
@@ -45,6 +47,8 @@ import {
   IconAlertCircle,
   IconShieldCheck,
   IconCompass,
+  IconBook,
+  IconInfoCircle,
 } from '@tabler/icons-react';
 import { useAuth } from '../../context/AuthContext';
 import { useRegion } from '../../context/RegionContext';
@@ -83,9 +87,17 @@ export const AppLayout: React.FC = () => {
 
   const [settingsOpened, setSettingsOpened] = useState(false);
   const [tourCenterOpened, setTourCenterOpened] = useState(false);
+  const [aboutOpened, setAboutOpened] = useState(false);
   const [showLangSuggestion, setShowLangSuggestion] = useState(false);
   const shownNotifIds = useRef<Set<number>>(new Set());
   const tourTriggeredRef = useRef(false);
+
+  const handleOpenUserManual = () => {
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token') || '';
+    const currentLang = i18n.language || 'en';
+    const url = `/api/docs/manual/?token=${encodeURIComponent(token)}&lang=${encodeURIComponent(currentLang)}`;
+    window.open(url, '_blank');
+  };
 
   useEffect(() => {
     const prompted = localStorage.getItem('solar_crm_lang_prompted');
@@ -447,6 +459,12 @@ export const AppLayout: React.FC = () => {
                 <Menu.Item leftSection={<IconCompass size={14} />} onClick={() => setTourCenterOpened(true)}>
                   {t('user_menu.tour_center', 'Product Tour Center')}
                 </Menu.Item>
+                <Menu.Item leftSection={<IconBook size={14} />} onClick={handleOpenUserManual}>
+                  {t('user_menu.user_manual', 'User Manual (PDF)')}
+                </Menu.Item>
+                <Menu.Item leftSection={<IconInfoCircle size={14} />} onClick={() => setAboutOpened(true)}>
+                  {t('user_menu.about', 'About Solar CRM')}
+                </Menu.Item>
                 <Menu.Item leftSection={<IconBell size={14} />} onClick={() => setSettingsOpened(true)}>
                   {t('user_menu.notif_settings', 'Notification Settings')}
                 </Menu.Item>
@@ -551,6 +569,64 @@ export const AppLayout: React.FC = () => {
         userRole={user?.role}
       />
       <HelpbotFab userRole={user?.role} />
+
+      {/* About Solar CRM Modal */}
+      <Modal
+        opened={aboutOpened}
+        onClose={() => setAboutOpened(false)}
+        title={
+          <Group gap="xs">
+            <ThemeIcon color="yellow" variant="light" size="lg" radius="md">
+              <IconSun size={20} />
+            </ThemeIcon>
+            <div>
+              <Text fw={700} size="md">Solar CRM</Text>
+              <Text size="xs" c="dimmed">Version 1.0.0 (Production Release)</Text>
+            </div>
+          </Group>
+        }
+        centered
+        radius="md"
+        size="md"
+      >
+        <Stack gap="md">
+          <Text size="sm">
+            Purpose-built customer relationship management system engineered specifically for residential and commercial rooftop solar installation companies.
+          </Text>
+          <Paper withBorder p="sm" radius="sm" bg="var(--mantine-color-default-hover)">
+            <Stack gap="xs">
+              <Group justify="space-between">
+                <Text size="xs" fw={600} c="dimmed">VERSION</Text>
+                <Badge color="yellow" variant="light">v1.0.0</Badge>
+              </Group>
+              <Group justify="space-between">
+                <Text size="xs" fw={600} c="dimmed">MULTI-COUNTRY</Text>
+                <Group gap={4}>
+                  <Badge size="xs" variant="outline">🇮🇳 India (INR ₹)</Badge>
+                  <Badge size="xs" variant="outline">🇦🇺 Australia (AUD $)</Badge>
+                </Group>
+              </Group>
+              <Group justify="space-between">
+                <Text size="xs" fw={600} c="dimmed">REGULATORY</Text>
+                <Text size="xs">DPDP Act (IN) &bull; Privacy Act / DNCR (AU)</Text>
+              </Group>
+              <Group justify="space-between">
+                <Text size="xs" fw={600} c="dimmed">SIGNED IN AS</Text>
+                <Text size="xs" fw={600}>{user?.username} ({user?.role})</Text>
+              </Group>
+            </Stack>
+          </Paper>
+
+          <Group justify="flex-end" gap="xs">
+            <Button variant="light" size="xs" leftSection={<IconBook size={14} />} onClick={handleOpenUserManual}>
+              {t('user_menu.user_manual', 'User Manual (PDF)')}
+            </Button>
+            <Button variant="default" size="xs" onClick={() => setAboutOpened(false)}>
+              Close
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </AppShell>
   );
 };

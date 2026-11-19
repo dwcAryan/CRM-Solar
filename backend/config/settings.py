@@ -16,6 +16,8 @@ load_dotenv(BASE_DIR / '.env')
 
 APP_ENV = os.getenv('APP_ENV', 'development').lower().strip()
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-dev-key')
+VERSION = '1.0.0'
+
 
 if APP_ENV == 'production':
     DEBUG = os.getenv('DEBUG', 'False').strip().lower() in ('true', '1')

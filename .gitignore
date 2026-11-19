@@ -68,3 +68,8 @@ Thumbs.db
 
 # Schemathesis
 .schemathesis/
+
+# Manual Assets & Contact Sheets (git-ignored, not in release)
+docs/manual_assets/
+docs/manual_contact_sheet*.jpg
+

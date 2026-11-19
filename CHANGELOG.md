@@ -2,7 +2,37 @@
 
 All notable changes to the Solar CRM platform are documented in this file.
 
-## [1.0.0] - 2026-11-18
+## [1.0.0] - 2026-11-19
+
+### Phase 18: User Manual (PDF in EN & HI) and Production Release
+- **User & Operations Manual**: Compiled professional 23-page PDF manual (`Solar_CRM_User_Manual_v1.0.pdf`) and 16-page Hindi edition (`Solar_CRM_User_Manual_v1.0_hi.pdf`) using Playwright PDF rendering engine.
+- **Automated Quality Audit**: Verified zero blank pages, page text density, image embeds, and strict file size constraint (< 15 MB).
+- **In-App Manual Access**: Added authenticated User Manual PDF endpoint (`/api/docs/manual/`), Help menu navigation link, About Solar CRM modal, and Helpbot knowledge articles.
+- **Production Package**: Built release archive `dist/solar-crm-v1.0.zip` from strict allowlist with SHA-256 checksum and comprehensive `GO_LIVE_CHECKLIST.md`.
+
+### Phase 17: User Acceptance Testing (UAT)
+- **Comprehensive Scenarios**: Executed 150 end-to-end business scenarios (147 automated passed in 306.5s, 3 manual verification items).
+- **Server-Side Onboarding Latch**: Implemented `UserOnboardingState` latch with zero-flicker loading, 3-second celebration transition, and permanent dismissal across reloads, logouts, and viewport changes.
+- **Reporting & Artifacts**: Delivered `UAT_REPORT.md`, formatted `UAT_TRACKER.xlsx`, printable `UAT_CHECKLISTS.md`, and 147 evidence screenshots.
+
+### Phase 16: Full Regression Testing & Continuous Verification
+- **Regression Matrix**: Created `docs/REGRESSION_MATRIX.md` mapping 100% of functional requirements to automated suites.
+- **Multi-Layer Validation**: 193 pytest scenarios passed (including 116 security & permission checks), 126 Vitest unit tests passed with 94.8% branch coverage, and Playwright suites verified on desktop and 390px mobile.
+
+### Phase 15: Security Hardening & Penetration Testing
+- **Automated Static Scanning**: Cleared SAST across Bandit, pip-audit, npm audit, semgrep, and detect-secrets with zero high/critical vulnerabilities.
+- **Dynamic Penetration Testing**: Verified IDOR isolation across regions/roles, formula injection prevention in CSV exports, JWT refresh token revocation on logout, host header spoofing immunity, and strict CSP / Permissions-Policy headers.
+- **API Fuzzing**: Schemathesis contract fuzzing across 195 endpoints (409 generated test cases) yielding 0 unhandled exceptions or data leaks.
+
+### Phase 14M: Date Range Filtering, PDF & Email Engine Audit
+- **Lead Date Range Filter**: Multi-attribute date filtering (Created, Next Follow-up, Last Activity, Last Updated, Won Date) with Mantine date pickers, quick presets (Today, Last 7 days, This Month), removable chips, and URL query synchronization.
+- **PDF Engine Hardening**: XML escaping for ReportLab flowables, dynamic currency formatting, and pagination.
+- **Email Service Audit**: Added preference checks, DNC opt-out enforcement, template rendering tests, and interactive `check_email` command.
+
+### Phase 14L: Multi-Language Support & Localization (English & Hindi)
+- **Dual-Language Architecture**: Strict decoupling of staff interface language (`User.preferred_language`) and customer communication language (`Lead.preferred_language`).
+- **Data-Driven Extensibility**: 5-step data-only workflow for adding new languages without code deployment.
+- **System-Wide Translations**: Complete Hindi translation covering 10 screens, navigation, modals, product tour, Helpbot articles, and master data with dynamic read-time audit rendering.
 
 ### Phase 14: Cleanup, Demo Autofill Removal, and Production Mode
 - **Removed Demo Autofills**: Stripped all pre-filled credentials, 1-click login buttons, and role shortcuts from `LoginPage.tsx`.

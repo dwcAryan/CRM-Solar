@@ -91,6 +91,7 @@ def health_check(request):
         {
             "status": "ok" if is_ready else "degraded",
             "ready": is_ready,
+            "version": getattr(settings, 'VERSION', '1.0.0'),
             "database": db_status,
             "migrations": migrations_status,
             "environment": app_env,
@@ -99,6 +100,49 @@ def health_check(request):
         },
         status=status_code,
     )
+
+
+def user_manual_view(request):
+    """
+    Serves the compiled Solar CRM User Manual PDF.
+    Requires authentication via session or JWT token (header or ?token= query parameter).
+    Respects language selection (en / hi).
+    """
+    user = getattr(request, 'user', None)
+    if not user or not user.is_authenticated:
+        # Check JWT token in header or query parameter
+        token = request.GET.get('token')
+        auth_header = request.headers.get('Authorization', '')
+        if not token and auth_header.startswith('Bearer '):
+            token = auth_header.split(' ', 1)[1].strip()
+        if token:
+            try:
+                from rest_framework_simplejwt.authentication import JWTAuthentication
+                jwt_auth = JWTAuthentication()
+                validated_token = jwt_auth.get_validated_token(token)
+                resolved_user = jwt_auth.get_user(validated_token)
+                if resolved_user and resolved_user.is_active:
+                    user = resolved_user
+            except Exception:
+                pass
+
+    if not user or not user.is_authenticated:
+        return JsonResponse({"detail": "Authentication credentials were not provided. Login required."}, status=401)
+
+    lang = request.GET.get('lang') or request.headers.get('X-App-Language') or 'en'
+    lang_code = 'hi' if lang.strip().lower().startswith('hi') else 'en'
+    pdf_filename = f"Solar_CRM_User_Manual_v1.0_{lang_code}.pdf" if lang_code != 'en' else "Solar_CRM_User_Manual_v1.0.pdf"
+    pdf_path = settings.BASE_DIR.parent / 'docs' / pdf_filename
+
+    if not pdf_path.exists():
+        pdf_path = settings.BASE_DIR.parent / 'docs' / "Solar_CRM_User_Manual_v1.0.pdf"
+
+    if not pdf_path.exists():
+        return JsonResponse({"error": "User manual PDF is not yet compiled on the server."}, status=404)
+
+    response = FileResponse(open(pdf_path, 'rb'), content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{pdf_path.name}"'
+    return response
 
 
 def serve_spa(request):
@@ -154,6 +198,7 @@ urlpatterns = [
     path('api/', include(router.urls)),
 
     # OpenAPI schema and Swagger / Redoc documentation
+    path('api/docs/manual/', user_manual_view, name='user-manual-pdf'),
     path('api/schema/', SpectacularAPIView.as_view(permission_classes=doc_permissions), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema', permission_classes=doc_permissions), name='swagger-ui'),
     path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema', permission_classes=doc_permissions), name='swagger-ui-alias'),
